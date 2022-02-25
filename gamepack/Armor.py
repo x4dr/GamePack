@@ -27,10 +27,10 @@ def calculate(calc, par=None):
     if par is None:
         par = {}
     else:
-        loose_par += [x for x in par.split(",") if ":" not in x]
+        loose_par += [x for x in str(par).split(",") if ":" not in x]
         par = {
             x.upper(): y
-            for x, y in [pair.split(":") for pair in par.split(",") if ":" in pair]
+            for x, y in [pair.split(":") for pair in str(par).split(",") if ":" in pair]
         }
     for k, v in par.items():
         calc = calc.replace(k, v)
