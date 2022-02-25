@@ -9,6 +9,7 @@ setup(
     author_email="x4dr@hotmail.de",
     license="GPLv3",
     packages=["gamepack"],
+    install_requires=["numexpr"],
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Internal",
