@@ -1,0 +1,16 @@
+LICENSE
+setup.py
+gamepack/Armor.py
+gamepack/Cards.py
+gamepack/Dice.py
+gamepack/DiceParser.py
+gamepack/FenCharacter.py
+gamepack/Gems.py
+gamepack/Item.py
+gamepack/MDPack.py
+gamepack/RegexRouter.py
+gamepack/__init__.py
+gamepack.egg-info/PKG-INFO
+gamepack.egg-info/SOURCES.txt
+gamepack.egg-info/dependency_links.txt
+gamepack.egg-info/top_level.txt

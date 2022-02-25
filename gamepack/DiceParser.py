@@ -4,13 +4,12 @@ from typing import List, Union, Dict
 
 import numexpr
 
-from NossiPack.Dice import Dice
-from NossiPack.RegexRouter import (
+from gamepack.Dice import Dice, DescriptiveError
+from gamepack.RegexRouter import (
     RegexRouter,
     DuplicateKeyException,
     PartialMatchException,
 )
-from NossiPack.krypta import DescriptiveError, tuple_overlap
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +20,19 @@ class DiceCodeError(Exception):
 
 class MessageReturn(Exception):
     pass
+
+
+def tuple_overlap(a: tuple, b: tuple) -> bool:
+    """
+    checks if the first two elements of the tuples overlap on the numberline/other ordering
+    """
+    a, b = sorted(a), sorted(b)
+    return (
+        b[0] <= a[0] <= b[1]
+        or b[0] <= a[1] <= b[1]
+        or a[0] <= b[0] <= a[1]
+        or a[0] <= b[1] <= a[1]
+    )
 
 
 class Node:
@@ -118,7 +130,7 @@ class DiceParser:
             "returnfun": "sum",
         }  # threshhold basic
         self.defines.update(defines or {})
-        self.rolllogs = []  # if the last roll isnt interesting
+        self.rolllogs = []  # if the last roll isn't interesting
         self.lr = lastroll or []
         self.lp = lastparse or None
 
@@ -239,6 +251,7 @@ class DiceParser:
 
     def resolveroll(self, roll: Union[Node, str], depth) -> Node:
         """
+        Step in resolving
         :param roll:  strings will automatically be made into rollNodes, if applicable
         :param depth: anti-infinite-recursion
         :return: Node with dependents populated, resolved and the code changed to reflect
@@ -393,7 +406,7 @@ class DiceParser:
             return str(loopsum) if triggername == "loopsum" else ""
         if triggername == "values":
             try:
-                trigger = str(re.sub(r" *: *", ":", triggerbody))
+                trigger = str(re.sub(r"\s*:\s*", ":", triggerbody))
                 for d in trigger.split(";"):
                     self.defines[d.split(":")[0].strip()] = d.split(":")[1].strip()
                     return ""  # defines updated

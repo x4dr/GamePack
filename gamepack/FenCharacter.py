@@ -1,5 +1,6 @@
 import base64
 import itertools
+import re
 import time
 
 __author__ = "maric"
@@ -8,10 +9,9 @@ from collections import OrderedDict
 
 from typing import List, Tuple
 
-from Fantasy.Item import Item
-from NossiPack.DiceParser import fullparenthesis
-from NossiPack.MDPack import split_md, extract_tables, confine_to_tables, total_table
-from NossiPack.krypta import is_int
+from gamepack.Item import Item
+from gamepack.DiceParser import fullparenthesis
+from gamepack.MDPack import split_md, extract_tables, confine_to_tables, total_table
 
 
 class FenCharacter:
@@ -59,7 +59,7 @@ class FenCharacter:
             for secname, sec in cat.items():
                 for statname, stat in sec.items():
                     stat = stat.strip(" _")
-                    if statname.strip() and is_int(stat):
+                    if statname.strip() and re.match(r"-?\d+", str(stat)):
                         qualifier = str(
                             base64.b64encode(
                                 ".".join(

@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: gamepack
+Version: 0.1.0
+Summary: factored out game related stuff from NossiNet
+Home-page: https://github.com/x4dr/GamePack
+Author: Maric
+Author-email: x4dr@hotmail.de
+License: GPLv3
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Internal
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.10
+License-File: LICENSE
+
+UNKNOWN

@@ -1,7 +1,9 @@
+import logging
 from typing import List, Dict, Tuple, Callable
 
-from Fantasy.Item import fendeconvert, value_category, fenconvert, Item
-from NossiSite.base import log
+from gamepack.Item import fendeconvert, value_category, fenconvert, Item
+
+log = logging.Logger(__name__)
 
 
 def table_edit(md: str, key: str, value: str) -> str:
@@ -88,7 +90,6 @@ def split_md(lines, level=0) -> Tuple[str, Dict[str, Tuple]]:
     """
     breaks down the structure of a md text into nested tuples of a string
     of the text directly after the heading and a dictionary of all the subheadings
-
     :param lines: \n separated string, or a stack of lines
     (top line on top of the stack)
     :param level: the level of heading this split started and therefore should end on
@@ -151,7 +152,7 @@ def confine_to_tables(
     mdtree: Tuple[str, Dict, List], headers=True
 ) -> Tuple[Dict[str, object], List[str]]:
     """
-    simplifies an mdtree into just a dictionary of dictionaries.
+    simplifies a mdtree into just a dictionary of dictionaries.
     Makes the assumption that either children or a table can be had, and that if children exist they
     only consist of text (and are thus key values)
     :param headers: if false, headers of the tables will be cut off
@@ -204,9 +205,8 @@ def table(text: str) -> List[List[str]]:
     format row. This means non-table text will be assumed to be just the first
     column and the rest will be filled with "". Every column past the ones
     alignment was defined for will be cut.
-
     :param text: md text from the first to the last line of the table
-    :return: list of table rows, all of uniform length
+    :return: list of table rows, all having uniform length
     """
     rows = [row.strip() for row in text.split("\n") if row.strip()]
     if len(rows) > 1:
@@ -219,7 +219,6 @@ def table(text: str) -> List[List[str]]:
 def split_row(row: str, length: int) -> List[str]:
     """
     splits the row into the given length at |, cutting and adding as needed
-
     :param row: md table row string
     :param length: exakt number of columns
     :return: List of the first length table cells
@@ -253,8 +252,9 @@ def total_table(table_input, flash):
                             )
             for i, t in enumerate(trackers):
                 table_input[-1][i + 1] = fendeconvert(t[0], t[1])
-    except:
+    except Exception as e:
         flash(
             "tabletotal failed for '"
             + ("\n".join("\t".join(row) for row in table_input).strip() + "'")
         )
+        print(e)

@@ -2,8 +2,7 @@ import ast
 import random
 from typing import Dict, Set, List
 
-from NossiPack.User import Config
-from NossiPack.krypta import DescriptiveError
+from gamepack.Dice import DescriptiveError
 
 
 class Cards:
@@ -177,10 +176,10 @@ class Cards:
     def remove(self, toremove: str):
         try:
             return self.move(self.Hand, self.Removed, toremove, 2)
-        except Exception:
+        except ValueError | DescriptiveError:
             try:
                 return self.move(self.Deck, self.Removed, toremove, 1)
-            except Exception:
+            except ValueError | DescriptiveError:
                 return self.move(self.Pile, self.Removed, toremove, 1)
 
     def dedicate(self, todedicate, purpose):
@@ -232,14 +231,14 @@ class Cards:
         return d
 
     @classmethod
-    def getdeck(cls, username):
+    def create_deck(cls, data):
         carddata = (
-            Config.load(username, "carddeck_hand"),
-            Config.load(username, "carddeck_deck"),
-            Config.load(username, "carddeck_pile"),
-            Config.load(username, "carddeck_removed"),
-            Config.load(username, "carddeck_notes"),
-            Config.load(username, "carddeck_longform"),
+            data.get("carddeck_hand"),
+            data.get("carddeck_deck"),
+            data.get("carddeck_pile"),
+            data.get("carddeck_removed"),
+            data.get("carddeck_notes"),
+            data.get("carddeck_longform"),
         )
         if not any(x is None for x in carddata):
             return cls(*carddata)
@@ -247,6 +246,6 @@ class Cards:
             return cls.new_cards()
 
     @classmethod
-    def savedeck(cls, username, deck):
+    def serialize_deck(cls, deck) -> [(str, str)]:
         for option, value in deck.serialized_parts.items():
-            Config.save(username, "carddeck_" + option, value)
+            yield "carddeck_" + option, value
