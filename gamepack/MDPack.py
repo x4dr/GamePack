@@ -144,7 +144,8 @@ def extract_tables(
         tables.append(table(run))
     if flash:
         for t in tables:
-            total_table(t, flash)
+            if t:
+                total_table(t, flash)
     return text, children, tables
 
 
@@ -255,6 +256,6 @@ def total_table(table_input, flash):
     except Exception as e:
         flash(
             "tabletotal failed for '"
-            + ("\n".join("\t".join(row) for row in table_input).strip() + "'")
+            + ("\n".join("\t".join(row) for row in table_input).strip() + "':\n ")
+            + str(e.args)
         )
-        print(e)
