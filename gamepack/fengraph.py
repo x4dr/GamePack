@@ -11,7 +11,7 @@ from typing import Dict, List, Union
 import numpy
 import requests
 
-from data import get_str, set_str, handle, append
+from gamepack.data import get_str, set_str, handle, append
 from gamepack.Armor import Armor
 from gamepack.DiceParser import DiceParser
 

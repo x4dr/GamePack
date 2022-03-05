@@ -8,8 +8,8 @@ setup(
     author="Maric",
     author_email="x4dr@hotmail.de",
     license="GPLv3",
-    packages=["gamepack", "data"],
-    package_data={"data": ["./*"]},
+    packages=["gamepack"],
+    package_data={"gamepack": ["data/*"]},
     install_requires=["numexpr", "pandas", "numpy", "scipy", "matplotlib", "requests"],
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",

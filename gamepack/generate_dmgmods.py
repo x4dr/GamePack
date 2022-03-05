@@ -3,7 +3,7 @@ import multiprocessing
 import sys
 import time
 
-from data import check, get_roll_freq_dict, set_str
+from gamepack.data import check, get_roll_freq_dict, set_str
 
 
 def selector(sel, roll):
