@@ -15,7 +15,7 @@ from data import get_str, set_str, handle, append
 from gamepack.Armor import Armor
 from gamepack.DiceParser import DiceParser
 
-from Dice import DescriptiveError
+from gamepack.Dice import DescriptiveError
 from generate_dmgmods import generate, tuplecombos
 
 try:
