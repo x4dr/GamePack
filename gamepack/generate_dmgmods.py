@@ -3,7 +3,7 @@ import multiprocessing
 import sys
 import time
 
-import Data
+from data import check, get_roll_freq_dict, set_str
 
 
 def selector(sel, roll):
@@ -56,14 +56,14 @@ for t1 in tuples:
 
 
 def generate(mod1=0, mod2=0):
-    if Data.check(f"5d10r{mod1}vr{mod2}_ordered_data"):
+    if check(f"5d10r{mod1}vr{mod2}_ordered_data"):
         print(f"5d10r{mod1}vr{mod2}_ordered_data exists.")
         return
     print("multiprocessing!")
     pool = multiprocessing.Pool(processes=3)
     time0 = time.time()
-    dice1 = Data.get_roll_freq_dict(mod1)
-    dice2 = Data.get_roll_freq_dict(mod2)
+    dice1 = get_roll_freq_dict(mod1)
+    dice2 = get_roll_freq_dict(mod2)
     results = pool.map(comparator, [(x, dice1, dice2) for x in tuplecombos])
     cumulativetime = sum(x[2] for x in results)
     results = [(x[0], x[1]) for x in results]
@@ -78,7 +78,7 @@ def generate(mod1=0, mod2=0):
         )
 
     try:
-        Data.set(
+        set_str(
             f"5d10r{mod1}vr{mod2}_ordered_data",
             "\n".join(str(x) for x in sorted(results, key=calc)),
         )
@@ -87,6 +87,6 @@ def generate(mod1=0, mod2=0):
 
 
 if __name__ == "__main__":
-    for i in range(-5, 6):
-        for j in range(-5, 6):
-            generate(i, j)
+    for left in range(-5, 6):
+        for right in range(-5, 6):
+            generate(left, right)

@@ -10,12 +10,13 @@ from typing import Dict, List, Union
 
 import numpy
 import requests
+
+from data import get_str, set_str, handle, append
 from gamepack.Armor import Armor
 from gamepack.DiceParser import DiceParser
 
-import Data
-from Data import append, get, handle
-from NossiPack.generate_dmgmods import generate, tuplecombos
+from Dice import DescriptiveError
+from generate_dmgmods import generate, tuplecombos
 
 try:
     from scipy.integrate import quad
@@ -29,8 +30,6 @@ except ImportError:
     quad = notfound
     interp1d = notfound
     fsolve = notfound
-
-from NossiPack.krypta import DescriptiveError
 
 
 def modify_dmg(specific_modifiers, dmg, damage_type, armor):
@@ -74,7 +73,7 @@ def supply_graphdata():
     wmd5 = md5(str(weapons).encode("utf-8")).hexdigest()
     damages: Dict[str, Dict[str, List[Dict[str, Dict[str, float]]]]] = {}
     try:
-        f = Data.get("weaponstuff_internal").splitlines()
+        f = get_str("weaponstuff_internal").splitlines()
         nmd5 = f[0]
         if str(nmd5).strip() == str(wmd5).strip():
             with open("NossiSite/static/graphdata.json") as g:
@@ -99,10 +98,10 @@ def supply_graphdata():
 
         modifiers = {}
         try:
-            lines = Data.get("5d10r0vr0_ordered_data")
-        except Exception:
+            lines = get_str("5d10r0vr0_ordered_data")
+        except FileNotFoundError:
             generate(0, 0)
-            lines = Data.get("5d10r0vr0_ordered_data")
+            lines = get_str("5d10r0vr0_ordered_data")
 
         for line in lines.splitlines():
             line = ast.literal_eval(line)
@@ -127,7 +126,7 @@ def supply_graphdata():
                     for d, di in wi.items():
                         damage[-1][w][d] = modify_dmg(modifier, di, d, i)
         print("writing weaponstuff...")
-        Data.set("weaponstuff_internal", str(wmd5) + "\n" + str(damages))
+        set_str("weaponstuff_internal", str(wmd5) + "\n" + str(damages))
 
     comparison_json: Dict[
         str, Union[List[str], Dict[str, List[List[List[float]]]], float, int]
@@ -336,7 +335,7 @@ def montecarlo(roll):
 def versus(part1, part2, mode):
     yield "processing..."
     mod1, mod2 = part1[2], part2[2]
-    data = Data.get(f"5d10r{mod1}vr{mod2}_ordered_data")
+    data = get_str(f"5d10r{mod1}vr{mod2}_ordered_data")
     yield "load complete..."
     stat1 = tuple(sorted([int(x) for x in part1[:2]], reverse=True))
     stat2 = tuple(sorted([int(x) for x in part2[:2]], reverse=True))
@@ -395,7 +394,7 @@ def chances(selector, modifier=0, number_of_quantiles=None, mode=None):
     occurrences = {}
     yield "processing..."
     try:
-        for line in get("unordered_data").splitlines():
+        for line in get_str("unordered_data").splitlines():
             if line.startswith(str(selector)):
                 occurrences = ast.literal_eval(line[len(str(selector)) :])[modifier]
                 break
@@ -417,7 +416,7 @@ def chances(selector, modifier=0, number_of_quantiles=None, mode=None):
         occurrences = occurren[modifier]
         yield f"Data for {selector} has been generated"
     except FileNotFoundError:
-        Data.set("unordered_data", "")
+        set_str("unordered_data", "")
         raise
 
     yield "generating result..."
