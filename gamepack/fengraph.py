@@ -1,6 +1,7 @@
 import ast
 import io
 import json
+import logging
 import math
 import pathlib
 import time
@@ -59,7 +60,6 @@ def modify_dmg(specific_modifiers, dmg, damage_type, armor):
                 effective_dmg = damage_instance - armor
                 effectivedmg.append(effective_dmg if effective_dmg > 0 else 0)
 
-    # print(specific_modifiers, dmgstring, dmgtype, armor)
     for i, damage_instance in enumerate(effectivedmg):
         total_damage += damage_instance * specific_modifiers[i]
     return total_damage
@@ -82,13 +82,13 @@ def supply_graphdata():
                     return
             damages = ast.literal_eval("\n".join(f[1:]))
         else:
-            print(
+            logging.debug(
                 f"fengraph hashes: {str(nmd5).strip()} != "
                 f"{str(wmd5).strip()}, so graphdata will be regenerated"
             )
             damages = {}
     except SyntaxError as e:
-        print("syntax error in weaponstuff_internal, regenerating:", e.msg)
+        logging.debug(f"syntax error in weaponstuff_internal, regenerating: {e.msg}")
     except FileNotFoundError:
         damages = {}
         # regenerate and write weaponstuff
@@ -110,21 +110,21 @@ def supply_graphdata():
             zepc_relative = [x / total for x in zepc]
             modifiers[line[0]] = zepc_relative
 
-        print("regenerating weapon damage data")
+        logging.debug("regenerating weapon damage data")
         for stats, modifier in modifiers.items():
             statstring1 = " ".join(str(x) for x in stats[0])
             statstring2 = " ".join(str(x) for x in stats[1])
             damages[statstring1] = damages.get(statstring1, {})
             damages[statstring1][statstring2] = []
             damage = damages[statstring1][statstring2]  # reduce length of calling stuff
-            print(stats, modifier)
+            logging.debug(f"damage data: {stats}, {modifier}")
             for i in range(armormax):
                 damage.append({})
                 for w, wi in weapons.items():
                     damage[-1][w] = {}
                     for d, di in wi.items():
                         damage[-1][w][d] = modify_dmg(modifier, di, d, i)
-        print("writing weaponstuff...")
+        logging.debug("writing weaponstuff...")
         set_str("weaponstuff_internal", str(wmd5) + "\n" + str(damages))
 
     comparison_json: Dict[
@@ -142,7 +142,7 @@ def supply_graphdata():
             damagematrix = []
             per_armor: Dict[str, Dict[str, float]]
             for per_armor in damage:
-                print(per_armor)
+                logging.debug(str(per_armor))
                 dmg_per_dmgtype: List[List[float]] = [
                     [per_armor[weapon][damagetype] for weapon in list(weapons.keys())]
                     for damagetype in dmgtypes
@@ -160,9 +160,9 @@ def supply_graphdata():
                     ]
                 )
                 nm = max(candidates)
-                print(nm, maxdmg)
+                logging.debug(f"{nm}, {maxdmg}")
                 if nm > maxdmg:
-                    print("updating maxdmg to", nm)
+                    logging.debug(f"updating maxdmg to {nm}")
                     maxdmg = nm
             attackdict[defenderstat]: List[List[List[float]]] = damagematrix
         comparison_json[attackerstat] = attackdict
@@ -209,7 +209,7 @@ def rawload(page) -> str:
             return f.read()
     except Exception as e:
         r = requests.get(f"https://nosferatu.vampir.es/wiki/{page}/raw")
-        print(f"loaded {page}.md via web, because", e, e.args)
+        logging.exception(f"loaded {page}.md via web, because", e)
         return r.content.decode()
 
 
@@ -248,7 +248,7 @@ def helper(f, integratedsum, q, lastquant):
             result = quad(f, lastquant, x, limit=200)
             return result[0] - integratedsum * q
         except Exception:
-            print("errvals:", q, lastquant, x)
+            logging.debug(f"integration errvals: {q}, {lastquant}, {x}")
             raise
 
     return internalhelper
@@ -338,7 +338,7 @@ def versus(part1, part2, mode):
     yield "load complete..."
     stat1 = tuple(sorted([int(x) for x in part1[:2]], reverse=True))
     stat2 = tuple(sorted([int(x) for x in part2[:2]], reverse=True))
-    print("\n".join(str(x) for x in tuplecombos))
+    logging.debug("\n".join(str(x) for x in tuplecombos))
     index = tuplecombos.index((stat1, stat2))
     occurences = ast.literal_eval(data.splitlines()[index])
     if occurences[0] != (stat1, stat2):
@@ -352,6 +352,7 @@ def versus(part1, part2, mode):
 
 def ascii_graph(occurrences: dict, mode: int):
     res = ""
+    mode = int(mode)
     max_val = max(list(occurrences.values()))
     total = sum(occurrences.values())
     if not mode:
@@ -467,7 +468,7 @@ def chances(selector, modifier=0, number_of_quantiles=None, mode=None):
                         )
                     tries += 3
                 except Exception as e:
-                    print("exception in calculating:", e, n)
+                    logging.exception(f"exception in calculating integrals {n}:", e)
                     raise
         yield "finalizing graph"
         plt.plot(linx, f(linx), "--")
