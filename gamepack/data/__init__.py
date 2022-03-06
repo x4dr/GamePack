@@ -4,7 +4,7 @@ import pickle
 
 
 def get_str(res):
-    with importlib.resources.open_text("data", pathlib.Path(res)) as data:
+    with importlib.resources.open_text("gamepack.data", pathlib.Path(res)) as data:
         return data.read()
 
 
@@ -19,7 +19,7 @@ def get_roll_freq_dict(mod):
 def handle(res):
     path: pathlib.Path
     try:
-        with importlib.resources.path("data", pathlib.Path(res)) as path:
+        with importlib.resources.path("gamepack.data", pathlib.Path(res)) as path:
             return path.as_posix()
     except FileNotFoundError as e:
         path = pathlib.Path(e.filename)
@@ -29,7 +29,7 @@ def handle(res):
 
 def check(res):
     try:
-        with importlib.resources.path("data", pathlib.Path(res)) as path:
+        with importlib.resources.path("gamepack.data", pathlib.Path(res)) as path:
             return path.as_posix()
     except FileNotFoundError:
         return ""
