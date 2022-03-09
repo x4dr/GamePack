@@ -6,7 +6,7 @@ setup(
     description="factored out game related stuff from NossiNet",
     url="https://github.com/x4dr/gamepack",
     author="Maric",
-    author_email="x4dr@hotmail.de",
+    author_email="x4dr@hotmail.com",
     license="GPLv3",
     packages=["gamepack"],
     package_data={"gamepack": ["data/*"]},

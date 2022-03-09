@@ -1,10 +1,10 @@
 Metadata-Version: 2.1
 Name: gamepack
-Version: 0.1.0
+Version: 0.1.2
 Summary: factored out game related stuff from NossiNet
-Home-page: https://github.com/x4dr/GamePack
+Home-page: https://github.com/x4dr/gamepack
 Author: Maric
-Author-email: x4dr@hotmail.de
+Author-email: x4dr@hotmail.com
 License: GPLv3
 Platform: UNKNOWN
 Classifier: Development Status :: 2 - Pre-Alpha

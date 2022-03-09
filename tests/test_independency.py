@@ -2,10 +2,7 @@ import importlib.util
 import re
 from pathlib import Path
 from typing import List
-from unittest import TestCase, mock
-from unittest.mock import Mock
-
-import requests
+from unittest import TestCase
 
 
 class TestIndependency(TestCase):
@@ -25,9 +22,6 @@ class TestIndependency(TestCase):
                 if not re.match(pattern, m.as_posix()):
                     cls.modules.append(m)
 
-    @mock.patch.object(
-        requests, "get", Mock(return_value=Mock(status_code=200, id="hi"))
-    )
     def test_loadability(self):
         """establish that each module is loadable and has no circular reference issues"""
         for module in TestIndependency.modules:
