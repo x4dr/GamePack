@@ -28,7 +28,7 @@ class FenCharacter:
     halfpoint_sections = ["forma"]
     fullpoint_sections = ["fähigkeiten", "skills", "aspekte", "aspects"]
     onepoint_sections = ["vorteile", "perks", "zauber", "spells"]
-    experience_headings = ["erfahrung", "experience", "xp"]
+    experience_headings = ["erfahrung", "experience", "xp", "fortschritt"]
     wound_headings = ["wunden", "wounds", "damage", "schaden"]
 
     def __init__(
@@ -275,6 +275,8 @@ class FenCharacter:
         """
         every letter is one xp, parenthesis mean the xp is conditional and will not be counted
         entries in [] are counted as , separated and allow for longer names
+        / are comment until the next wordboundary
+        numbers represent themselves
         """
         res = 0
         paren = ""
@@ -289,6 +291,13 @@ class FenCharacter:
                 res += 1 + paren.count(",")
             s = s.replace("[" + paren + "]", "", 1)
             paren = fullparenthesis(s, "[", "]")
+        s = re.sub(r"/.+?\b", "", s)
+        while number := re.search(r"\d+", s):
+            number.groups(0)
+            start, stop = number.span()
+            extracted = s[start:stop]
+            s = s[:start] + s[stop:]
+            res += int(extracted)
         res += sum([1 for x in s if x.strip()])
         return res
 
