@@ -10,6 +10,7 @@ class DescriptiveError(Exception):
 logger = logging.getLogger(__name__)
 
 
+# noinspection DuplicatedCode
 class DiceInterpretation:
     __functions = {"g": "sum", "h": "max", "l": "min", "~": "none", "=": "id"}
 
@@ -18,13 +19,14 @@ class DiceInterpretation:
             function = self.__functions[function]
         self.function: str = function
         self.dice: "Dice" = dice
+        if not self.dice.rolled:
+            self.dice.roll()
 
-    def interprete(self, dice: "Dice"):
-        """difficulty: int | None = None,
-        onebehaviour=0,
-        returnfun: str | None = None,
-        explosion=0,
-        """
+    def __repr__(self):
+        return self.name
+
+    def __int__(self):
+        return self.result or 0
 
     def resonance(self, resonator: int):
         return np.count_nonzero(self.dice.r == resonator) - 1
@@ -36,19 +38,19 @@ class DiceInterpretation:
         if f is None or f in ["", "None", "none"]:
             return None
         if f.endswith("@"):
-            return self.roll_sel(f[:-1])
+            return int(self.roll_sel(f[:-1]))
         if f.startswith("e"):
-            return self.roll_wodsuccesses(dice, int(f[1:]), False)
+            return int(self.roll_wodsuccesses()[0])
         if f.startswith("f"):
-            return self.roll_wodsuccesses(dice, int(f[1:]), True)
+            return int(self.roll_wodsuccesses()[0])
         if f == "max":
-            return (max(dice.r) * dice.sign) if dice.r.size else None
+            return int(max(dice.r) * dice.sign) if dice.r.size else None
         if f == "min":
-            return (min(dice.r) * dice.sign) if dice.r.size else None
+            return int(min(dice.r) * dice.sign) if dice.r.size else None
         if f == "sum":
-            return (sum(dice.r) * dice.sign) if dice.r.size else None
+            return int(sum(dice.r) * dice.sign) if dice.r.size else None
         if f == "id":
-            return dice.amount  # not flipped if negative
+            return int(dice.amount)  # not flipped if negative
         raise DescriptiveError(f"no valid returnfunction: {f}")
 
     def roll_sel(self, sel: str):
@@ -63,17 +65,13 @@ class DiceInterpretation:
 
     @property
     def name(self):
-        if len(self.dice.r) == 0:
-            amount = ""
-        else:
-            amount = str(self.dice.amount or len(self.dice.r))
         f = self.function
         if f == "id":
-            return (amount or "0") + "="
+            return str(self.dice.amount or "0") + "="
 
         name = f if f and "@" in f else ""
         name += self.dice.name
-        if f[0] in ["e", "f"]:
+        if f and f[0] in ["e", "f"]:
             name += f
         elif f == "max":
             name += "h"
@@ -82,7 +80,7 @@ class DiceInterpretation:
         elif f == "sum":
             name += "g"
 
-            name += self.dice.explode * "!"
+        name += self.dice.explode * "!"
         if name.endswith("d1g"):
             return name[:-3] + "sum"
 
@@ -128,9 +126,12 @@ class DiceInterpretation:
                 return 0
         return succ - antisucc
 
-    def roll_wodsuccesses(self, dice: "Dice", diff: int, ones: bool) -> int:
+    def roll_wodsuccesses(self) -> (int, str):
         succ, antisucc = 0, 0
         log = ""
+        dice = self.dice
+        diff = int(self.function[1:])
+        ones = self.function[0] == "f"
 
         for x in dice.r:
             log += str(x) + ": "
@@ -140,10 +141,10 @@ class DiceInterpretation:
             if ones and x == 1:
                 antisucc += 1
                 log += "subtract "
-            if x >= dice.explode:
+            if x >= dice.max - dice.explode:
                 log += "exploding!"
             log += "\n"
-        return (self.botchformat(succ, antisucc)) * dice.sign
+        return (self.botchformat(succ, antisucc)) * dice.sign, log
 
     def roll_v(self) -> str:  # verbose
         log = ""
@@ -177,33 +178,32 @@ class DiceInterpretation:
 
 
 class Dice:
-    returnfun: str
-
     def __init__(
-        self, amount: list[int] | int, sides: int, sort=False, rerolls=0, explode=0
+        self, amount: numpy.ndarray | int, sides: int, sort=False, rerolls=0, explode=0
     ):
         self.sign = 1
-        self.r: numpy.ndarray = numpy.empty(0)
+        self.r: numpy.ndarray = numpy.empty(1)
         self.explosions = 0
         self.explode = explode
         self.literal = False
-        if isinstance(amount, int):
+        self.rolled = False
+        if isinstance(amount, (int, numpy.integer)):
             self.amount = amount
         else:
             self.r = numpy.array(amount)
             self.literal = True
-            self.amount = len(self.r)
+            self.rolled = True
+            self.amount = self.r.size
         self.max = int(sides)
         self.sort = sort
         self.rerolls = int(rerolls)
-        self.rolled = False
 
     def __repr__(self):
         return self.name
 
     @property
     def name(self):
-        name = str(self.amount or len(self.r))
+        name = str(self.amount or len(self.r) or "")
         name += "d" + str(self.max) if self.max else ""
         name += "R" + str(self.rerolls) if self.rerolls != 0 else ""
         return name
@@ -226,7 +226,11 @@ class Dice:
         else:
             self.sign = 1
 
-        self.r = numpy.random.random_integers(1, self.max, amount + self.rerolls)
+        self.r = (
+            numpy.random.randint(1, self.max + 1, amount + self.rerolls)
+            if self.max > 1
+            else numpy.empty(0)
+        )
         self.explosions = 0
         while self.explosions < (
             exp := numpy.count_nonzero(

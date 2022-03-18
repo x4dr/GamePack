@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 
 from antlr4.tree.Tree import TerminalNodeImpl
 
@@ -7,6 +7,9 @@ from Parser.DiceParser import DiceParser
 from Parser.DiceVisitor import DiceVisitor
 from Processor.Nodes import OperationNode, NumberNode
 from gamepack.NewDice import Dice, DiceInterpretation
+
+if TYPE_CHECKING:
+    from DiceProcessor import DiceProcessor
 
 
 class ResolveContext:
@@ -21,7 +24,7 @@ class ResolveContext:
     defaultsides: int
     replacements: dict[str, str]
     # noinspection PyUnresolvedReferences
-    parent: "DiceProcessor"
+    parent: DiceProcessor
 
     def __init__(
         self,
@@ -31,7 +34,10 @@ class ResolveContext:
         parent,
     ):
         self.replacements = replacements
-        self.defaultsides = defaultsides
+        if isinstance(defaultsides, int):
+            self.defaultsides = defaultsides
+        else:
+            raise ValueError(defaultsides)
         self.lastrolls = lastrolls
         self.parent = parent
 
@@ -48,7 +54,9 @@ class Resolver(DiceVisitor):
     ) -> DiceInterpretation:
         if isinstance(ctx.children[0], DiceParser.RerolleddicecodeContext):
             dice = self.visitRerolleddicecode(ctx.children[0])
-            returnfun = self.visitReturnfun(ctx.children[1])
+            returnfun = (
+                self.visitReturnfun(ctx.children[1]) if len(ctx.children) > 1 else None
+            )
             return DiceInterpretation(returnfun, dice)
         sel = self.visitSelector(ctx.children[0])
         dice = self.visitRerolleddicecode(ctx.children[1])
