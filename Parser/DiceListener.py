@@ -17,6 +17,14 @@ class DiceListener(ParseTreeListener):
     def exitReturneddicecode(self, ctx: DiceParser.ReturneddicecodeContext):
         pass
 
+    # Enter a parse tree produced by DiceParser#explosion.
+    def enterExplosion(self, ctx: DiceParser.ExplosionContext):
+        pass
+
+    # Exit a parse tree produced by DiceParser#explosion.
+    def exitExplosion(self, ctx: DiceParser.ExplosionContext):
+        pass
+
     # Enter a parse tree produced by DiceParser#rerolleddicecode.
     def enterRerolleddicecode(self, ctx: DiceParser.RerolleddicecodeContext):
         pass
@@ -31,6 +39,14 @@ class DiceListener(ParseTreeListener):
 
     # Exit a parse tree produced by DiceParser#dicecode.
     def exitDicecode(self, ctx: DiceParser.DicecodeContext):
+        pass
+
+    # Enter a parse tree produced by DiceParser#diceset.
+    def enterDiceset(self, ctx: DiceParser.DicesetContext):
+        pass
+
+    # Exit a parse tree produced by DiceParser#diceset.
+    def exitDiceset(self, ctx: DiceParser.DicesetContext):
         pass
 
     # Enter a parse tree produced by DiceParser#selector.

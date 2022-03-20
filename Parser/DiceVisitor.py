@@ -15,12 +15,20 @@ class DiceVisitor(ParseTreeVisitor):
     def visitReturneddicecode(self, ctx: DiceParser.ReturneddicecodeContext):
         return self.visitChildren(ctx)
 
+    # Visit a parse tree produced by DiceParser#explosion.
+    def visitExplosion(self, ctx: DiceParser.ExplosionContext):
+        return self.visitChildren(ctx)
+
     # Visit a parse tree produced by DiceParser#rerolleddicecode.
     def visitRerolleddicecode(self, ctx: DiceParser.RerolleddicecodeContext):
         return self.visitChildren(ctx)
 
     # Visit a parse tree produced by DiceParser#dicecode.
     def visitDicecode(self, ctx: DiceParser.DicecodeContext):
+        return self.visitChildren(ctx)
+
+    # Visit a parse tree produced by DiceParser#diceset.
+    def visitDiceset(self, ctx: DiceParser.DicesetContext):
         return self.visitChildren(ctx)
 
     # Visit a parse tree produced by DiceParser#selector.
