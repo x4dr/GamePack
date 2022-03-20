@@ -38,7 +38,7 @@ class DiceProcessor:
         processor = Resolver(self.context).visitReturneddicecode(tree)
         if "returnfun" in self.context.replacements and not processor.function:
             processor.function = self.context.replacements["returnfun"]
-        self.context.lastrolls.append(processor)
+        self.context.lastrolls.append(processor.roll(False))
         return self
 
     def process(self, inp: str) -> DiceInterpretation:
@@ -48,7 +48,6 @@ class DiceProcessor:
         if self.current_depth > 10:
             raise RecursionError("MaxRecursion 10!")
         self.current_depth += 1
-        print(self.current_depth, "current depth")
         lex = DiceLexer(InputStream(text))
         stream = CommonTokenStream(lex)
         parser = DiceParser(stream)

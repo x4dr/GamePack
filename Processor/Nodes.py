@@ -33,7 +33,7 @@ class OperationNode:
     }
 
     def __init__(self, origin: TerminalNodeImpl):
-        self.value: Callable[[int, int], int] = self.funs[origin.symbol.text]
+        self.value: Callable[[float, float], float] = self.funs[origin.symbol.text]
 
 
 class NumberNode:

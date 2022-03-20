@@ -19,8 +19,6 @@ class DiceInterpretation:
             function = self.__functions[function]
         self.function: str = function
         self.dice: "Dice" = dice
-        if not self.dice.rolled:
-            self.dice.roll()
 
     def __repr__(self):
         return self.name
@@ -35,6 +33,8 @@ class DiceInterpretation:
     def result(self) -> int | None:
         f: str = self.function
         dice = self.dice
+        r = list(dice.r) if dice.r is not None else []
+        dice.rolled or dice.roll()
         if f is None or f in ["", "None", "none"]:
             return None
         if f.endswith("@"):
@@ -44,24 +44,22 @@ class DiceInterpretation:
         if f.startswith("f"):
             return int(self.roll_wodsuccesses()[0])
         if f == "max":
-            return int(max(dice.r) * dice.sign) if dice.r.size else None
+            return int(max(dice.r) * dice.sign) if r else None
         if f == "min":
-            return int(min(dice.r) * dice.sign) if dice.r.size else None
+            return int(min(dice.r) * dice.sign) if r else None
         if f == "sum":
-            return int(sum(dice.r) * dice.sign) if dice.r.size else None
+            return int(sum(dice.r) * dice.sign) if r else None
         if f == "id":
             return int(dice.amount)  # not flipped if negative
         raise DescriptiveError(f"no valid returnfunction: {f}")
 
     def roll_sel(self, sel: str):
+        d = self.process_rerolls()[0]
         # split and clamp to 0..len(roll)
-        selectors = [max(min(int(x), len(self.dice.r)), 0) for x in sel.split(",")]
+        selectors = [max(min(int(x), len(d)), 0) for x in sel.split(",")]
         # shift for 0 index, drop already 0 or negative
         selectors = [x - 1 if x > 0 else None for x in selectors]
-        return (
-            sum(sorted(self.dice.r)[s] for s in selectors if s is not None)
-            * self.dice.sign
-        )
+        return sum(sorted(d)[s] for s in selectors if s is not None) * self.dice.sign
 
     @property
     def name(self):
@@ -102,7 +100,7 @@ class DiceInterpretation:
             for i in range(len(dice.r)):
                 x = dice.r[i]
                 if x in filtered and (
-                    (direction < 0 and dice.r[i:].count(x) <= filtered.count(x))
+                    (direction < 0 and list(dice.r[i:]).count(x) <= filtered.count(x))
                     or direction > 0
                 ):
                     if not par:
@@ -117,7 +115,7 @@ class DiceInterpretation:
             tempstr = tempstr[:-2] + (")" if par else "")
             log += tempstr
 
-        return DiceInterpretation.drop_n_smallest(list(dice.r), dice.rerolls), log
+        return DiceInterpretation.drop_n(list(dice.r), dice.rerolls), log
 
     @staticmethod
     def botchformat(succ, antisucc):
@@ -132,8 +130,7 @@ class DiceInterpretation:
         dice = self.dice
         diff = int(self.function[1:])
         ones = self.function[0] == "f"
-
-        for x in dice.r:
+        for x in dice.r if dice.r is not None else []:
             log += str(x) + ": "
             if x >= diff:  # last die face >= than the difficulty
                 succ += 1
@@ -165,35 +162,48 @@ class DiceInterpretation:
         return log
 
     @staticmethod
-    def drop_n_smallest(x, n):
+    def drop_n(x, n):
         small_numbers = []
         for i, v in enumerate(x):
-            small_numbers = sorted(small_numbers + [(v, i)])[
-                :n
-            ]  # filter the smallest number
-        small_numbers.sort(key=lambda e: e[1])
-        del x[small_numbers[1][1]]
-        del x[small_numbers[0][1]]
+            small_numbers = sorted(small_numbers + [(v, i)])[:n]
+            # filter the smallest number
+        small_numbers.sort(key=lambda e: e[1], reverse=True)
+        for n in small_numbers:
+            del x[n[1]]
+
         return x
+
+    def roll(self, truncate=True) -> "DiceInterpretation":
+        if truncate or not self.dice.rolled:
+            self.dice.roll()
+        return self
 
 
 class Dice:
     def __init__(
-        self, amount: numpy.ndarray | int, sides: int, sort=False, rerolls=0, explode=0
+        self,
+        amount: numpy.ndarray | list[int] | float | int,
+        sides: int,
+        sort=False,
+        rerolls=0,
+        explode=0,
     ):
         self.sign = 1
-        self.r: numpy.ndarray = numpy.empty(1)
+        self.r = None
         self.explosions = 0
         self.explode = explode
         self.literal = False
         self.rolled = False
-        if isinstance(amount, (int, numpy.integer)):
-            self.amount = amount
+        if isinstance(amount, (int, numpy.integer, float)):
+            self.amount = int(amount)
+        elif amount is None:
+            self.amount = 0
         else:
             self.r = numpy.array(amount)
             self.literal = True
             self.rolled = True
             self.amount = self.r.size
+
         self.max = int(sides)
         self.sort = sort
         self.rerolls = int(rerolls)
@@ -226,15 +236,22 @@ class Dice:
         else:
             self.sign = 1
 
-        self.r = (
-            numpy.random.randint(1, self.max + 1, amount + self.rerolls)
-            if self.max > 1
-            else numpy.empty(0)
-        )
+        if amount + abs(self.rerolls):
+            self.r = (
+                numpy.random.randint(1, self.max + 1, amount + abs(self.rerolls))
+                if self.max > 0
+                else None
+            )
+        else:
+            self.r = None
+
+        if self.r is None:
+            return self
         self.explosions = 0
+
         while self.explosions < (
             exp := numpy.count_nonzero(
-                self.r[self.rerolls + amount :] > (self.max - self.explode)
+                self.r[abs(self.rerolls) + amount :] > (self.max - self.explode)
             )
         ):
             self.r = numpy.append(
@@ -243,7 +260,8 @@ class Dice:
             self.explosions = exp
 
         if self.sort:
-            numpy.sort(self.r)
+            self.r.sort()
+        self.rolled = True
         return self
 
     @classmethod

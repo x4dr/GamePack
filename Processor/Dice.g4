@@ -2,15 +2,24 @@ grammar Dice;
 
 returneddicecode
     : selector rerolleddicecode
-    | rerolleddicecode returnfun?
+    | rerolleddicecode returnfun? explosion?
+    ;
+
+explosion
+    : EXPLOSIONMARKER+
     ;
 
 rerolleddicecode
-    : dicecode (REROLL addExpression)?
+    : dicecode (REROLL addExpression)? SORTMARKER?
     ;
 
 dicecode
     : diceamount (SIDES addExpression)?
+    | diceset (SIDES addExpression)?
+    ;
+
+diceset
+    : LBRACK (NUMBER (COMMA NUMBER)*) RBRACK
     ;
 
 selector
@@ -67,6 +76,17 @@ RPAREN
     : ')'
     ;
 
+LBRACK
+    : '['
+    ;
+
+RBRACK
+    : ']'
+    ;
+
+EXPLOSIONMARKER
+    : '!'
+    ;
 
 PLUS
     : '+'
@@ -82,22 +102,17 @@ TIMES
     : '*'
     ;
 
-
 DIV
     : '/'
     ;
-
-
 
 COMMA
     : ','
     ;
 
-
 POINT
     : '.'
     ;
-
 
 POW
     : '^'
@@ -116,19 +131,18 @@ REROLL
     : 'r'
     ;
 
-
-VARIABLE
-    : VALID_ID_START VALID_ID_CHAR*
+SORTMARKER
+    : 's'
     ;
 
 
-fragment VALID_ID_START
-    : ('a' .. 'z') | ('A' .. 'Z') | '_'
+VARIABLE
+    : VALID_ID_CHAR+
     ;
 
 
 fragment VALID_ID_CHAR
-    : VALID_ID_START
+    : ('a' .. 'z') | ('A' .. 'Z') | '_'
     ;
 
 

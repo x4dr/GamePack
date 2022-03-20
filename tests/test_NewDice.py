@@ -64,8 +64,8 @@ class TestDice(TestCase):
         self.assertEqual(d1.name, d2.name)
 
     def test_resonances(self):
-        d = DiceInterpretation("", Dice(5, 10))
+        d = DiceInterpretation("", Dice(5, 10)).roll()
         # just by chance on random.seed(0)
-        self.assertEqual(1, d.resonance(4))
+        self.assertEqual(1, d.resonance(4), str(d.dice.r))
         self.assertEqual(-1, d.resonance(5))
         self.assertEqual(0, d.resonance(8))
