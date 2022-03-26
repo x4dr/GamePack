@@ -65,7 +65,7 @@ def fastdata(selector: tuple[int], mod: int):
         occ = {k: 0 for k in range(1, 10 * len(selector) + 1)}
         for row, series in df.iterrows():
             k, v = select_modified(selector, series)
-            occ[k] += int(v)
+            occ[int(k)] += int(v)
         db.execute(
             "INSERT INTO results VALUES (?,?,?)",
             [str(selector), int(mod), json.dumps(occ)],
