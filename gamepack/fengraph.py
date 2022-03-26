@@ -59,7 +59,7 @@ def fastdata(selector: tuple[int], mod: int):
         "SELECT res FROM results WHERE sel = ? AND mod = ?", [str(selector), mod]
     ).fetchone()
     if res:
-        return json.loads(res[0])
+        return {int(k): int(v) for k, v in json.loads(res[0]).items()}
     for mod in range(-5, 6):
         df = dataset(mod)
         occ = {k: 0 for k in range(1, 10 * len(selector) + 1)}
