@@ -398,7 +398,7 @@ def ascii_graph(occurrences: dict, mode: int):
     max_val = max(list(occurrences.values()))
     total = sum(occurrences.values())
     if not mode:
-        for k in sorted(occurrences):
+        for k in sorted(int(x) for x in occurrences):
             if occurrences[k]:
                 res += (
                     f"{int(k):5d} {100 * occurrences[k] / total: >5.2f} "
