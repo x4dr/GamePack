@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import pathlib
+import sqlite3
 import time
 from _md5 import md5
 from math import ceil
@@ -12,11 +13,13 @@ from typing import Dict, List, Union
 import numpy
 import requests
 
-from gamepack.data import get_str, set_str, handle, append
 from gamepack.Armor import Armor
-from gamepack.DiceParser import DiceParser
 from gamepack.Dice import DescriptiveError
+from gamepack.DiceParser import DiceParser
+from gamepack.data import get_str, set_str, handle
 from gamepack.generate_dmgmods import generate, tuplecombos
+
+log = logging.Logger("fengraph")
 
 try:
     from scipy.integrate import quad
@@ -30,6 +33,45 @@ except ImportError:
     quad = notfound
     interp1d = notfound
     fsolve = notfound
+
+
+# noinspection PyDefaultArgument
+def dicecache_db(cache=[]) -> sqlite3.Connection:
+    """db connection singleton"""
+
+    if cache:
+        return cache[0]
+    dbpath = handle("dicecache")
+    cache.append(sqlite3.connect(dbpath))
+    cache[0].cursor().executescript(
+        "create table if not exists results (sel TEXT, mod INT, res TEXT);"
+    )
+    cache[0].commit()
+
+    return cache[0]
+
+
+def fastdata(selector: tuple[int], mod: int):
+    if mod not in range(-5, 6):
+        return
+    db = dicecache_db()
+    res = db.execute(
+        "SELECT res FROM results WHERE sel = ? AND mod = ?", [str(selector), mod]
+    ).fetchone()
+    if res:
+        return json.loads(res[0])
+    for mod in range(-5, 6):
+        df = dataset(mod)
+        occ = {k: 0 for k in range(1, 10 * len(selector) + 1)}
+        for row, series in df.iterrows():
+            k, v = select_modified(selector, series)
+            occ[k] += int(v)
+        db.execute(
+            "INSERT INTO results VALUES (?,?,?)",
+            [str(selector), int(mod), json.dumps(occ)],
+        )
+    db.commit()
+    return fastdata(selector, mod)
 
 
 def modify_dmg(specific_modifiers, dmg, damage_type, armor):
@@ -359,7 +401,7 @@ def ascii_graph(occurrences: dict, mode: int):
         for k in sorted(occurrences):
             if occurrences[k]:
                 res += (
-                    f"{k:5d} {100 * occurrences[k] / total: >5.2f} "
+                    f"{int(k):5d} {100 * occurrences[k] / total: >5.2f} "
                     f"{'#' * int(40 * occurrences[k] / max_val)}\n"
                 )
     elif mode > 0:
@@ -380,45 +422,25 @@ def ascii_graph(occurrences: dict, mode: int):
                     f"{'#' * int(40 * runningsum / total)}\n"
                 )
                 runningsum -= occurrences[k]
+    return res, *avgdev(occurrences)
+
+
+def avgdev(occurrences):
     total = sum(occurrences.values())
-    avg = sum(k * v for k, v in occurrences.items()) / total
-    dev = math.sqrt(sum(((k - avg) ** 2) * v for k, v in occurrences.items()) / total)
-    return res, avg, dev
+    avg = sum(int(k) * int(v) for k, v in occurrences.items()) / total
+    dev = math.sqrt(
+        sum(((int(k) - avg) ** 2) * v for k, v in occurrences.items()) / total
+    )
+    return avg, dev
 
 
-def chances(selector, modifier=0, number_of_quantiles=None, mode=None):
+def chances(selector, modifier=0, number_of_quantiles=None, mode=0):
     selector = tuple(sorted(int(x) for x in selector if 0 < int(x) < 6))
     if not selector:
         raise DescriptiveError("No Selectors!")
     modifier = int(modifier)
-    occurrences = {}
     yield "processing..."
-    try:
-        for line in get_str("unordered_data").splitlines():
-            if line.startswith(str(selector)):
-                occurrences = ast.literal_eval(line[len(str(selector)) :])[modifier]
-                break
-        if not occurrences:
-            yield "did not find" + str(selector)
-            raise DescriptiveError("no data found")
-        yield "data found..."
-    except DescriptiveError:
-        yield f"generating Data for {selector}..."
-        occurren = {}
-        for mod in range(-5, 6):
-            df = dataset(mod)
-            occ = {k: 0 for k in range(1, 10 * len(selector) + 1)}
-            for row, series in df.iterrows():
-                k, v = select_modified(selector, series)
-                occ[k] += v
-            occurren[mod] = occ
-        append("unordered_data", str(tuple(selector)) + str(occurren) + "\n")
-        occurrences = occurren[modifier]
-        yield f"Data for {selector} has been generated"
-    except FileNotFoundError:
-        set_str("unordered_data", "")
-        raise
-
+    occurrences = fastdata(selector, modifier)
     yield "generating result..."
 
     if number_of_quantiles is None:
