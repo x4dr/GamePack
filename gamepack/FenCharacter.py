@@ -1,4 +1,3 @@
-import base64
 import itertools
 import re
 import time
@@ -60,22 +59,8 @@ class FenCharacter:
                 for statname, stat in sec.items():
                     stat = stat.strip(" _")
                     if statname.strip() and re.match(r"-?\d+", str(stat)):
-                        qualifier = str(
-                            base64.b64encode(
-                                ".".join(
-                                    [catname.strip(), secname.strip(), statname.strip()]
-                                ).encode()
-                            )
-                        )
                         if definitions.get(statname, None) is None:
-                            definitions[statname.strip()] = qualifier
-                            definitions[statname.strip().lower()] = qualifier
-                            definitions[
-                                ".".join(
-                                    [catname.strip(), secname.strip(), statname.strip()]
-                                )
-                            ] = qualifier
-                        definitions[qualifier] = stat
+                            definitions[statname.strip()] = stat
         self.definitions = definitions
         return definitions
 
