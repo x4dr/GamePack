@@ -197,69 +197,8 @@ class FenCharacter:
         for k in c.keys():
             if k.lower() in self.fullpoint_sections:
                 f.update(c[k])
-            if any("_" in x for x in c[k].values()):
-                return self.points_old(name)
         for k, v in f.items():
             res += int(v)
-        return res
-
-    def points_old(self, name) -> int:
-        """
-        total fp for a given category.
-        members with a _ prefix are treated differently, according to their type
-
-        :param name: the CATEGORY name to calculate
-        :return: number of FP (full for the already skilled ones and partial for those written down in the xp table)
-        """
-        res = 0
-        c = self.Categories[name]
-        f = {}
-        for k in c.keys():
-            if k.lower() in self.fullpoint_sections:
-                f.update(c[k])
-        for k, v in f.items():
-            res += self.get_xp_for(k)
-            try:
-                res += int(v) * 10
-            except ValueError:
-
-                if v and v[0].lower() == "_":
-                    try:
-                        res += int(v[1:]) * 5
-                    except ValueError:
-                        pass
-        f = {}
-        for k in c.keys():
-            if k.lower() in self.doublepoint_sections:
-                f.update(c[k])
-        for k, v in f.items():
-            res += self.get_xp_for(k)
-            try:
-                res += int(v) * 20
-            except ValueError:
-                pass
-
-        f = {}
-        for k in c.keys():
-            if k.lower() in self.halfpoint_sections:
-                f.update(c[k])
-        for k, v in f.items():
-            res += self.get_xp_for(k)
-            try:
-                res += int(v) * 5
-            except ValueError:
-                pass
-
-        f = {}
-        for k in c.keys():
-            if k.lower() in self.onepoint_sections:
-                f.update(c[k])
-        for k, v in f.items():
-            try:
-                res += int(v)
-            except ValueError:
-                if k.strip() and (not v or v[0] != "_"):
-                    res += 1
         return res
 
     def get_xp_for(self, name) -> int:
