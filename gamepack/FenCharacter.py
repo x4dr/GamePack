@@ -48,6 +48,7 @@ class FenCharacter:
         self,
         name="",
     ):
+        self.Inventory_Bonus_Headers = []
         self.definitions = None
         self.Tags = ""
         self.Name = name
@@ -293,9 +294,11 @@ class FenCharacter:
                     self._xp_cache = {}
                     self.process_xp(self.Meta[k])
 
-    def process_inventory(self, node, flash):
+    def process_inventory(self, node: [str, dict, List[List[str]]], flash):
         for table in node[2]:
-            self.Inventory += Item.process_table(table, flash)
+            items, headers = Item.process_table(table, flash)
+            self.Inventory += items
+            self.Inventory_Bonus_Headers += headers
         for content in node[1].values():
             self.process_inventory(content, flash)
 
@@ -323,6 +326,7 @@ class FenCharacter:
     def inventory_table(self):
         inv_table = [
             ["Name", "Anzahl", "Gewicht", "Preis", "Gewicht Gesamt", "Preis Gesamt"]
+            + self.Inventory_Bonus_Headers
         ]
         for i in self.Inventory:
             inv_table.append(
@@ -334,8 +338,9 @@ class FenCharacter:
                     i.total_weight,
                     i.total_price,
                 ]
+                + [i.additional_info[x] for x in self.Inventory_Bonus_Headers]
             )
-        inv_table.append(["Gesamt", "", "", "", "", ""])
+        inv_table.append(["Gesamt"] + len(self.Inventory_Bonus_Headers) * [""])
         total_table(inv_table, print)
         return inv_table
 

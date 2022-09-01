@@ -6,18 +6,28 @@ class Item:
     name: str
     weights: float
     price: Union[float, None]
+    additional_info: dict[str, str]
     item_cache = {}  # to be injected  from outside
-    total_row_marker = ("gesamt", "total", "summe", "sum")
+    table_total = ("gesamt", "total", "summe", "sum")
     table_name = ("objekt", "object", "name", "gegenstand", "item")
     table_weight = ("gewicht", "weight")
     table_money = ("preis", "kosten", "price", "cost")
     table_amount = ("zahl", "anzahl", "menge", "amount", "count", "stück")
+    table_all = table_total + table_amount + table_money + table_weight + table_name
 
-    def __init__(self, name: str, weight: float, price: float, count: float = 1.0):
+    def __init__(
+        self,
+        name: str,
+        weight: float,
+        price: float,
+        count: float = 1.0,
+        additional=None,
+    ):
         self.name = name
         self.weight = tryfloatdefault(weight)
         self.price = tryfloatdefault(price)
         self.count = tryfloatdefault(count, 1)
+        self.additional_info = additional or {}
 
     def __repr__(self):
         return f"{self.count:g} {self.name}"
@@ -39,8 +49,10 @@ class Item:
         return fendeconvert(self.price * self.count, "money")
 
     @classmethod
-    def process_table(cls, table: List[List[str]], flash) -> List["Item"]:
-        def get_offset(reqs, optional=False):
+    def process_table(cls, table: List[List[str]], flash) -> (List["Item"], List[str]):
+        # returns the list of found/resolved items and a list of bonus headers from the table
+        def get_offset(reqs: tuple[str, ...], optional=False):
+            # to deal with arbitrary header orderings and names, find the column number of one of the requirements
             if offs.get(reqs, "default") == "default":
                 for req in reqs:
                     if req in headers:
@@ -61,13 +73,19 @@ class Item:
             return r[o]
 
         headers = [x.lower() for x in table[0]]
+        unknown_headers = [
+            header for header in table[0] if header.lower() not in cls.table_all
+        ]
         offs = {}
         res = []
         get_offset(cls.table_amount, True)  # preload with nonoptional
         if get_offset(cls.table_name) is not None:
             for row in table[1:]:
-                if row[0].lower() in cls.total_row_marker:
+                if row[0].lower() in cls.table_total:
                     continue
+                unused_values = {
+                    r: row[get_offset((r.lower(),))] for r in unknown_headers
+                }
                 try:
                     if not get_cell(row, cls.table_weight) and not get_cell(
                         row, cls.table_money
@@ -79,11 +97,12 @@ class Item:
                             res.append(cached)
                         else:
                             res.append(
-                                Item(
+                                cls(
                                     get_cell(row, cls.table_name),
                                     0,
                                     0,
                                     count=get_cell(row, cls.table_amount) or 1,
+                                    additional=unused_values,
                                 )
                             )
                     else:
@@ -93,11 +112,12 @@ class Item:
                                 fenconvert(get_cell(row, cls.table_weight)),
                                 fenconvert(get_cell(row, cls.table_money)),
                                 count=get_cell(row, cls.table_amount) or 1,
+                                additional=unused_values,
                             )
                         )
                 except Exception:
                     flash("|".join(row) + " is not a valid item")
-        return res
+        return res, unknown_headers
 
     def copy(self):
         return Item(self.name, self.weight, self.price, self.count)
@@ -174,5 +194,5 @@ def fendeconvert(val: float, conv: str) -> str:
         base = conversions[0]
         exp = int(math.log(val, base)) if val > 0 else 0  # no log possible
         exp = min(len(units) - 1, exp)  # biggest unit for all that are too big
-        return f"{sign*val / conversions[1][units[exp]]:.10g}" + units[exp]
+        return f"{sign * val / conversions[1][units[exp]]:.10g}" + units[exp]
     return str(sign * val)

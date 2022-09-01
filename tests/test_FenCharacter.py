@@ -16,3 +16,56 @@ class TestDiceParser(TestCase):
         self.assertEqual(1, self.c.parse_xp("a(cond) b"))
         self.assertEqual(4, self.c.parse_xp("[asd, sdf, dfg, gfh]"))
         self.assertEqual(7, self.c.parse_xp("a 5 /teststr a"))
+
+    def test_inventory_table(self):
+        c = FenCharacter()
+        c.process_inventory(
+            [
+                "",
+                {},
+                [
+                    [
+                        [
+                            "Name",
+                            "Anzahl",
+                            "Gewicht",
+                            "Preis",
+                            "Beschreibung",
+                        ],
+                        [
+                            "test",
+                            "2",
+                            "1kg",
+                            "1s",
+                            "testy",
+                        ],
+                    ]
+                ],
+            ],
+            print,
+        )
+        table = c.inventory_table()
+        self.assertEqual(
+            table[0],
+            [
+                "Name",
+                "Anzahl",
+                "Gewicht",
+                "Preis",
+                "Gewicht Gesamt",
+                "Preis Gesamt",
+                "Beschreibung",
+            ],
+        )
+        self.assertEqual(
+            table[1],
+            [
+                "[ test [[q:-: test :-]]]",
+                "2",
+                "1kg",
+                "1s",
+                "2kg",
+                "2s",
+                "testy",
+            ],
+        )

@@ -233,8 +233,11 @@ def split_row(row: str, length: int) -> List[str]:
 
 def total_table(table_input, flash):
     try:
-        if table_input[-1][0].lower() in Item.total_row_marker:
+        if table_input[-1][0].lower() in Item.table_total:
             trackers = [[0, ""] for _ in range(len(table_input[0]) - 1)]
+            table_input[-1] = table_input[-1] + (
+                len(table_input[0]) - len(table_input[-1])
+            ) * [""]
             for row in table_input[1:-1]:
                 for i in range(len(trackers)):
                     r = row[i + 1].strip().lower()
