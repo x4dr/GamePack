@@ -240,20 +240,14 @@ def total_table(table_input, flash):
             ) * [""]
             for row in table_input[1:-1]:
                 for i in range(len(trackers)):
-                    r = row[i + 1].strip().lower()
-                    if "," in r:
-                        flash(f"',' in {r} should not be there")
-                        continue
+                    r = row[i + 1].strip().lower().replace(",", "")
                     if r:
                         try:
                             if not trackers[i][1]:
                                 trackers[i][1] = value_category(r)
                             trackers[i][0] += fenconvert(r)
-                        except Exception as e:
-                            flash(
-                                str(e.args)
-                                + f" {r} cannot be processed by a totalling table"
-                            )
+                        except Exception:
+                            pass  # even text columns will get attempted, so any failure means we just skip
             for i, t in enumerate(trackers):
                 table_input[-1][i + 1] = fendeconvert(t[0], t[1])
     except Exception as e:

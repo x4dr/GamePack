@@ -48,7 +48,7 @@ class FenCharacter:
         self,
         name="",
     ):
-        self.Inventory_Bonus_Headers = []
+        self.Inventory_Bonus_Headers = set()
         self.definitions = None
         self.Tags = ""
         self.Name = name
@@ -288,7 +288,7 @@ class FenCharacter:
         for k in self.Meta.keys():
             if k.lower() in self.inventory_headings:
                 self.process_inventory(self.Meta[k], flash)
-                self.Meta[k][2].insert(0, self.inventory_table())
+                self.Meta[k][2] = [self.inventory_table()]
             if k.lower() in self.experience_headings:
                 if not self._xp_cache:  # generate once
                     self._xp_cache = {}
@@ -326,7 +326,7 @@ class FenCharacter:
     def inventory_table(self):
         inv_table = [
             ["Name", "Anzahl", "Gewicht", "Preis", "Gewicht Gesamt", "Preis Gesamt"]
-            + self.Inventory_Bonus_Headers
+            + list(self.Inventory_Bonus_Headers)
         ]
         for i in self.Inventory:
             inv_table.append(
