@@ -288,11 +288,7 @@ class FenCharacter:
         for k in self.Meta.keys():
             if k.lower() in self.inventory_headings:
                 self.process_inventory(self.Meta[k], flash)
-                self.Meta[k] = (
-                    self.Meta[k][0],
-                    self.Meta[k][1],
-                    [self.inventory_table()],
-                )
+                self.Meta[k][1]["Total"] = ("", {}, [self.inventory_table()])
             if k.lower() in self.experience_headings:
                 if not self._xp_cache:  # generate once
                     self._xp_cache = {}
