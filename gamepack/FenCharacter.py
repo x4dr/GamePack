@@ -199,7 +199,11 @@ class FenCharacter:
             if k.lower() in self.fullpoint_sections:
                 f.update(c[k])
         for k, v in f.items():
-            res += int(v)
+            try:
+                res += int(v)
+            except ValueError:
+                pass  # dont count invalid entries
+
         return res
 
     def get_xp_for(self, name) -> int:
