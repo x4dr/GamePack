@@ -342,7 +342,7 @@ class FenCharacter:
                     i.total_weight,
                     i.total_price,
                 ]
-                + [i.additional_info[x] for x in self.Inventory_Bonus_Headers]
+                + [i.additional_info.get(x) or "" for x in self.Inventory_Bonus_Headers]
             )
         inv_table.append(["Gesamt"] + len(self.Inventory_Bonus_Headers) * [""])
         total_table(inv_table, print)

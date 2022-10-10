@@ -8,6 +8,7 @@ gamepack/FenCharacter.py
 gamepack/Gems.py
 gamepack/Item.py
 gamepack/MDPack.py
+gamepack/NewDice.py
 gamepack/RegexRouter.py
 gamepack/__init__.py
 gamepack/fengraph.py
@@ -139,6 +140,7 @@ gamepack/data/5d10r5vr3_ordered_data
 gamepack/data/5d10r5vr4_ordered_data
 gamepack/data/5d10r5vr5_ordered_data
 gamepack/data/__init__.py
+gamepack/data/dicecache
 gamepack/data/roll_frequencies_-1.csv
 gamepack/data/roll_frequencies_-2.csv
 gamepack/data/roll_frequencies_-3.csv
