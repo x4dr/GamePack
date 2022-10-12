@@ -10,7 +10,7 @@ from typing import List, Tuple
 
 from gamepack.Item import Item
 from gamepack.DiceParser import fullparenthesis
-from gamepack.MDPack import split_md, extract_tables, confine_to_tables, total_table
+from gamepack.MDPack import MDObj, total_table
 
 
 class FenCharacter:
@@ -43,6 +43,7 @@ class FenCharacter:
     onepoint_sections = ["vorteile", "perks", "zauber", "spells"]
     experience_headings = ["erfahrung", "experience", "xp", "fortschritt"]
     wound_headings = ["wunden", "wounds", "damage", "schaden"]
+    note_headings = ["notes", "notiz", "notizen", "zettel"]
 
     def __init__(
         self,
@@ -53,7 +54,7 @@ class FenCharacter:
         self.Tags = ""
         self.Name = name
         self.Character = OrderedDict()
-        self.Meta = OrderedDict()
+        self.Meta: OrderedDict[str, MDObj] = OrderedDict()
         self.Categories = OrderedDict()
         self.Inventory = []
         self.Notes = ""
@@ -155,7 +156,7 @@ class FenCharacter:
                 tuple(sorted(x, reverse=True))
                 for x in itertools.product(range(6), repeat=int(width))
             )
-            correct = [
+            correct: list[list[int]] = [
                 [y for y in x]
                 for x in allconf
                 if FenCharacter.cost(x, costs, penalty) <= xp
@@ -165,10 +166,9 @@ class FenCharacter:
             maximal = correct[:]
             while i < j:
                 for u in range(len(maximal[i])):
-                    upg = list(maximal[i])
-                    upg[u] = upg[u] + 1
-                    # upg = tuple(upg)
-                    if upg in correct:
+                    upgrade = maximal[i]
+                    upgrade[u] = upgrade[u] + 1
+                    if upgrade in correct:
                         del maximal[i]
                         i -= 1
                         j -= 1
@@ -257,33 +257,34 @@ class FenCharacter:
             def flash(err):
                 self.errors.append(err)
 
-        sheetparts = extract_tables(split_md(body), flash)
+        sheetparts = MDObj.from_md(body)
 
         # inform about things that should not be there
-        if sheetparts[0].strip():
-            flash("Loose Text: " + sheetparts[0])
-        if sheetparts[2]:
-            for t in sheetparts[2]:
-                if t:
-                    flash(
-                        "Loose Table:"
-                        + "\n".join("\t".join(x for x in row) for row in t)
-                    )
+        if sheetparts.plaintext.strip():
+            flash("Loose Text: " + sheetparts.plaintext)
 
-        for s in sheetparts[1].keys():
+        for t in sheetparts.tables:
+            if t:
+                flash(
+                    "Loose Table:" + "\n".join("\t".join(x for x in row) for row in t)
+                )
+
+        for s in sheetparts.children.keys():
             if s.lower().strip() in self.value_headings:
-                d, errors = confine_to_tables(sheetparts[1][s], headers=False)
-                self.Categories.update(d)
+                stats, errors = sheetparts.children[s].confine_to_tables(headers=False)
+                self.Categories.update(stats)
                 for e in errors:
                     flash(e)
             else:
                 if s.strip().lower() in self.description_headings:
-                    d, errors = confine_to_tables(sheetparts[1][s], headers=False)
-                    self.Character = d
+                    details, errors = sheetparts.children[s].confine_to_tables(
+                        headers=False
+                    )
+                    self.Character = details
                     for e in errors:
                         flash(e)
                 else:
-                    self.Meta[s] = sheetparts[1][s]
+                    self.Meta[s] = sheetparts.children[s]
 
         self.post_process(flash)
 
@@ -292,22 +293,26 @@ class FenCharacter:
         for k in self.Meta.keys():
             if k.lower() in self.inventory_headings:
                 self.process_inventory(self.Meta[k], flash)
-                self.Meta[k][1]["Total"] = ("", {}, [self.inventory_table()])
+                self.Meta[k].children["Total"] = MDObj.just_tables(
+                    [self.inventory_table()]
+                )
             if k.lower() in self.experience_headings:
                 if not self._xp_cache:  # generate once
                     self._xp_cache = {}
                     self.process_xp(self.Meta[k])
+            if k.lower() in self.note_headings:
+                self.Notes = self.Meta.values()
 
-    def process_inventory(self, node: [str, dict, List[List[str]]], flash):
-        for table in node[2]:
+    def process_inventory(self, node: MDObj, flash):
+        for table in node.tables:
             items, headers = Item.process_table(table, flash)
             self.Inventory += items
             self.Inventory_Bonus_Headers.update(headers)
-        for content in node[1].values():
+        for content in node.children.values():
             self.process_inventory(content, flash)
 
-    def process_xp(self, node):
-        for table in node[2]:
+    def process_xp(self, node: MDObj):
+        for table in node.tables:
             first = True
             for row in table:
                 if len(row) < 2:
@@ -318,7 +323,7 @@ class FenCharacter:
                     first = False
                 else:
                     row.append(self._xp_cache[row[0]])
-        for content in node[1].values():
+        for content in node.children.values():
             self.process_xp(content)
 
     @classmethod

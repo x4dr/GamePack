@@ -6,6 +6,140 @@ from gamepack.Item import fendeconvert, value_category, fenconvert, Item
 log = logging.Logger(__name__)
 
 
+class MDObj:
+    def __init__(
+        self,
+        plaintext: str,
+        children: Dict[str, "MDObj"],
+        original: str,
+        flash: Callable[[str], None],
+        extract_tables: bool,
+    ):
+
+        self.plaintext = plaintext
+        self.children = children
+        self.tables = self.extract_tables() if extract_tables else []
+        self.originalMD = original
+        self.flash = flash
+
+    @classmethod
+    def from_md(cls, lines, level=0, flash=None, extract_tables=True) -> "MDObj":
+        """
+        breaks down the structure of a md text into nested tuples of a string
+        of the text directly after the heading and a dictionary of all the subheadings
+
+        @param lines: \n separated string, or a stack of lines
+        (top line on top of the stack)
+        @param level: the level of heading this split started and therefore should end on
+        @param flash: function to call with errors
+        @param extract_tables: wether or not to go through the tables and pull them out of the plaintext
+        @return: a Tuple of the direct text and a dict containing recursive output
+
+        """
+        if isinstance(lines, str):
+            original = lines
+            lines = list(reversed(lines.split("\n")))  # build stack of lines
+        else:
+            original = "\n".join(
+                reversed(lines)
+            )  # saving the original was an idea introduced later
+        text = ""
+        children = {}
+        while len(lines):
+            line = lines.pop()
+            if line.strip().startswith("#"):
+                current_level = len(line.strip()) - len(line.strip().lstrip("#"))
+                # easy way to only count # on the left
+                if current_level and level >= current_level:
+                    # we moved out of our subtree
+                    lines.append(line)  # push the current line back
+                    return cls(text, children, original, flash, extract_tables)
+                else:
+                    children[line.lstrip("# ").strip()] = cls.from_md(
+                        lines,  # by reference
+                        current_level,
+                        extract_tables,
+                    )
+                    continue
+            text += line + "\n"
+        return cls(text, children, original, flash, extract_tables)
+
+    def extract_tables(
+        self, flash: Callable[[str], None] = None
+    ) -> List[List[List[str]]]:
+        """
+        traverses the output of split_md and consumes table text where possible.
+        Tables are appended to a List, at the end of each tuple
+        :param flash: if given, tables are processed through
+        :return: a List of Tables
+        """
+        text = ""
+        tables = []
+        run = ""
+        for line in self.plaintext.splitlines(True):
+            if "|" in line:
+                run += line
+                continue
+            elif run:
+                tables.append(table(run))
+                run = ""
+            text += line
+        if run:
+            tables.append(table(run))
+        if flash:
+            for t in tables:
+                if t:
+                    total_table(t, flash)
+        self.plaintext = text
+        return tables
+
+    def confine_to_tables(self, headers=True) -> Tuple[Dict[str, object], List[str]]:
+        """
+        simplifies a mdtree into just a dictionary of dictionaries.
+        Makes the assumption that either children or a table can be had, and that all leaves are key value in the end
+        :param headers: if false, headers of the tables will be cut off
+        :return: Dictionary that recursively always ends in ints
+        """
+        result = {}
+        processed = False
+        errors = []
+
+        def error(msg: str):
+            errors.append(msg)
+            log.info(msg)
+
+        for subtable in self.tables:
+            skiprow = 1 if not not headers else 0
+            for row in subtable[skiprow:]:
+                if not row:
+                    continue
+                if len(row) != 2:
+                    error(f"Malformed KeyValue at row '{'|'.join(row)}' in {subtable} ")
+                    continue
+                result[row[0]] = row[1]
+                processed = True
+
+        for child, content in self.children.items():
+            if content.children or content.tables:
+                if processed:
+                    error(f"Extraneous Subheading: '{', '.join(self.children.keys())}'")
+                else:
+                    result[child], newerrors = content.confine_to_tables(headers)
+                    errors += newerrors
+            else:
+                result[child] = content.plaintext
+                processed = True
+
+        if self.plaintext.strip():
+            error(f"Extraneous Text: '{self.plaintext}'")
+        return result, errors
+
+    @classmethod
+    def just_tables(cls, tables):
+        tablesonly = cls("", {}, "", lambda x: None, False)
+        tablesonly.tables = tables
+
+
 def table_edit(md: str, key: str, value: str) -> str:
     """
     changes everything but the leftmost column in a table the first time key is encountered
@@ -86,119 +220,6 @@ def traverse_md(md: str, seek: str) -> str:
     return result
 
 
-def split_md(lines, level=0) -> Tuple[str, Dict[str, Tuple]]:
-    """
-    breaks down the structure of a md text into nested tuples of a string
-    of the text directly after the heading and a dictionary of all the subheadings
-    :param lines: \n separated string, or a stack of lines
-    (top line on top of the stack)
-    :param level: the level of heading this split started and therefore should end on
-    :return: a Tuple of the direct text and a dict containing recursive output
-    """
-    if isinstance(lines, str):
-        lines = list(reversed(lines.split("\n")))  # build stack of lines
-    text = ""
-    children = {}
-    while len(lines):
-        line = lines.pop()
-        if line.strip().startswith("#"):
-
-            current_level = len(line.strip()) - len(line.strip().lstrip("#"))
-            if (
-                current_level and level >= current_level
-            ):  # we are on equal level or above
-                lines.append(line)  # push the current line back
-                return text, children
-            else:
-                children[line.lstrip("# ").strip()] = split_md(lines, current_level)
-                continue
-        text += line + "\n"
-    return text, children
-
-
-def extract_tables(
-    mdtree: Tuple[str, Dict], flash: Callable[[str], None] = None
-) -> Tuple[str, Dict[str, Tuple], List[List[List[str]]]]:
-    """
-    traverses the output of split_md and consumes table text where possible.
-    Tables are appended to a List, at the end of each tuple
-    :param flash: if given, tables are processed through
-    :param mdtree: output of split_md
-    :return: a Tuple of the remaining direct text a dict containing children and a List of Tables
-    """
-    children = {}
-    for child, content in mdtree[1].items():
-        children[child] = extract_tables(content, flash)
-    text = ""
-    tables = []
-    run = ""
-    for line in mdtree[0].splitlines(True):
-        if "|" in line:
-            run += line
-            continue
-        elif run:
-            tables.append(table(run))
-            run = ""
-        text += line
-    if run:
-        tables.append(table(run))
-    if flash:
-        for t in tables:
-            if t:
-                total_table(t, flash)
-    return text, children, tables
-
-
-def confine_to_tables(
-    mdtree: Tuple[str, Dict, List], headers=True
-) -> Tuple[Dict[str, object], List[str]]:
-    """
-    simplifies a mdtree into just a dictionary of dictionaries.
-    Makes the assumption that either children or a table can be had, and that if children exist they
-    only consist of text (and are thus key values)
-    :param headers: if false, headers of the tables will be cut off
-    :param mdtree: output of extract_tables
-    :return: Dictionary that recursively always ends in ints
-    """
-    result = {}
-    processed = False
-    errors = []
-
-    def error(msg: str):
-        errors.append(msg)
-        log.info(msg)
-
-    if mdtree[2]:
-        for subtable in mdtree[2]:
-            skiprow = not headers
-            for row in subtable:
-                if skiprow:
-                    skiprow = False
-                    continue
-                if not row:
-                    continue
-                if len(row) != 2:
-                    error(f"Malformed KeyValue at row '{'|'.join(row)}' in {subtable} ")
-                    continue
-                result[row[0]] = row[1]
-                processed = True
-    if mdtree[1]:
-        for child, content in mdtree[1].items():
-            if content[1] or content[2]:
-                if processed:
-                    error(f"Extraneous Subheading: '{', '.join(mdtree[1].keys())}'")
-                else:
-                    result[child], newerrors = confine_to_tables(content, headers)
-                    errors += newerrors
-            else:
-                result[child] = content[0]
-                processed = True
-
-    if mdtree[0].strip():
-        error(f"Extraneous Text: '{mdtree[0]}'")
-    return result, errors
-
-
 def table(text: str) -> List[List[str]]:
     """
     gets table from md text.
@@ -242,6 +263,7 @@ def total_table(table_input, flash):
                 for i in range(len(trackers)):
                     r = row[i + 1].strip().lower().replace(",", "")
                     if r:
+                        # noinspection PyBroadException
                         try:
                             if not trackers[i][1]:
                                 trackers[i][1] = value_category(r)
