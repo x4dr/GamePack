@@ -57,7 +57,7 @@ class FenCharacter:
         self.Meta: OrderedDict[str, MDObj] = OrderedDict()
         self.Categories = OrderedDict()
         self.Inventory = []
-        self.Notes = ""
+        self.Notes: MDObj = MDObj.from_md("")
         self.Storage = ""
         self.Timestamp = time.strftime("%Y/%m/%d-%H:%M:%S")
         self._xp_cache = {}
@@ -301,7 +301,7 @@ class FenCharacter:
                     self._xp_cache = {}
                     self.process_xp(self.Meta[k])
             if k.lower() in self.note_headings:
-                self.Notes = self.Meta.values()
+                self.Notes = self.Meta[k]
 
     def process_inventory(self, node: MDObj, flash):
         for table in node.tables:
