@@ -138,6 +138,7 @@ class MDObj:
     def just_tables(cls, tables):
         tablesonly = cls("", {}, "", lambda x: None, False)
         tablesonly.tables = tables
+        return tablesonly
 
 
 def table_edit(md: str, key: str, value: str) -> str:
