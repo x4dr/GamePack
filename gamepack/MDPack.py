@@ -140,6 +140,17 @@ class MDObj:
         tablesonly.tables = tables
         return tablesonly
 
+    def search_children(self, name: str):
+        # search direct children first
+        for child_name in self.children:
+            if name.lower().strip() == child_name.lower().strip():
+                return self.children[child_name]
+        # then do a depth first search for the first matching entry
+        for _, child in self.children.items():
+            if result := child.search_children(name):
+                return result
+        return None
+
 
 def table_edit(md: str, key: str, value: str) -> str:
     """
