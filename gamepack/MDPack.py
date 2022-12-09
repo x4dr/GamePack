@@ -56,9 +56,10 @@ class MDObj:
                     return cls(text, children, original, flash, extract_tables)
                 else:
                     children[line.lstrip("# ").strip()] = cls.from_md(
-                        lines,  # by reference
-                        current_level,
-                        extract_tables,
+                        lines=lines,  # by reference
+                        level=current_level,
+                        flash=flash,
+                        extra_tables=extract_tables,
                     )
                     continue
             text += line + "\n"
@@ -109,7 +110,7 @@ class MDObj:
             log.info(msg)
 
         for subtable in self.tables:
-            skiprow = 0 if not not headers else 1
+            skiprow = 1 if not not headers else 0
             for row in subtable[skiprow:]:
                 if not row:
                     continue
@@ -138,7 +139,6 @@ class MDObj:
     def just_tables(cls, tables):
         tablesonly = cls("", {}, "", lambda x: None, False)
         tablesonly.tables = tables
-        return tablesonly
 
     def search_children(self, name: str):
         # search direct children first
