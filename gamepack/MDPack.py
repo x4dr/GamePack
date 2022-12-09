@@ -59,7 +59,7 @@ class MDObj:
                         lines=lines,  # by reference
                         level=current_level,
                         flash=flash,
-                        extra_tables=extract_tables,
+                        extract_tables=extract_tables,
                     )
                     continue
             text += line + "\n"
