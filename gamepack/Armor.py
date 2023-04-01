@@ -3,8 +3,7 @@ import logging
 import re
 from decimal import Decimal, ROUND_HALF_UP
 
-import numexpr
-
+from gamepack import Calc
 from gamepack.Dice import DescriptiveError
 from gamepack.Item import Item, fendeconvert, fenconvert
 
@@ -39,7 +38,7 @@ def calculate(calc, par=None):
     res = 0
     while len(loose_par) > 0:
         try:
-            res = numexpr.evaluate(calc, local_dict=par, truediv=True).item()
+            res = Calc.evaluate(calc, par)
             missing = None  # success
             break
         except KeyError as e:

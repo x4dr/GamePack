@@ -2,8 +2,7 @@ import logging
 import re
 from typing import List, Union, Dict
 
-import numexpr
-
+from gamepack import Calc
 from gamepack.Dice import Dice, DescriptiveError
 from gamepack.RegexRouter import (
     RegexRouter,
@@ -95,9 +94,7 @@ class Node:
         to_calculate = re.sub(r"(?<=\d)\s+(?=\d)", "+", to_calculate)
         to_calculate = re.sub(
             r"(\s*\d*\s*[-*+/]*\s*(\d+)\b)+",
-            lambda x: " "
-            + str(numexpr.evaluate(x.group().strip(), local_dict={}))
-            + " ",
+            lambda x: " " + str(Calc.evaluate(x.group().strip(), {})) + " ",
             to_calculate,
         )
 
@@ -140,13 +137,13 @@ class DiceParser:
         return {"returnfun": matches["returnfun"].replace(" ", "")}
 
     @staticmethod
-    @regexrouter.register(re.compile(r"(?<=[0-9 -])d\s*(?P<sides>[0-9]{1,5})"))
+    @regexrouter.register(re.compile(r"(?<=[\d -])d\s*(?P<sides>\d{1,5})"))
     def extract_sides(matches):
         if matches.get("sides", ""):
             return {"sides": int(matches["sides"])}
 
     @staticmethod
-    @regexrouter.register(re.compile(r"(?<=[0-9-])[rR]\s*(?P<rerolls>-?\s*\d+)"))
+    @regexrouter.register(re.compile(r"(?<=[\d-])[rR]\s*(?P<rerolls>-?\s*\d+)"))
     def extract_reroll(matches):
         if matches.get("rerolls", ""):
             return {"rerolls": int(matches["rerolls"].replace(" ", ""))}

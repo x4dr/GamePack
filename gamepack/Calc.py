@@ -1,0 +1,69 @@
+import ast
+import operator
+import re
+from typing import Dict, Any, Callable, Type
+
+
+def eval_node(node: ast.expr | ast.AST, variables: Dict[str, Any]) -> float:
+    for ast_type, evaluator in EVALUATORS.items():
+        if isinstance(node, ast_type):
+            return evaluator(node, variables)
+
+    raise KeyError(node)
+
+
+def eval_expression(node: ast.Expression, variables: Dict[str, Any]) -> float:
+    return eval_node(node.body, variables)
+
+
+# noinspection PyUnusedLocal
+def eval_constant(node: ast.Constant, variables: Dict[str, Any]) -> float:
+    return node.value
+
+
+def eval_name(node: ast.Name, variables: Dict[str, Any]) -> float:
+    return variables[node.id]
+
+
+def eval_binop(node: ast.BinOp, variables: Dict[str, Any]) -> float:
+    left_value = eval_node(node.left, variables)
+    right_value = eval_node(node.right, variables)
+    apply = BINARY_OPERATIONS[type(node.op)]
+    return apply(left_value, right_value)
+
+
+def eval_unaryop(node: ast.UnaryOp, variables: Dict[str, Any]) -> float:
+    operand_value = eval_node(node.operand, variables)
+    apply = UNARY_OPERATIONS[type(node.op)]
+    return apply(operand_value)
+
+
+EVALUATORS = {
+    ast.Expression: eval_expression,
+    ast.Constant: eval_constant,
+    ast.Name: eval_name,
+    ast.BinOp: eval_binop,
+    ast.UnaryOp: eval_unaryop,
+}
+UNARY_OPERATIONS: dict[Type, Callable[[Any], Any]] = {
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+BINARY_OPERATIONS: dict[Type, Callable[[Any, Any], Any]] = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Pow: operator.pow,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+}
+
+
+binary_whitespace_op = re.compile(r"(\w+)\s+(\w)+")
+
+
+def evaluate(expression: str, variables: Dict[str, Any]) -> float:
+    expression = binary_whitespace_op.sub(r"\1+\2", expression)
+    node = ast.parse(expression, "<string>", mode="eval")
+    return eval_node(node, variables)

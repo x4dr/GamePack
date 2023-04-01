@@ -2,6 +2,7 @@ import random
 from unittest import TestCase
 
 from gamepack.FenCharacter import FenCharacter
+from gamepack.MDPack import MDObj
 
 
 class TestDiceParser(TestCase):
@@ -19,30 +20,14 @@ class TestDiceParser(TestCase):
 
     def test_inventory_table(self):
         c = FenCharacter()
-        c.process_inventory(
-            [
-                "",
-                {},
-                [
-                    [
-                        [
-                            "Name",
-                            "Anzahl",
-                            "Gewicht",
-                            "Preis",
-                            "Beschreibung",
-                        ],
-                        [
-                            "test",
-                            "2",
-                            "1kg",
-                            "1s",
-                            "testy",
-                        ],
-                    ]
-                ],
-            ],
-            print,
+        o = MDObj.from_md(
+            "| Name | Anzahl | Gewicht | Preis | Beschreibung |\n"
+            "| ---- | ------ | ------- | ----- | ------------ |\n"
+            "| test |      2 |     1kg |    1s |        testy |"
+        )
+        c.process_inventory(o, print)
+        self.assertEqual(
+            o.tables[0][0], ["Name", "Anzahl", "Gewicht", "Preis", "Beschreibung"]
         )
         table = c.inventory_table()
         self.assertEqual(
