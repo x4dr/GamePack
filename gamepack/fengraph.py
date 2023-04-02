@@ -19,6 +19,8 @@ from gamepack.DiceParser import DiceParser
 from gamepack.data import get_str, set_str, handle
 from gamepack.generate_dmgmods import generate, tuplecombos
 
+import matplotlib.pyplot as plt
+
 log = logging.Logger("fengraph")
 
 try:
@@ -136,7 +138,6 @@ def supply_graphdata():
         # regenerate and write weaponstuff
     maxdmg = 0
     if not damages:
-
         modifiers = {}
         try:
             lines = get_str("5d10r0vr0_ordered_data")
@@ -328,7 +329,6 @@ def plot(data, showsucc=False, showgraph=True, showdmgmods=False, grouped=1):
         barzer = int(100 / width - barsuc - barbot)
         res += "+" * barsuc + "0" * barzer + "-" * barbot + "\n"
     if showgraph:
-
         lowest = min(data.keys())
         highest = max(data.keys())
         width = (
@@ -434,7 +434,7 @@ def avgdev(occurrences):
     return avg, dev
 
 
-def chances(selector, modifier=0, number_of_quantiles=None, mode=0):
+def chances(selector, modifier=0, number_of_quantiles=None, mode=0, interactive=False):
     selector = tuple(sorted(int(x) for x in selector if 0 < int(x) < 6))
     if not selector:
         raise DescriptiveError("No Selectors!")
@@ -458,7 +458,6 @@ def chances(selector, modifier=0, number_of_quantiles=None, mode=0):
 
         fx = sorted(list(occurrences.keys()))
         f = interp1d(fx, fy, kind=2, bounds_error=False, fill_value=0)
-        import matplotlib.pyplot as plt
 
         plt.figure()
         plt.bar(
@@ -509,7 +508,9 @@ def chances(selector, modifier=0, number_of_quantiles=None, mode=0):
         plt.ylabel("%")
         yield "sending data..."
         plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
-        plt.show()
+        if interactive:
+            plt.show()
+
         plt.close()
         buf.seek(0)
         yield buf
