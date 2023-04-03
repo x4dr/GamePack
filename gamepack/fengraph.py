@@ -8,9 +8,8 @@ import sqlite3
 import time
 from _md5 import md5
 from math import ceil
-from typing import Dict, List, Union
-
-import numpy
+from typing import Dict, List, Union, Tuple
+import matplotlib.pyplot as plt
 import requests
 
 from gamepack.Armor import Armor
@@ -19,22 +18,7 @@ from gamepack.DiceParser import DiceParser
 from gamepack.data import get_str, set_str, handle
 from gamepack.generate_dmgmods import generate, tuplecombos
 
-import matplotlib.pyplot as plt
-
 log = logging.Logger("fengraph")
-
-try:
-    from scipy.integrate import quad
-    from scipy.interpolate import interp1d
-    from scipy.optimize import fsolve
-except ImportError:
-
-    def notfound(*args, **kwargs):
-        raise Exception("Scipy is not installed!", [args, kwargs])
-
-    quad = notfound
-    interp1d = notfound
-    fsolve = notfound
 
 
 # noinspection PyDefaultArgument
@@ -63,11 +47,10 @@ def fastdata(selector: tuple[int], mod: int):
     if res:
         return {int(k): int(v) for k, v in json.loads(res[0]).items()}
     for mod in range(-5, 6):
-        df = dataset(mod)
         occ = {k: 0 for k in range(1, 10 * len(selector) + 1)}
-        for row, series in df.iterrows():
-            k, v = select_modified(selector, series)
-            occ[int(k)] += int(v)
+        for roll, frequency in dataset(mod).items():
+            k = sum(roll[s - 1] for s in selector if 0 < s < 6)
+            occ[int(k)] += int(frequency)
         db.execute(
             "INSERT INTO results VALUES (?,?,?)",
             [str(selector), int(mod), json.dumps(occ)],
@@ -272,29 +255,13 @@ def armordata() -> Dict[str, Armor]:
     return armor
 
 
-def dataset(modifier):
-    import pandas
-
-    return pandas.read_csv(
-        handle("roll_frequencies_" + str(modifier) + ".csv"),
-        names=["D1", "D2", "D3", "D4", "D5", "frequency"],
-    )
-
-
-def select_modified(selector, series):
-    return sum(series[s - 1] for s in selector if 0 < s < 6), series[-1]
-
-
-def helper(f, integratedsum, q, lastquant):
-    def internalhelper(x):
-        try:
-            result = quad(f, lastquant, x, limit=200)
-            return result[0] - integratedsum * q
-        except Exception:
-            logging.debug(f"integration errvals: {q}, {lastquant}, {x}")
-            raise
-
-    return internalhelper
+def dataset(modifier: int) -> Dict[Tuple[int, ...], int]:
+    with open(handle("roll_frequencies_" + str(modifier) + ".csv")) as f:
+        result = {}
+        for line in f.readlines():
+            line = line.strip().split(",")
+            result[tuple(int(x) for x in line[:-1])] = int(line[-1])
+        return result
 
 
 def plot(data, showsucc=False, showgraph=True, showdmgmods=False, grouped=1):
@@ -456,9 +423,6 @@ def chances(selector, modifier=0, number_of_quantiles=None, mode=0, interactive=
         else:  # elif mode < 0:
             fy = [(total - sum(vals[:i])) / total for i in range(len(vals))]
 
-        fx = sorted(list(occurrences.keys()))
-        f = interp1d(fx, fy, kind=2, bounds_error=False, fill_value=0)
-
         plt.figure()
         plt.bar(
             range(1, len(occurrences.values()) + 1),
@@ -467,35 +431,8 @@ def chances(selector, modifier=0, number_of_quantiles=None, mode=0, interactive=
             alpha=0.75,
             linewidth=1,
         )
-        linx = numpy.linspace(
-            1, max(occurrences.keys()) + 1, max(occurrences.keys()) * 10
-        )
-        integratedsum = 1
-        quantiles = [0]
-        if number_of_quantiles:
-            yield "calculating integrals"
-            tries = 0
-            while tries < 3:
-                n = -1
-                try:
-                    n = max(min(int(number_of_quantiles), 100), 0) + 1
-                    quantiles = [0]
-                    for q in [1 / n for _ in range(n - 1)]:
-                        quantiles.append(
-                            fsolve(
-                                func=helper(f, integratedsum, q, quantiles[-1]),
-                                x0=numpy.array([quantiles[-1]] if quantiles[-1] else 1),
-                            )
-                        )
-                    tries += 3
-                except Exception as e:
-                    logging.exception(f"exception in calculating integrals {n}:", e)
-                    raise
         yield "finalizing graph"
-        plt.plot(linx, f(linx), "--")
         buf = io.BytesIO()
-        for q in quantiles[1:]:
-            plt.axvline(q)
         if max(occurrences.keys()) < 31:
             plt.xticks(list(range(1, max(occurrences.keys()) + 1)))
         plt.ylim(ymin=0.0)

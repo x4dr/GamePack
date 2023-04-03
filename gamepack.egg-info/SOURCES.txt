@@ -1,6 +1,7 @@
 LICENSE
 setup.py
 gamepack/Armor.py
+gamepack/Calc.py
 gamepack/Cards.py
 gamepack/Dice.py
 gamepack/DiceParser.py

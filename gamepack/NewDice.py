@@ -1,5 +1,4 @@
 import logging
-import numpy
 import numpy as np
 
 
@@ -182,7 +181,7 @@ class DiceInterpretation:
 class Dice:
     def __init__(
         self,
-        amount: numpy.ndarray | list[int] | float | int,
+        amount: np.ndarray | list[int] | float | int,
         sides: int,
         sort=False,
         rerolls=0,
@@ -194,12 +193,12 @@ class Dice:
         self.explode = explode
         self.literal = False
         self.rolled = False
-        if isinstance(amount, (int, numpy.integer, float)):
+        if isinstance(amount, (int, np.integer, float)):
             self.amount = int(amount)
         elif amount is None:
             self.amount = 0
         else:
-            self.r = numpy.array(amount)
+            self.r = np.array(amount)
             self.literal = True
             self.rolled = True
             self.amount = self.r.size
@@ -238,7 +237,7 @@ class Dice:
 
         if amount + abs(self.rerolls):
             self.r = (
-                numpy.random.randint(1, self.max + 1, amount + abs(self.rerolls))
+                np.random.randint(1, self.max + 1, amount + abs(self.rerolls))
                 if self.max > 0
                 else None
             )
@@ -250,12 +249,12 @@ class Dice:
         self.explosions = 0
 
         while self.explosions < (
-            exp := numpy.count_nonzero(
+            exp := np.count_nonzero(
                 self.r[abs(self.rerolls) + amount :] > (self.max - self.explode)
             )
         ):
-            self.r = numpy.append(
-                self.r, numpy.random.random_integers(1, self.max, exp - self.explosions)
+            self.r = np.append(
+                self.r, np.random.random_integers(1, self.max, exp - self.explosions)
             )
             self.explosions = exp
 
