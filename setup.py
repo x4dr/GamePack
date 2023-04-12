@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="gamepack",
-    version="0.1.4",
+    version="0.2",
     description="factored out game related stuff from NossiNet",
     url="https://github.com/x4dr/gamepack",
     author="Maric",

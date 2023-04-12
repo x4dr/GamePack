@@ -1,5 +1,6 @@
 import logging
 import re
+from collections import deque
 from typing import List, Union, Dict
 
 from gamepack import Calc
@@ -11,6 +12,7 @@ from gamepack.RegexRouter import (
 )
 
 logger = logging.getLogger(__name__)
+math_formula_regex = re.compile(r"(\b\d[\d\s+/*-]+\d\b)")
 
 
 class DiceCodeError(Exception):
@@ -67,7 +69,6 @@ class Node:
                 pos = self.code.find(paren)
                 key = ((pos - 1, pos + len(paren) + 1), "(" + paren + ")")
                 self.dependent[key] = Node(paren, self.depth + 1)
-
                 self.dependent[key].do = True
             unparsed = unparsed[len(paren) + 2 :]
         if not self.dependent:
@@ -78,27 +79,19 @@ class Node:
 
     @staticmethod
     def calc(to_calculate):
-        def ub(m):
-            while "  " in m:
-                m = m.replace("  ", " ")
-            return m
-
         if isinstance(to_calculate, str):
             to_calculate = to_calculate.strip()
         elif isinstance(to_calculate, list):
             to_calculate = " ".join(to_calculate)
         else:
             raise TypeError("parameter was not str or list", to_calculate)
-
-        to_calculate.strip()
-        to_calculate = re.sub(r"(?<=\d)\s+(?=\d)", "+", to_calculate)
-        to_calculate = re.sub(
-            r"(\s*\d*\s*[-*+/]*\s*(\d+)\b)+",
-            lambda x: " " + str(Calc.evaluate(x.group().strip(), {})) + " ",
-            to_calculate,
+        # replace any amount of whitespace with just one space
+        to_calculate = re.sub(r"\s+", " ", to_calculate)
+        to_calculate = math_formula_regex.sub(
+            lambda x: str(Calc.evaluate(x.group(), frozenset())), to_calculate
         )
 
-        return ub(to_calculate).strip()
+        return to_calculate
 
     @property
     def is_leaf(self):
@@ -113,7 +106,7 @@ class Node:
 
 class DiceParser:
     lp: "DiceParser"
-    rolllogs: List[Dice]
+    rolllogs: deque[Dice]
     regexrouter = RegexRouter()
 
     def __init__(self, defines=None, lastroll=None, lastparse=None):
@@ -127,9 +120,16 @@ class DiceParser:
             "returnfun": "sum",
         }  # threshhold basic
         self.defines.update(defines or {})
-        self.rolllogs = []  # if the last roll isn't interesting
-        self.lr = lastroll or []
+        self.define_regex = self.update_define_regex()
+        self.rolllogs = deque(maxlen=100)  # if the last roll isn't interesting
+        self.lr = deque(lastroll or [], maxlen=5)
         self.lp = lastparse or None
+
+    def update_define_regex(self):
+        self.define_regex = re.compile(
+            r"\b" + "|".join(map(re.escape, self.defines.keys())) + r"\b"
+        )
+        return self.define_regex
 
     @staticmethod
     @regexrouter.register(re.compile(r"^(?P<returnfun>(-?\d+(\s*,\s*)?)+\s*@)"))
@@ -143,7 +143,7 @@ class DiceParser:
             return {"sides": int(matches["sides"])}
 
     @staticmethod
-    @regexrouter.register(re.compile(r"(?<=[\d-])[rR]\s*(?P<rerolls>-?\s*\d+)"))
+    @regexrouter.register(re.compile(r"(?<=[\d-])\s*[rR]\s*(?P<rerolls>-?\s*\d+)"))
     def extract_reroll(matches):
         if matches.get("rerolls", ""):
             return {"rerolls": int(matches["rerolls"].replace(" ", ""))}
@@ -240,15 +240,20 @@ class DiceParser:
         fullparams = self.defines.copy()
         fullparams.update(params)
         a = fullparams.get("amount", "")
-        if a and isinstance(a, str) and a.count("-") == len(a):
+        if (
+            a
+            and isinstance(a, str)
+            and a.count("-") == len(a)
+            and len(a) <= len(self.lr)
+        ):
             fullparams["amount"] = self.lr[-len(a)].r[:]
         d = Dice(**fullparams)
-        self.lr = self.lr + [d]
+        self.lr.append(d)
         return d
 
     def resolveroll(self, roll: Union[Node, str], depth) -> Node:
         """
-        Step in resolving
+        Step in resolvin
         :param roll:  strings will automatically be made into rollNodes, if applicable
         :param depth: anti-infinite-recursion
         :return: Node with dependents populated, resolved and the code changed to reflect
@@ -482,30 +487,32 @@ class DiceParser:
                 if val.startswith("(") and val.endswith(")"):
                     val = str(self.do_roll(val[1:-1]).result)
                 self.defines[p] = val  # and write it into the defines
+
         for kv in triggerreplace:
             change = True
             roll = roll.replace(kv[0], kv[1], 1)
         return roll, change
 
-    def resolvedefines(self, roll: Node, used=None) -> None:
+    def resolvedefines(self, roll: Node, used: List[str] = None) -> None:
         used = used or []
+        if not used:
+            self.update_define_regex()
         while roll.depth < 1000:
-            for k, v in self.defines.items():
-                if k in used:
+            matches = self.define_regex.finditer(roll.code)
+            for match in matches:
+                key = (match.span(), match.group(0))
+                if key[1] in used:
                     continue
-                matches = re.finditer(r"\b" + re.escape(k) + r"\b", roll.code)
-                for match in matches:
-                    key = (match.span(), k)
-                    skip = False
-                    for other in roll.dependent.keys():
-                        if tuple_overlap(other[0], key[0]):
-                            skip = True  # this is in another define
-                    if skip:
-                        continue
-                    new = Node(v, roll.depth + 1)
-                    self.resolvedefines(new, used + [k])
-                    new.do = False
-                    roll.dependent[key] = new
+                skip = False
+                for other in roll.dependent.keys():
+                    if tuple_overlap(other[0], key[0]):
+                        skip = True  # this is in another define
+                if skip:
+                    continue
+                new = Node(self.defines[key[1]], roll.depth + 1)
+                self.resolvedefines(new, used + [key[1]])
+                new.do = False
+                roll.dependent[key] = new
 
             else:
                 break
@@ -564,3 +571,25 @@ def fullparenthesis(
         + (len(closing) if include else 0)
     ]
     return result
+
+
+def fast_fullparenthesis(text: str) -> str:
+    """
+    Finds the text within a parenthesis (only for opening='(' and closing=')')
+    :param text: the text to be searched
+    :return: text between first opening token and first matching closing token or raises ValueError
+    if an unmatched opening parenthesis is found
+    """
+    if "(" not in text:
+        return ""
+    i = text.index("(") + 1
+    lvl = 1
+    while lvl > 0 and i < len(text):
+        if text[i] == "(":
+            lvl += 1
+        elif text[i] == ")":
+            lvl -= 1
+        i += 1
+    if lvl > 0:
+        raise ValueError("unmatched '(' in text: " + text)
+    return text[text.index("(") + 1 : i - 1]

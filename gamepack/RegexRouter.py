@@ -48,5 +48,7 @@ class RegexRouter:
                 result[k] = v
         if require:
             if any(unused):
-                raise PartialMatchException("Not a Full match")
+                raise PartialMatchException(
+                    f"Not a Full match! leftover: {''.join(unused)}"
+                )
         return result

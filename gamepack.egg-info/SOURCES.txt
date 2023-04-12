@@ -12,6 +12,7 @@ gamepack/MDPack.py
 gamepack/NewDice.py
 gamepack/RegexRouter.py
 gamepack/__init__.py
+gamepack/fasthelpers.py
 gamepack/fengraph.py
 gamepack/generate_dmgmods.py
 gamepack.egg-info/PKG-INFO
@@ -154,3 +155,11 @@ gamepack/data/roll_frequencies_3.csv
 gamepack/data/roll_frequencies_4.csv
 gamepack/data/roll_frequencies_5.csv
 gamepack/data/unordered_data
+tests/test_Dice.py
+tests/test_DiceParser.py
+tests/test_DiceProcessor.py
+tests/test_FenCharacter.py
+tests/test_NewDice.py
+tests/test_fengraph.py
+tests/test_independency.py
+tests/test_performance.py

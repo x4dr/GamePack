@@ -254,3 +254,6 @@ class TestDiceParser(TestCase):
 
     def test_project(self):
         self.assertLess(int(self.p.project("1 10")), 10)
+
+    def test_regexroute(self):
+        self.p.regexrouter.run("3 ,4 @5 R2", True)
