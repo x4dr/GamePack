@@ -1,19 +1,9 @@
 import importlib.resources
 import pathlib
-import pickle
+import sqlite3
 
 
-def get_str(res):
-    with importlib.resources.open_text("gamepack.data", pathlib.Path(res)) as data:
-        return data.read()
-
-
-def get_roll_freq_dict(mod):
-    lines = get_str(f"roll_frequencies_{mod}.csv")
-    return {
-        tuple(x[:5]): int(x[5])
-        for x in [[int(z) for z in y.split(",")] for y in lines.splitlines()]
-    }
+cache = []
 
 
 def handle(res):
@@ -27,32 +17,18 @@ def handle(res):
         return path.as_posix()
 
 
-def check(res):
-    try:
-        with importlib.resources.path("gamepack.data", pathlib.Path(res)) as path:
-            return path.as_posix()
-    except FileNotFoundError:
-        return ""
+def dicecache_db() -> sqlite3.Connection:
+    """db connection singleton"""
+    if cache:
+        return cache[0]
+    dbpath = handle("dicecache.sqlite")
+    cache.append(sqlite3.connect(dbpath))
+    cache[0].cursor().executescript(
+        "create table if not exists occurences (sel TEXT, mod INT, res INT, occ INT);"
+        "create index if not exists sel on occurences (sel, mod);"
+        "create table if not exists versus (sel1 TEXT, sel2 TEXT, mod1 INT, mod2 INT, res INT, occ BLOB);"
+        "create index if not exists sel1 on versus (sel1, sel2, mod1, mod2);"
+    )
+    cache[0].commit()
 
-
-def append(res, d):
-    with open(handle(res), "a") as data:
-        data.write(d)
-
-
-def set_str(res, d):
-    with open(handle(res), "w") as data:
-        data.write(d)
-
-
-def write(name, obj):
-    with open(handle(name), "wb") as data:
-        pickle.dump(obj, data)
-
-
-def read(name):
-    try:
-        with open(handle(name), "rb") as data:
-            return pickle.load(data)
-    except EOFError:
-        return None
+    return cache[0]

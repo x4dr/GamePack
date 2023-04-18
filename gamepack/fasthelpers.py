@@ -1,11 +1,7 @@
-import ast
 import math
 import time
 
-from gamepack.Dice import DescriptiveError
-from gamepack.data import get_str
 from gamepack.DiceParser import DiceParser
-from gamepack.generate_dmgmods import tuplecombos
 
 
 def montecarlo(roll):
@@ -83,24 +79,6 @@ def plot(data, showsucc=False, showgraph=True, showdmgmods=False, grouped=1):
         res += "dmgmods(adjusted):\n"
         res += str(data[i] / success for i in range(1, highest + 1)) + "\n"
     return res
-
-
-def versus(part1, part2, mode):
-    yield "processing..."
-    mod1, mod2 = part1[2], part2[2]
-    data = get_str(f"5d10r{mod1}vr{mod2}_ordered_data")
-    yield "load complete..."
-    stat1 = tuple(sorted([int(x) for x in part1[:2]], reverse=True))
-    stat2 = tuple(sorted([int(x) for x in part2[:2]], reverse=True))
-    index = tuplecombos.index((stat1, stat2))
-    occurences = ast.literal_eval(data.splitlines()[index])
-    if occurences[0] != (stat1, stat2):
-        raise DescriptiveError(
-            f"possible corruption: expected {(stat1,stat2)} found {occurences[0]}"
-        )
-    yield "data found..."
-    occurences = occurences[1]  # only the dict is now relevant
-    yield ascii_graph(occurences, mode)
 
 
 def ascii_graph(occurrences: dict, mode: int):

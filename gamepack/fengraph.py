@@ -1,62 +1,96 @@
-import ast
+import collections
 import io
-import json
 import logging
 import math
+import multiprocessing
 import pathlib
-import sqlite3
-from _md5 import md5
-from math import ceil
-from typing import Dict, List, Union, Tuple
+from collections import Counter
+from itertools import combinations_with_replacement, product
+from math import ceil, factorial
+from typing import Dict
 
 import matplotlib.pyplot as plt
 import requests
 
-from gamepack.Armor import Armor
 from gamepack.Dice import DescriptiveError
-from gamepack.data import get_str, set_str, handle
+from gamepack.data import dicecache_db
 from gamepack.fasthelpers import ascii_graph
-from gamepack.generate_dmgmods import generate
 
 log = logging.Logger("fengraph")
 
 
-# noinspection PyDefaultArgument
-def dicecache_db(cache=[]) -> sqlite3.Connection:
-    """db connection singleton"""
-
-    if cache:
-        return cache[0]
-    dbpath = handle("dicecache")
-    cache.append(sqlite3.connect(dbpath))
-    cache[0].cursor().executescript(
-        "create table if not exists results (sel TEXT, mod INT, res TEXT);"
-    )
-    cache[0].commit()
-
-    return cache[0]
-
-
-def fastdata(selector: tuple[int], mod: int):
-    if mod not in range(-5, 6):
+def fastdata(selector: tuple[int, ...], mod: int):
+    if mod not in freq_dicts:
         return
     db = dicecache_db()
     res = db.execute(
-        "SELECT res FROM results WHERE sel = ? AND mod = ?", [str(selector), mod]
-    ).fetchone()
+        "SELECT res, occ FROM occurences WHERE sel = ? AND mod = ?",
+        [str(selector), mod],
+    ).fetchall()
     if res:
-        return {int(k): int(v) for k, v in json.loads(res[0]).items()}
+        return {int(r[0]): r[1] for r in res}
     for mod in range(-5, 6):
         occ = {k: 0 for k in range(1, 10 * len(selector) + 1)}
-        for roll, frequency in dataset(mod).items():
+        for roll, frequency in freq_dicts[mod].items():
             k = sum(roll[s - 1] for s in selector if 0 < s < 6)
             occ[int(k)] += int(frequency)
-        db.execute(
-            "INSERT INTO results VALUES (?,?,?)",
-            [str(selector), int(mod), json.dumps(occ)],
-        )
+            for result, occurrence in occ.items():
+                db.execute(
+                    "INSERT INTO occurences VALUES (?,?,?,?)",
+                    [str(selector), int(mod), result, occurrence],
+                )
     db.commit()
     return fastdata(selector, mod)
+
+
+def fastversus(
+    selector1: tuple[int, ...], selector2: tuple[int, ...], mod1: int, mod2: int
+) -> Dict[int, int]:
+    db = dicecache_db()
+    res = db.execute(
+        "SELECT res, occ FROM versus WHERE sel1 = ? AND sel2 = ? AND mod1 = ? AND mod2 = ?",
+        [str(selector1), str(selector2), mod1, mod2],
+    ).fetchall()
+    if res:
+        return {int(r[0]): int.from_bytes(r[1], "big") for r in res}
+    # ensure all elements of both selectors are within the range of the dice
+    if any(s < 0 or s > 6 for s in selector1 + selector2):
+        raise ValueError("selector out of range")
+
+    occ = collections.defaultdict(lambda: 0)
+    for roll1, frequency1 in freq_dicts[mod1].items():
+        for roll2, frequency2 in freq_dicts[mod2].items():
+            k = sum(roll1[s - 1] for s in selector1) - sum(
+                roll2[s - 1] for s in selector2
+            )
+            occ[int(k)] += int(frequency1 * frequency2)
+    for result, occurrence in occ.items():
+        db.execute(
+            "INSERT INTO versus VALUES (?,?,?,?,?,?)",
+            [
+                str(selector1),
+                str(selector2),
+                int(mod1),
+                int(mod2),
+                result,
+                occurrence.to_bytes(24, "big").lstrip(b"\x00"),
+            ],
+        )
+    db.commit()
+    return fastversus(selector1, selector2, mod1, mod2)
+
+
+def versus(
+    selectors1: tuple[int, ...],
+    selectors2: tuple[int, ...],
+    mod1: int = 0,
+    mod2: int = 0,
+    mode: int = 0,
+):
+    yield "processing..."
+    occurences = fastversus(selectors1, selectors2, mod1, mod2)
+    yield "data found..."  # only the dict is now relevant
+    yield ascii_graph(occurences, mode)
 
 
 def modify_dmg(specific_modifiers, dmg, damage_type, armor):
@@ -92,143 +126,6 @@ def modify_dmg(specific_modifiers, dmg, damage_type, armor):
     return total_damage
 
 
-def supply_graphdata():
-    dmgtypes = ["Hacken", "Stechen", "Schneiden", "Schlagen"]
-    weapons = weapondata()
-    armormax = 14
-    wmd5 = md5(str(weapons).encode("utf-8")).hexdigest()
-    damages: Dict[str, Dict[str, List[Dict[str, Dict[str, float]]]]] = {}
-    try:
-        f = get_str("weaponstuff_internal").splitlines()
-        nmd5 = f[0]
-        if str(nmd5).strip() == str(wmd5).strip():
-            with open("NossiSite/static/graphdata.json") as g:
-                if str(wmd5) in g.read(
-                    len(str(wmd5) * 2)
-                ):  # find hash at the beginning of the json
-                    return
-            damages = ast.literal_eval("\n".join(f[1:]))
-        else:
-            logging.debug(
-                f"fengraph hashes: {str(nmd5).strip()} != "
-                f"{str(wmd5).strip()}, so graphdata will be regenerated"
-            )
-            damages = {}
-    except SyntaxError as e:
-        logging.debug(f"syntax error in weaponstuff_internal, regenerating: {e.msg}")
-    except FileNotFoundError:
-        damages = {}
-        # regenerate and write weaponstuff
-    maxdmg = 0
-    if not damages:
-        modifiers = {}
-        try:
-            lines = get_str("5d10r0vr0_ordered_data")
-        except FileNotFoundError:
-            generate(0, 0)
-            lines = get_str("5d10r0vr0_ordered_data")
-
-        for line in lines.splitlines():
-            line = ast.literal_eval(line)
-            total = sum(line[1].values())
-            zero_excluded_positive = [line[1].get(i, 0) for i in range(1, 21)]
-            zepc = zero_excluded_positive[:9] + [sum(zero_excluded_positive[9:])]
-            zepc_relative = [x / total for x in zepc]
-            modifiers[line[0]] = zepc_relative
-
-        logging.debug("regenerating weapon damage data")
-        for stats, modifier in modifiers.items():
-            statstring1 = " ".join(str(x) for x in stats[0])
-            statstring2 = " ".join(str(x) for x in stats[1])
-            damages[statstring1] = damages.get(statstring1, {})
-            damages[statstring1][statstring2] = []
-            damage = damages[statstring1][statstring2]  # reduce length of calling stuff
-            logging.debug(f"damage data: {stats}, {modifier}")
-            for i in range(armormax):
-                damage.append({})
-                for w, wi in weapons.items():
-                    damage[-1][w] = {}
-                    for d, di in wi.items():
-                        damage[-1][w][d] = modify_dmg(modifier, di, d, i)
-        logging.debug("writing weaponstuff...")
-        set_str("weaponstuff_internal", str(wmd5) + "\n" + str(damages))
-
-    comparison_json: Dict[
-        str, Union[List[str], Dict[str, List[List[List[float]]]], float, int]
-    ] = {
-        "Hash": wmd5,
-        "Names": list(weapons.keys()),
-        "Types": list(dmgtypes),
-    }
-    attackerstat: str
-    for attackerstat, defender in sorted(damages.items()):
-        attackdict = {}
-        defenderstat: str
-        for defenderstat, damage in defender.items():
-            damagematrix = []
-            per_armor: Dict[str, Dict[str, float]]
-            for per_armor in damage:
-                logging.debug(str(per_armor))
-                dmg_per_dmgtype: List[List[float]] = [
-                    [per_armor[weapon][damagetype] for weapon in list(weapons.keys())]
-                    for damagetype in dmgtypes
-                ]
-
-                damagematrix.append(dmg_per_dmgtype)
-                candidates = max(
-                    x
-                    for x in [
-                        [
-                            per_armor[weapon][damagetype]
-                            for weapon in comparison_json["Names"]
-                        ]
-                        for damagetype in dmgtypes
-                    ]
-                )
-                nm = max(candidates)
-                logging.debug(f"{nm}, {maxdmg}")
-                if nm > maxdmg:
-                    logging.debug(f"updating maxdmg to {nm}")
-                    maxdmg = nm
-            attackdict[defenderstat]: List[List[List[float]]] = damagematrix
-        comparison_json[attackerstat] = attackdict
-    comparison_json["max"] = math.ceil(maxdmg)
-    with open("NossiSite/static/graphdata.json", "w") as f:
-        f.write(json.dumps(comparison_json))
-
-
-def weapondata():
-    dmgraw = rawload("weapons")
-    weapons = {}
-    for dmgsect in dmgraw.split("###"):
-        if not dmgsect.strip() or "[TOC]" in dmgsect:
-            continue
-        weapon = dmgsect[: dmgsect.find("\n")].strip()
-        weapons[weapon] = {}
-        for dmgline in dmgsect.split("\n"):
-            if "Wert" in dmgline or "---" in dmgline or len(dmgline) < 50:
-                continue
-            if "|" not in dmgline:
-                break
-            dmgtype = dmgline[dmgline.find("[") + 1 : dmgline.find("]")].strip()
-            weapons[weapon][dmgtype] = dmgline[35:]
-        if "##" in dmgsect:
-            break
-
-    dmgtypes = set()
-    for weapon, wi in weapons.items():
-        for dt in wi.keys():
-            dmgtypes.add(dt)
-
-    for weapon, wi in weapons.items():
-        for dt in dmgtypes:
-            wi[dt] = [
-                [int(y) for y in x.split(";")] if x.strip() else [0]
-                for x in wi.get(dt, "|" * 11).split("|")
-            ]
-    return weapons
-
-
 def rawload(page) -> str:
     try:
         with pathlib.Path.expanduser(pathlib.Path(f"~/wiki/{page}.md")).open() as f:
@@ -237,31 +134,6 @@ def rawload(page) -> str:
         r = requests.get(f"https://nosferatu.vampir.es/wiki/{page}/raw")
         logging.exception(f"loaded {page}.md via web, because", e)
         return r.content.decode()
-
-
-def armordata() -> Dict[str, Armor]:
-    armraw = rawload("armor")
-    armor = {}
-    begun = 0
-    for armline in armraw.splitlines():
-        if begun and "|" not in armline:
-            break
-        elif "|" not in armline:
-            continue
-        begun += 1
-        if begun > 2:
-            a = Armor.from_formatted(armline)
-            armor[a.name] = a
-    return armor
-
-
-def dataset(modifier: int) -> Dict[Tuple[int, ...], int]:
-    with open(handle("roll_frequencies_" + str(modifier) + ".csv")) as f:
-        result = {}
-        for line in f.readlines():
-            line = line.strip().split(",")
-            result[tuple(int(x) for x in line[:-1])] = int(line[-1])
-        return result
 
 
 def chances(selector, modifier=0, number_of_quantiles=None, mode=0, interactive=False):
@@ -316,5 +188,65 @@ def chances(selector, modifier=0, number_of_quantiles=None, mode=0, interactive=
         yield buf
 
 
+def count_sorted_rolls(num_dice, num_sides):
+    counts = {}
+    for roll in combinations_with_replacement(range(1, num_sides + 1), num_dice):
+        c = Counter(roll)
+        result = factorial(num_dice)
+        for count in c.values():
+            result //= factorial(count)
+        counts[roll] = result
+    return counts
+
+
+def count_lowest_rolls(counts, subselection):
+    new_counts = {}
+    k = -subselection
+    for roll, count in counts.items():
+        sorted_roll = tuple(sorted(sorted(roll, reverse=k < 0)[: abs(k)]))
+        if sorted_roll not in new_counts:
+            new_counts[sorted_roll] = 0
+        new_counts[sorted_roll] += count
+    return new_counts
+
+
+# takes about half a second
+basesets = {i: count_sorted_rolls(i, 10) for i in range(5, 11)}
+freq_dicts = {
+    i: count_lowest_rolls(basesets[5 + abs(i)], 5 if i > 0 else -5)
+    for i in range(-5, 6)
+}
+
+
+def crunch(x):
+    (i, j, k, l), (m, n) = x
+    *_, last = versus((i, j), (k, l), m, n)
+    return last, i, j, k, l, m, n
+
+
+def progress_report(x):
+    last, i, j, k, l, m, n = x
+    maximum = 5**4 * 11**2
+    m_index = m + 5
+    n_index = n + 5
+    done = (
+        ((((i - 1) * 5 + (j - 1)) * 5 + (k - 1)) * 5 + (l - 1)) * 11**2
+        + m_index * 11
+        + n_index
+    )
+    print(f"{i},{j}@{m} vs {k},{l}@{n} = {last}")
+    print(f"{done}/{maximum} = {done / maximum * 100:.2f}% done")
+
+
 if __name__ == "__main__":
-    supply_graphdata()
+    # multiprocessing!
+    with multiprocessing.Pool(processes=30) as pool:
+        # zip through all possible combinations
+        jobs = product(product(range(1, 6), repeat=4), product(range(-5, 6), repeat=2))
+        tasks = pool.imap_unordered(crunch, jobs)
+        for i, task in enumerate(tasks):
+            if i % 100 == 0:
+                progress_report(task)
+        pool.close()
+        pool.join()
+        print("done")

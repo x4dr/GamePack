@@ -71,9 +71,5 @@ def evaluate(expression: str, variables: frozenset[Tuple[str, Any]]) -> float:
     expression = binary_whitespace_op.sub(r"\1+", expression)
     node = ast.parse(expression.strip(), "<string>", mode="eval")
     # turn the node back into code
-    try:
-        result = eval_node(node, variables)
-        return result
-    except Exception:
-        print(ast.dump(node))
-        raise
+    result = eval_node(node, variables)
+    return result
