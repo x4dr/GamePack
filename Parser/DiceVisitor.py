@@ -1,16 +1,13 @@
 # Generated from /home/maric/PycharmProjects/GamePack/Processor/Dice.g4 by ANTLR 4.9.2
-from antlr4 import *
+from antlr4 import ParseTreeVisitor
 
-if __name__ is not None and "." in __name__:
-    from .DiceParser import DiceParser
-else:
-    from DiceParser import DiceParser
+from DiceParser import DiceParser
 
 # This class defines a complete generic visitor for a parse tree produced by DiceParser.
 
 
+# noinspection PyPep8Naming
 class DiceVisitor(ParseTreeVisitor):
-
     # Visit a parse tree produced by DiceParser#returneddicecode.
     def visitReturneddicecode(self, ctx: DiceParser.ReturneddicecodeContext):
         return self.visitChildren(ctx)

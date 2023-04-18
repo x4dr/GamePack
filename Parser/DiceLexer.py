@@ -1,14 +1,18 @@
 # Generated from /home/maric/PycharmProjects/GamePack/Processor/Dice.g4 by ANTLR 4.9.2
-from antlr4 import *
+from antlr4 import (
+    Lexer,
+    ATNDeserializer,
+    DFA,
+    LexerATNSimulator,
+    PredictionContextCache,
+)
 from io import StringIO
 import sys
 
-if sys.version_info[1] > 5:
-    from typing import TextIO
-else:
-    from typing.io import TextIO
+from typing import TextIO
 
 
+# noinspection PyPep8Naming
 def serializedATN():
     with StringIO() as buf:
         buf.write("\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\2\34")
@@ -57,7 +61,6 @@ def serializedATN():
 
 
 class DiceLexer(Lexer):
-
     atn = ATNDeserializer().deserialize(serializedATN())
 
     decisionsToDFA = [DFA(ds, i) for i, ds in enumerate(atn.decisionToState)]

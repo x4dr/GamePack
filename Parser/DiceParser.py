@@ -1,15 +1,24 @@
 # Generated from /home/maric/PycharmProjects/GamePack/Processor/Dice.g4 by ANTLR 4.9.2
 # encoding: utf-8
-from antlr4 import *
+from antlr4 import (
+    Parser,
+    ATNDeserializer,
+    DFA,
+    PredictionContextCache,
+    Token,
+    TokenStream,
+    ParserATNSimulator,
+    RecognitionException,
+    NoViableAltException,
+)
+from antlr4.tree.Tree import ParserRuleContext, ParseTreeListener, ParseTreeVisitor
 from io import StringIO
 import sys
 
-if sys.version_info[1] > 5:
-    from typing import TextIO
-else:
-    from typing.io import TextIO
+from typing import TextIO
 
 
+# noinspection PyPep8Naming
 def serializedATN():
     with StringIO() as buf:
         buf.write("\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\3\34")
@@ -68,8 +77,8 @@ def serializedATN():
         return buf.getvalue()
 
 
+# noinspection PyShadowingBuiltins,PyPep8Naming
 class DiceParser(Parser):
-
     grammarFileName = "Dice.g4"
 
     atn = ATNDeserializer().deserialize(serializedATN())
@@ -195,12 +204,14 @@ class DiceParser(Parser):
 
     def __init__(self, input: TokenStream, output: TextIO = sys.stdout):
         super().__init__(input, output)
+        self._la = 0
         self.checkVersion("4.9.2")
         self._interp = ParserATNSimulator(
             self, self.atn, self.decisionsToDFA, self.sharedContextCache
         )
         self._predicates = None
 
+    # noinspection PyPep8Naming,PyMethodMayBeStatic
     class ReturneddicecodeContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -240,7 +251,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def returneddicecode(self):
-
         localctx = DiceParser.ReturneddicecodeContext(self, self._ctx, self.state)
         self.enterRule(localctx, 0, self.RULE_returneddicecode)
         self._la = 0  # Token type
@@ -263,7 +273,7 @@ class DiceParser(Parser):
                 self.state = 31
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if ((_la) & ~0x3F) == 0 and (
+                if (_la & ~0x3F) == 0 and (
                     (1 << _la)
                     & (
                         (1 << DiceParser.T__0)
@@ -295,6 +305,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming,PyMethodMayBeStatic
     class ExplosionContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -328,7 +339,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def explosion(self):
-
         localctx = DiceParser.ExplosionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 2, self.RULE_explosion)
         self._la = 0  # Token type
@@ -354,6 +364,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming
     class RerolleddicecodeContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -393,7 +404,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def rerolleddicecode(self):
-
         localctx = DiceParser.RerolleddicecodeContext(self, self._ctx, self.state)
         self.enterRule(localctx, 4, self.RULE_rerolleddicecode)
         self._la = 0  # Token type
@@ -425,6 +435,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming
     class DicecodeContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -464,7 +475,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def dicecode(self):
-
         localctx = DiceParser.DicecodeContext(self, self._ctx, self.state)
         self.enterRule(localctx, 6, self.RULE_dicecode)
         self._la = 0  # Token type
@@ -517,6 +527,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming
     class DicesetContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -562,7 +573,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def diceset(self):
-
         localctx = DiceParser.DicesetContext(self, self._ctx, self.state)
         self.enterRule(localctx, 8, self.RULE_diceset)
         self._la = 0  # Token type
@@ -595,6 +605,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming
     class SelectorContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -637,7 +648,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def selector(self):
-
         localctx = DiceParser.SelectorContext(self, self._ctx, self.state)
         self.enterRule(localctx, 10, self.RULE_selector)
         self._la = 0  # Token type
@@ -667,6 +677,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming
     class DiceamountContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -703,7 +714,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def diceamount(self):
-
         localctx = DiceParser.DiceamountContext(self, self._ctx, self.state)
         self.enterRule(localctx, 12, self.RULE_diceamount)
         self._la = 0  # Token type
@@ -741,6 +751,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming
     class AddExpressionContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -786,7 +797,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def addExpression(self):
-
         localctx = DiceParser.AddExpressionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 14, self.RULE_addExpression)
         self._la = 0  # Token type
@@ -797,7 +807,7 @@ class DiceParser(Parser):
             self.state = 99
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while ((_la) & ~0x3F) == 0 and (
+            while (_la & ~0x3F) == 0 and (
                 (1 << _la)
                 & (
                     (1 << DiceParser.LPAREN)
@@ -833,6 +843,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming
     class MultiplyExpressionContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -878,7 +889,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def multiplyExpression(self):
-
         localctx = DiceParser.MultiplyExpressionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 16, self.RULE_multiplyExpression)
         self._la = 0  # Token type
@@ -911,6 +921,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming
     class PowExpressionContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -950,7 +961,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def powExpression(self):
-
         localctx = DiceParser.PowExpressionContext(self, self._ctx, self.state)
         self.enterRule(localctx, 18, self.RULE_powExpression)
         self._la = 0  # Token type
@@ -978,6 +988,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming
     class SignedAtomContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -1017,7 +1028,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def signedAtom(self):
-
         localctx = DiceParser.SignedAtomContext(self, self._ctx, self.state)
         self.enterRule(localctx, 20, self.RULE_signedAtom)
         try:
@@ -1054,6 +1064,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming
     class AtomContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -1096,7 +1107,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def atom(self):
-
         localctx = DiceParser.AtomContext(self, self._ctx, self.state)
         self.enterRule(localctx, 22, self.RULE_atom)
         try:
@@ -1133,6 +1143,7 @@ class DiceParser(Parser):
             self.exitRule()
         return localctx
 
+    # noinspection PyPep8Naming
     class ReturnfunContext(ParserRuleContext):
         __slots__ = "parser"
 
@@ -1163,7 +1174,6 @@ class DiceParser(Parser):
                 return visitor.visitChildren(self)
 
     def returnfun(self):
-
         localctx = DiceParser.ReturnfunContext(self, self._ctx, self.state)
         self.enterRule(localctx, 24, self.RULE_returnfun)
         try:

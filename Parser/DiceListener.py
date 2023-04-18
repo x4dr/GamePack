@@ -1,14 +1,11 @@
 # Generated from /home/maric/PycharmProjects/GamePack/Processor/Dice.g4 by ANTLR 4.9.2
-from antlr4 import *
+from antlr4 import ParseTreeListener
+from DiceParser import DiceParser
 
-if __name__ is not None and "." in __name__:
-    from .DiceParser import DiceParser
-else:
-    from DiceParser import DiceParser
 
 # This class defines a complete listener for a parse tree produced by DiceParser.
+# noinspection PyPep8Naming
 class DiceListener(ParseTreeListener):
-
     # Enter a parse tree produced by DiceParser#returneddicecode.
     def enterReturneddicecode(self, ctx: DiceParser.ReturneddicecodeContext):
         pass
