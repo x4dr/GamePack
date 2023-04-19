@@ -1,7 +1,9 @@
 name: Validation
+
 on:
   - push
   - pull_request
+
 jobs:
   test:
     name: Test-Suite
@@ -31,6 +33,20 @@ jobs:
         with:
           name: coverage_report
           path: report.txt
+      - name: Coveralls Parallel
+        uses: coverallsapp/github-action@v2
+        with:
+          flag-name: run-linux-py311
+          parallel: true
+  finish:
+    needs: test
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true
 
   Lint:
     name: Pre-Commit Hooks that should have been run by committer

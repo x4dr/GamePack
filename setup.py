@@ -10,7 +10,12 @@ setup(
     license="GPLv3",
     packages=["gamepack"],
     package_data={"gamepack": ["data/*"]},
-    install_requires=["numpy", "matplotlib", "requests"],
+    install_requires=[
+        "numpy",
+        "matplotlib",
+        "requests",
+        "antlr4-python3-runtime==4.9.2",
+    ],
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Internal",

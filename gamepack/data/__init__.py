@@ -9,7 +9,9 @@ cache = []
 def handle(res):
     path: pathlib.Path
     try:
-        with importlib.resources.path("gamepack.data", pathlib.Path(res)) as path:
+        with importlib.resources.files("gamepack.data").joinpath(
+            pathlib.Path(res)
+        ) as path:
             return path.as_posix()
     except FileNotFoundError as e:
         path = pathlib.Path(e.filename)
