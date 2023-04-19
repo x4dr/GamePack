@@ -1,5 +1,6 @@
 import random
 from unittest import TestCase
+from unittest.mock import Mock
 
 from gamepack.DiceParser import (
     DiceParser,
@@ -7,6 +8,7 @@ from gamepack.DiceParser import (
     fullparenthesis,
     DiceCodeError,
     DescriptiveError,
+    MessageReturn,
 )
 
 
@@ -112,6 +114,8 @@ class TestDiceParser(TestCase):
     def test_parseadd(self):
         a = ["d", "4", "3", "9", "+", "1", "g", "1", "-1"]
         self.assertEqual(Node.calc(a), "d 17 g 0")
+        with self.assertRaises(TypeError):
+            Node.calc(3)
 
     def test_param(self):
         a = "&param hit& (5d hit g) - 4 =  1"
@@ -257,3 +261,91 @@ class TestDiceParser(TestCase):
 
     def test_regexroute(self):
         self.p.regexrouter.run("3 ,4 @5 R2", True)
+
+    def test_resonances(self):
+        # create a DiceParser object
+        dp = DiceParser()
+        dp.last_parse = DiceParser()
+        dp.last_parse.do_roll("3d10f6")
+        random.seed(0)
+        rolls = [
+            [1, 2, 3, 4, 4],
+            [1, 3, 3, 4, 4],
+            [1, 2, 3, 4, 5],
+            [1, 2, 2, 2, 2],
+            [1, 10, 3, 10, 4],
+            [1, 1, 1, 1, 1],
+            [2, 2, 2, 2, 2],
+            [3, 3, 3, 3, 3],
+            [4, 4, 4, 4, 4],
+            [5, 5, 5, 5, 5],
+        ]
+
+        for i in range(10):
+            dp.do_roll("3@5d10")
+            dp.last_rolls[-1].r = rolls[i]
+
+        # call the resonances method
+        res = dp.resonances()
+
+        # check the result
+        self.assertEqual(
+            res,
+            [
+                {0: 5, 4: 1},
+                {0: 2, 3: 1, 4: 1},
+                {0: 3, 1: 1, 4: 1},
+                {1: 2, 0: 2, 4: 1},
+                {0: 1, 4: 1},
+                {},
+                {},
+                {},
+                {},
+                {1: 1},
+            ],
+        )
+
+    def test_limitbreak(self):
+        result = self.p.triggerswitch("limitbreak", "")
+        self.assertEqual(result, "")
+        self.assertFalse(self.p.triggers.get("limitbreak"))
+
+        self.p.rights = ["Administrator"]
+        result = self.p.triggerswitch("limitbreak", "")
+        self.assertEqual(result, "")
+        self.assertTrue(self.p.triggers.get("limitbreak"))
+
+    def test_triggers(self):
+        self.p.do_roll = Mock()
+        self.p.do_roll.return_value.result = 2
+        self.assertEqual(self.p.triggerswitch("shift", "3"), "")
+        self.assertEqual(self.p.triggerswitch("ignore", "yes"), "")
+        self.assertEqual(self.p.triggerswitch("verbose", "off"), "")
+        result = self.p.triggerswitch("project", "3d6 10")
+        self.assertEqual(result, "5")
+        self.assertEqual(
+            self.p.triggers["project"],
+            (
+                5,  # rolls
+                10,  # current progress
+                10,  # target
+                "2 : 2 + 2 = 2\n"  # log
+                "2 : 4 + 2 = 4\n"
+                "2 : 6 + 2 = 6\n"
+                "2 : 8 + 2 = 8\n"
+                "2 : 10 + 2 = 10\n",
+            ),
+        )
+
+    def test_triggerswitch_exceptions(self):
+        with self.assertRaises(MessageReturn):
+            self.assertEqual(self.p.triggerswitch("resonances", ""), "")
+        with self.assertRaises(DescriptiveError):
+            self.assertEqual(self.p.triggerswitch("asdasd", ""), "")
+        with self.assertRaises(DescriptiveError):
+            self.assertEqual(self.p.triggerswitch("project", "1d10~ 1"), "")
+        with self.assertRaises(DescriptiveError):
+            self.assertEqual(self.p.triggerswitch("project", "dasd dd"), "")
+        with self.assertRaises(DescriptiveError) as cm:
+            self.assertEqual(self.p.triggerswitch("project", "(3 2"), "")
+        self.assertEqual(str(cm.exception), "unmatched '(' in text: (3")

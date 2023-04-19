@@ -50,11 +50,12 @@ class Resolver(DiceVisitor):
     ) -> DiceInterpretation:
         if isinstance(ctx.children[0], DiceParser.RerolleddicecodeContext):
             dice = self.visitRerolleddicecode(ctx.children[0])
-            returnfun = (
-                self.visitReturnfun(ctx.children[1]) if len(ctx.children) > 1 else None
-            )
-            if len(ctx.children) > 2:
-                dice.explode = self.visitExplosion(ctx.children[2])
+            if ctx.returnfun():
+                returnfun = self.visitReturnfun(ctx.returnfun())
+            else:
+                returnfun = None
+            if ctx.explosion():
+                dice.explode = self.visitExplosion(ctx.explosion())
             return DiceInterpretation(returnfun, dice)
         sel = self.visitSelector(ctx.children[0])
         dice = self.visitRerolleddicecode(ctx.children[1])
@@ -75,7 +76,6 @@ class Resolver(DiceVisitor):
         return ",".join(selectors) + "@"  # Dice object processes it as str for now
 
     def visitRerolleddicecode(self, ctx: DiceParser.RerolleddicecodeContext):
-
         result: Dice = self.visitDicecode(ctx.children[0])
         children = iter(ctx.children[1:])
         for x in children:

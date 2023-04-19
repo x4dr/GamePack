@@ -15,12 +15,14 @@ class MDObj:
         flash: Callable[[str], None],
         extract_tables: bool,
     ):
-
         self.plaintext = plaintext
         self.children = children
         self.tables = self.extract_tables() if extract_tables else []
         self.originalMD = original
         self.flash = flash
+
+    def __repr__(self):
+        return f"MDObj({self.plaintext}, {self.tables} {self.children})"
 
     @classmethod
     def from_md(cls, lines, level=0, flash=None, extract_tables=True) -> "MDObj":
@@ -102,7 +104,6 @@ class MDObj:
         :return: Dictionary that recursively always ends in ints
         """
         result = {}
-        processed = False
         errors = []
 
         def error(msg: str):
@@ -118,27 +119,29 @@ class MDObj:
                     error(f"Malformed KeyValue at row '{'|'.join(row)}' in {subtable} ")
                     continue
                 result[row[0]] = row[1]
-                processed = True
 
         for child, content in self.children.items():
             if content.children or content.tables:
-                if processed:
-                    error(f"Extraneous Subheading: '{', '.join(self.children.keys())}'")
-                else:
-                    result[child], newerrors = content.confine_to_tables(headers)
-                    errors += newerrors
+                result[child], newerrors = content.confine_to_tables(headers)
+                errors += newerrors
             else:
                 result[child] = content.plaintext
-                processed = True
+                if (
+                    not content.children
+                    and not content.plaintext.strip()
+                    and not content.tables
+                ):
+                    error(f"Extraneous Subheading: '{', '.join(self.children.keys())}'")
 
         if self.plaintext.strip():
-            error(f"Extraneous Text: '{self.plaintext}'")
+            error(f"Extraneous Text: '{self.plaintext.strip()}'")
         return result, errors
 
     @classmethod
-    def just_tables(cls, tables):
+    def just_tables(cls, tables) -> "MDObj":
         tablesonly = cls("", {}, "", lambda x: None, False)
         tablesonly.tables = tables
+        return tablesonly
 
     def search_children(self, name: str):
         # search direct children first
@@ -152,7 +155,7 @@ class MDObj:
         return None
 
 
-def table_edit(md: str, key: str, value: str) -> str:
+def table_row_edit(md: str, key: str, value: str) -> str:
     """
     changes everything but the leftmost column in a table the first time key is encountered
     :param md: markdown to operate on
@@ -171,19 +174,28 @@ def table_add(md: str, key: str, new: str) -> str:
     sofar = ""
     for line in md.splitlines(True):
         if intable and "|" not in line and new:
-            sofar += f"|{key}|{new}|\n"
+            sofar += (
+                " "
+                * (len(sofar.splitlines()[-2]) - len(sofar.splitlines()[-2].lstrip()))
+                + f"| {key} | {new} |\n"
+            )
             new = None
         if "|" in line:
             intable = True
         sofar += line
     if new:
-        sofar += f"|{key}|{new}|\n"
+        if sofar and not sofar.endswith("\n"):
+            sofar += "\n"
+        sofar += " " * (
+            len(sofar.splitlines()[-2]) - len(sofar.splitlines()[-2].lstrip())
+        )
+        sofar += f"| {key} | {new} |\n"
     return sofar
 
 
 def table_remove(md: str, key: str) -> str:
     old = search_tables(md, key, 0).strip()
-    return md.replace(old, "", 1)
+    return md.replace(old + "\n", "", 1)
 
 
 def search_tables(md: str, seek: str, surround=None) -> str:
@@ -193,7 +205,9 @@ def search_tables(md: str, seek: str, surround=None) -> str:
     for line in md.splitlines(True):
         if "|" in line:
             curtable.append(line)
-            if line.strip(" |").lower().startswith(seek.strip(" |").lower()):
+            if not found and line.strip(" |").lower().startswith(
+                seek.strip(" |").lower()
+            ):
                 if surround is not None:
                     end = surround * 2 + 1
                     curtable = curtable[-surround - 1 :]

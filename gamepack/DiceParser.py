@@ -64,7 +64,7 @@ class Node:
             if next_pos == -1:
                 break
             unparsed = unparsed[next_pos:]
-            paren = fullparenthesis(unparsed)
+            paren = fast_fullparenthesis(unparsed)
             if paren:
                 pos = self.code.find(paren)
                 key = ((pos - 1, pos + len(paren) + 1), "(" + paren + ")")
@@ -93,19 +93,9 @@ class Node:
 
         return to_calculate
 
-    @property
-    def is_leaf(self):
-        return len(self.dependent.keys()) == 0
-
-    def __repr__(self):
-        return str(self.depth) + "|" + str(self.code)
-
-    def __str__(self):
-        return self.__repr__()
-
 
 class DiceParser:
-    lp: "DiceParser"
+    last_parse: "DiceParser"
     rolllogs: deque[Dice]
     regexrouter = RegexRouter()
 
@@ -122,8 +112,8 @@ class DiceParser:
         self.defines.update(defines or {})
         self.define_regex = self.update_define_regex()
         self.rolllogs = deque(maxlen=100)  # if the last roll isn't interesting
-        self.lr = deque(lastroll or [], maxlen=5)
-        self.lp = lastparse or None
+        self.last_rolls = deque(lastroll or [], maxlen=5)
+        self.last_parse = lastparse or None
 
     def update_define_regex(self):
         self.define_regex = re.compile(
@@ -244,11 +234,11 @@ class DiceParser:
             a
             and isinstance(a, str)
             and a.count("-") == len(a)
-            and len(a) <= len(self.lr)
+            and len(a) <= len(self.last_rolls)
         ):
-            fullparams["amount"] = self.lr[-len(a)].r[:]
+            fullparams["amount"] = self.last_rolls[-len(a)].r[:]
         d = Dice(**fullparams)
-        self.lr.append(d)
+        self.last_rolls.append(d)
         return d
 
     def resolveroll(self, roll: Union[Node, str], depth) -> Node:
@@ -265,8 +255,7 @@ class DiceParser:
                 roll = Node(roll, depth)
             except MessageReturn:
                 raise
-            except Exception as e:
-                logger.exception("pretrigger exc", e)
+            except Exception:
                 roll = Node(oldroll, depth)
             res = self.resolveroll(roll, depth)
             return res
@@ -310,15 +299,15 @@ class DiceParser:
         roll.calculate()
         return roll
 
-    def resonances(self, rolls=None) -> List[Dict[int, int]]:
+    def resonances(self, rolls: list[Dice] = None) -> List[Dict[int, int]]:
         """
         evaluates the last rolls for resonances and returns an
         ordered list of resonances and a dict of occurences for each
         """
         if rolls is None:
             rolls = self.rolllogs
-            if self.lp:
-                rolls += self.lp.rolllogs
+            if self.last_parse:
+                rolls += self.last_parse.rolllogs
         res = [{} for _ in range(10)]
         for r in rolls:
             if "@" not in r.returnfun:
@@ -349,15 +338,13 @@ class DiceParser:
                     break
             self.triggers["project"] = (i, current, goal, log)
             return str(i)
-        except TypeError as e:
-            logger.exception(e)
+        except TypeError:
             raise DescriptiveError(roll + " does not have a result")  # probably
         except DescriptiveError:
             raise
-        except Exception as e:
-            logger.exception(e)
+        except Exception:
             raise DescriptiveError(
-                "project parameters: roll, current, goal [, adversity]\n"
+                "project parameters: roll, current, goal\n"
                 f"not fullfilled by {roll}, {current}, {goal}"
             )
 
@@ -368,15 +355,13 @@ class DiceParser:
         :return: what to replace the trigger with, once resolved
         """
         if triggername == "limitbreak":
-            logger.info(f"RIGHTS: {self.rights}")
             if "Administrator" in self.rights:
                 self.triggers[triggername] = True
-                logger.critical("LIMITBREAK")
             else:
                 self.triggers["rightsviolation"] = True
             return ""
 
-        if triggername in ["adversity", "max"]:
+        if triggername in ["shift", "max"]:
             if triggername == "max":
                 x = min(int(triggerbody), 100)
             else:
@@ -591,5 +576,5 @@ def fast_fullparenthesis(text: str) -> str:
             lvl -= 1
         i += 1
     if lvl > 0:
-        raise ValueError("unmatched '(' in text: " + text)
+        raise DescriptiveError("unmatched '(' in text: " + text)
     return text[text.index("(") + 1 : i - 1]

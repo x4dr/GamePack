@@ -1,9 +1,7 @@
-import logging
-
-from antlr4 import InputStream, CommonTokenStream
-
 from Parser.DiceLexer import DiceLexer
 from Parser.DiceParser import DiceParser
+from antlr4 import InputStream, CommonTokenStream
+
 from Processor.Resolver import Resolver, ResolveContext
 from gamepack.NewDice import Dice, DiceInterpretation
 
@@ -54,8 +52,5 @@ class DiceProcessor:
         try:
             tree = parser.addExpression()
             return Resolver(self.context).visit(tree)
-        except Exception as e:
-            logging.exception(e)
-            raise
         finally:
             self.current_depth -= 1

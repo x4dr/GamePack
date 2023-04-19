@@ -1,7 +1,7 @@
 # Generated from /home/maric/PycharmProjects/GamePack/Processor/Dice.g4 by ANTLR 4.9.2
 from antlr4 import ParseTreeVisitor
 
-from DiceParser import DiceParser
+from .DiceParser import DiceParser
 
 # This class defines a complete generic visitor for a parse tree produced by DiceParser.
 

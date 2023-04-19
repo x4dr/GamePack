@@ -9,7 +9,7 @@ from collections import OrderedDict
 from typing import List, Tuple
 
 from gamepack.Item import Item
-from gamepack.DiceParser import fullparenthesis
+from gamepack.DiceParser import fullparenthesis, fast_fullparenthesis
 from gamepack.MDPack import MDObj, total_table
 
 
@@ -129,54 +129,6 @@ class FenCharacter:
         maxsum = max(validsums) if validsums else 0
         return [attributes for attributes in allconf if sum(attributes) == maxsum]
 
-    @staticmethod
-    def cost_calc_old(inputstring, costs=None, penalty=None, width=3):
-        """
-        returns fp cost of attributes if given a ',' separated list of attributes
-        if given a single integer (or an integer representing string) it will output possible
-        attribute distributions for those costs and penalties
-        :param inputstring:  or output of points
-        :param costs: absolute cost for each level
-        :param penalty: point costs for all attributes beyond the first to reach that level
-        :param width: amount of attributes
-        :return: list -> int, int -> list of lists
-        """
-        if costs:
-            costs = [int(x) for x in costs.split(",")]
-        else:
-            costs = [0, 15, 35, 60, 100]  # default are attribute costs
-        if penalty:
-            penalty = [int(x) for x in penalty.split(",")]
-        else:
-            penalty = [0, 0, 0, 50, 100]
-        xp = [int(x or 0) for x in str(inputstring).split(",")]
-        if len(xp) == 1:
-            xp = xp[0]
-            allconf = set(
-                tuple(sorted(x, reverse=True))
-                for x in itertools.product(range(6), repeat=int(width))
-            )
-            correct: list[list[int]] = [
-                [y for y in x]
-                for x in allconf
-                if FenCharacter.cost(x, costs, penalty) <= xp
-            ]
-            i = 0
-            j = len(correct)
-            maximal = correct[:]
-            while i < j:
-                for u in range(len(maximal[i])):
-                    upgrade = maximal[i]
-                    upgrade[u] = upgrade[u] + 1
-                    if upgrade in correct:
-                        del maximal[i]
-                        i -= 1
-                        j -= 1
-                        break
-                i += 1
-            return [c for c in maximal]
-        return FenCharacter.cost(tuple(xp), costs, penalty)
-
     def magicwidth(self, name) -> int:
         c = self.Categories[name]
         f = {}
@@ -216,18 +168,29 @@ class FenCharacter:
     @staticmethod
     def parse_xp(s):
         """
-        every letter is one xp, parenthesis mean the xp is conditional and will not be counted
-        entries in [] are counted as , separated and allow for longer names
-        / are comment until the next wordboundary
-        numbers represent themselves
+        Parses a string representation of experience points (xp) and returns the xp as an integer.
+
+        Args:
+            s (str): A string representation of experience points
+
+        Returns:
+            res (int): The total experience points represented by the input string
+
+        How XP are counted:
+        - Every letter is one XP
+        - Parenthesis mean the XP is conditional and will not be counted
+        - Entries in [] are counted as ',' separated and allow for longer names
+        - '/' are comments until the next word boundary
+        - Numbers represent themselves
+
         """
         res = 0
         paren = ""
         while paren != s:
             if paren:
                 pos = s.find(paren)
-                s = s.replace(s[max(0, pos - 1) : pos + len(paren)], "", 1)
-            paren = fullparenthesis(s, include=True)
+                s = s.replace(s[max(0, pos - 2) : pos + len(paren) + 1], "", 1)
+            paren = fast_fullparenthesis(s) or s
         paren = ""
         while paren != s:
             if paren.strip():
@@ -352,12 +315,3 @@ class FenCharacter:
         inv_table.append(["Gesamt"] + len(self.Inventory_Bonus_Headers) * [""])
         total_table(inv_table, print)
         return inv_table
-
-    def wounds(self):
-        for k in self.Character.keys():
-            if k.lower() in self.wound_headings:
-                wounds = self.Character[k]
-                header = k
-                return header, wounds
-        else:
-            return None, {}

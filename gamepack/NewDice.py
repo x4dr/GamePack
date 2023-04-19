@@ -247,14 +247,16 @@ class Dice:
         if self.r is None:
             return self
         self.explosions = 0
-
+        processed_explosions = 0
         while self.explosions < (
             exp := np.count_nonzero(
-                self.r[abs(self.rerolls) + amount :] > (self.max - self.explode)
+                self.r[abs(self.rerolls) + processed_explosions :]
+                > (self.max - self.explode)
             )
         ):
+            processed_explosions = len(self.r)
             self.r = np.append(
-                self.r, np.random.random_integers(1, self.max, exp - self.explosions)
+                self.r, np.random.randint(1, self.max + 1, exp - self.explosions)
             )
             self.explosions = exp
 

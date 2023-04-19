@@ -1,3 +1,4 @@
+import random
 from unittest import TestCase
 
 import numpy
@@ -134,11 +135,12 @@ class TestDiceProcessor(TestCase):
         self.assertRaises(Exception, p.process, "a,b@5d10", 0)
 
     def test_explosion(self):
+        random.seed(0)
         i = 0
         for i in range(1000):
-            if len(self.p.dice("100!").roll().r) > 100:
+            if len(self.p.process("100!").roll().dice.r) > 100:
                 break
-        self.assertLess(i, 1000, "in 1000 exploded rolls, not one exploded!")
+        self.assertLess(i, 999, "in 1000 exploded rolls, not one exploded!")
 
     def test_selection_sum(self):
         for _ in range(100):

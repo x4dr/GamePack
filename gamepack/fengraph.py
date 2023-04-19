@@ -2,10 +2,9 @@ import collections
 import io
 import logging
 import math
-import multiprocessing
 import pathlib
 from collections import Counter
-from itertools import combinations_with_replacement, product
+from itertools import combinations_with_replacement
 from math import ceil, factorial
 from typing import Dict
 
@@ -216,37 +215,3 @@ freq_dicts = {
     i: count_lowest_rolls(basesets[5 + abs(i)], 5 if i > 0 else -5)
     for i in range(-5, 6)
 }
-
-
-def crunch(x):
-    (i, j, k, l), (m, n) = x
-    *_, last = versus((i, j), (k, l), m, n)
-    return last, i, j, k, l, m, n
-
-
-def progress_report(x):
-    last, i, j, k, l, m, n = x
-    maximum = 5**4 * 11**2
-    m_index = m + 5
-    n_index = n + 5
-    done = (
-        ((((i - 1) * 5 + (j - 1)) * 5 + (k - 1)) * 5 + (l - 1)) * 11**2
-        + m_index * 11
-        + n_index
-    )
-    print(f"{i},{j}@{m} vs {k},{l}@{n} = {last}")
-    print(f"{done}/{maximum} = {done / maximum * 100:.2f}% done")
-
-
-if __name__ == "__main__":
-    # multiprocessing!
-    with multiprocessing.Pool(processes=30) as pool:
-        # zip through all possible combinations
-        jobs = product(product(range(1, 6), repeat=4), product(range(-5, 6), repeat=2))
-        tasks = pool.imap_unordered(crunch, jobs)
-        for i, task in enumerate(tasks):
-            if i % 100 == 0:
-                progress_report(task)
-        pool.close()
-        pool.join()
-        print("done")

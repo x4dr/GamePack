@@ -10,8 +10,11 @@ from antlr4 import (
     ParserATNSimulator,
     RecognitionException,
     NoViableAltException,
+    ParserRuleContext,
+    ParseTreeListener,
+    ParseTreeVisitor,
 )
-from antlr4.tree.Tree import ParserRuleContext, ParseTreeListener, ParseTreeVisitor
+
 from io import StringIO
 import sys
 
