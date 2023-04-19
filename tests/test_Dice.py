@@ -37,7 +37,6 @@ class TestDice(TestCase):
         self.assertEqual(0, Dice(None, 4, 2, returnfun="threshhold").roll())
 
     def test_rollwod(self):
-
         d = Dice(1, 9, 2, onebehaviour=1, explosion=3, returnfun="threshhold")
         self.assertEqual(1, d.roll_wodsuccesses())
         self.assertEqual(
