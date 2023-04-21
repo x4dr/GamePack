@@ -86,9 +86,7 @@ def versus(
     mod2: int = 0,
     mode: int = 0,
 ):
-    yield "processing..."
     occurences = fastversus(selectors1, selectors2, mod1, mod2)
-    yield "data found..."  # only the dict is now relevant
     yield ascii_graph(occurences, mode)
 
 
@@ -135,15 +133,20 @@ def rawload(page) -> str:
         return r.content.decode()
 
 
-def chances(selector, modifier=0, number_of_quantiles=None, mode=0, interactive=False):
-    selector = tuple(sorted(int(x) for x in selector if 0 < int(x) < 6))
+def chances(
+    selector: tuple[int, ...],
+    modifier=0,
+    number_of_quantiles=None,
+    mode=0,
+    interactive=False,
+):
+    selector = tuple(sorted(x for x in selector if 0 < int(x) < 6))
     if not selector:
         raise DescriptiveError("No Selectors!")
     modifier = int(modifier)
     yield "processing..."
     occurrences = fastdata(selector, modifier)
     yield "generating result..."
-
     if number_of_quantiles is None:
         yield ascii_graph(occurrences, mode)
     else:
