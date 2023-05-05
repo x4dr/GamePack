@@ -220,7 +220,7 @@ class FenCharacter:
             def flash(err):
                 self.errors.append(err)
 
-        sheetparts = MDObj.from_md(body)
+        sheetparts = MDObj.from_md(body, table_first_line=1)
 
         # inform about things that should not be there
         if sheetparts.plaintext.strip():

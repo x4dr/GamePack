@@ -13,11 +13,15 @@ class MDObj:
         children: Dict[str, "MDObj"],
         original: str,
         flash: Callable[[str], None],
-        extract_tables: bool,
+        start_tables_at_line: int | None,
     ):
         self.plaintext = plaintext
         self.children = children
-        self.tables = self.extract_tables() if extract_tables else []
+        self.tables = (
+            self.extract_tables(start_tables_at_line)
+            if start_tables_at_line is not None
+            else []
+        )
         self.originalMD = original
         self.flash = flash
 
@@ -25,7 +29,9 @@ class MDObj:
         return f"MDObj({self.plaintext}, {self.tables} {self.children})"
 
     @classmethod
-    def from_md(cls, lines, level=0, flash=None, extract_tables=True) -> "MDObj":
+    def from_md(
+        cls, lines, level=0, flash=None, table_first_line: int | None = 0
+    ) -> "MDObj":
         """
         breaks down the structure of a md text into nested tuples of a string
         of the text directly after the heading and a dictionary of all the subheadings
@@ -34,7 +40,7 @@ class MDObj:
         (top line on top of the stack)
         @param level: the level of heading this split started and therefore should end on
         @param flash: function to call with errors
-        @param extract_tables: wether or not to go through the tables and pull them out of the plaintext
+        @param table_first_line: if None, tables are ignored. Otherwise, the first line of a table (header) is skipped
         @return: a Tuple of the direct text and a dict containing recursive output
 
         """
@@ -55,24 +61,25 @@ class MDObj:
                 if current_level and level >= current_level:
                     # we moved out of our subtree
                     lines.append(line)  # push the current line back
-                    return cls(text, children, original, flash, extract_tables)
+                    return cls(text, children, original, flash, table_first_line)
                 else:
                     children[line.lstrip("# ").strip()] = cls.from_md(
                         lines=lines,  # by reference
                         level=current_level,
                         flash=flash,
-                        extract_tables=extract_tables,
+                        table_first_line=table_first_line,
                     )
                     continue
             text += line + "\n"
-        return cls(text, children, original, flash, extract_tables)
+        return cls(text, children, original, flash, table_first_line)
 
     def extract_tables(
-        self, flash: Callable[[str], None] = None
+        self, start_at_line, flash: Callable[[str], None] = None
     ) -> List[List[List[str]]]:
         """
         traverses the output of split_md and consumes table text where possible.
         Tables are appended to a List, at the end of each tuple
+        :param start_at_line: the line to start at, 0 indexed
         :param flash: if given, tables are processed through
         :return: a List of Tables
         """
@@ -94,6 +101,11 @@ class MDObj:
                 if t:
                     total_table(t, flash)
         self.plaintext = text
+        for t in tables:
+            if not t:
+                continue
+            for _ in range(start_at_line):
+                t.pop(0)
         return tables
 
     def confine_to_tables(self, headers=True) -> Tuple[Dict[str, object], List[str]]:
