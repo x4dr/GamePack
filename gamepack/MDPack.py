@@ -123,7 +123,7 @@ class MDObj:
             log.info(msg)
 
         for subtable in self.tables:
-            skiprow = 1 if not not headers else 0
+            skiprow = 1 if not headers else 0
             for row in subtable[skiprow:]:
                 if not row:
                     continue
