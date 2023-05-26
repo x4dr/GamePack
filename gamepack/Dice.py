@@ -24,7 +24,7 @@ class Dice:
         minimum=1,
         sort=False,
         rerolls=0,
-        **kwargs: dict
+        **kwargs: dict,
     ):
         self.sign = 1
         self.r = []
@@ -252,7 +252,7 @@ class Dice:
             return None
         if self.returnfun in ["id"]:
             return self.amount  # not flipped if negative
-        raise DescriptiveError("no valid returnfunction!")
+        raise DescriptiveError(f"no valid returnfunction! {self.returnfun}")
 
     def roll(self, amount=None):
         if amount is None:

@@ -476,6 +476,13 @@ class DiceParser:
         for kv in triggerreplace:
             change = True
             roll = roll.replace(kv[0], kv[1], 1)
+
+        if self.defines.get("defaultselector", "").startswith("@") and "@" not in roll:
+            pos = re.match(r"\ş*\d(\d,\s)*", roll).endpos
+            roll = roll[:pos] + self.defines["defaultselector"] + roll[pos:]
+            self.defines["returnfun"] = ""
+            change = True
+
         return roll, change
 
     def resolvedefines(self, roll: Node, used: List[str] = None) -> None:

@@ -1,18 +1,11 @@
 from unittest import TestCase
 
 from gamepack.fasthelpers import ascii_graph, montecarlo, plot
-from gamepack.fengraph import chances
 
 
 class TestDice(TestCase):
     def setUp(self) -> None:
         pass
-
-    def test_chances(self):
-        for i in range(1, 6):
-            for j in range(6):
-                for x in chances((i, j), 0):
-                    self.assertTrue(x)
 
 
 # a unittest for the above

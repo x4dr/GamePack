@@ -136,7 +136,9 @@ class TestMDObj(unittest.TestCase):
         mdtext = "# My Table\n\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Value 1  | Value 2  |"
         mdobj = MDObj.from_md(mdtext)
         result, errors = mdobj.confine_to_tables()
-        self.assertDictEqual(result, {"My Table": {"Value 1": "Value 2"}})
+        self.assertDictEqual(
+            result, {"My Table": {"Header 1": "Header 2", "Value 1": "Value 2"}}
+        )
         self.assertEqual(errors, [])
 
         # Test a simple table without headers
@@ -165,8 +167,12 @@ class TestMDObj(unittest.TestCase):
         self.assertDictEqual(
             result,
             {
-                "My Table 1": {"Value 1": "Value 2", "Subheading": "\n"},
-                "My Table 2": {"Value 3": "Value 4"},
+                "My Table 1": {
+                    "Header 1": "Header 2",
+                    "Value 1": "Value 2",
+                    "Subheading": "\n",
+                },
+                "My Table 2": {"Header 3": "Header 4", "Value 3": "Value 4"},
             },
         )
         self.assertEqual(

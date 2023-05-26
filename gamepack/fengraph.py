@@ -18,9 +18,12 @@ from gamepack.fasthelpers import ascii_graph
 log = logging.Logger("fengraph")
 
 
-def fastdata(selector: tuple[int, ...], mod: int):
-    if mod not in freq_dicts:
-        return
+def fastdata(selector: tuple[int, ...], mod: int) -> dict[int, int]:
+    if mod not in freq_dicts or not all(0 < s < 6 for s in selector):
+        return {}
+    selector = tuple(
+        sorted(selector)
+    )  # cuts down on cache size since order doesn't matter
     db = dicecache_db()
     res = db.execute(
         "SELECT res, occ FROM occurences WHERE sel = ? AND mod = ?",
@@ -29,17 +32,19 @@ def fastdata(selector: tuple[int, ...], mod: int):
     if res:
         return {int(r[0]): r[1] for r in res}
     for mod in range(-5, 6):
-        occ = {k: 0 for k in range(1, 10 * len(selector) + 1)}
-        for roll, frequency in freq_dicts[mod].items():
-            k = sum(roll[s - 1] for s in selector if 0 < s < 6)
-            occ[int(k)] += int(frequency)
-            for result, occurrence in occ.items():
-                db.execute(
-                    "INSERT INTO occurences VALUES (?,?,?,?)",
-                    [str(selector), int(mod), result, occurrence],
-                )
+        occ: dict[int, int] = collections.defaultdict(int)
+        for roll, occurence_count in freq_dicts[mod].items():
+            result = sum(roll[s - 1] for s in selector)
+            occ[int(result)] += int(occurence_count)
+        for result, occurence_count in occ.items():
+            db.execute(
+                "INSERT INTO occurences VALUES (?,?,?,?)",
+                [str(selector), int(mod), int(result), int(occurence_count)],
+            )
     db.commit()
-    return fastdata(selector, mod)
+    raise DescriptiveError(
+        "Cache Updated, try again! I could just continue but I am no longer trusted to do my job!"
+    )
 
 
 def fastversus(
@@ -56,7 +61,7 @@ def fastversus(
     if any(s < 0 or s > 6 for s in selector1 + selector2):
         raise ValueError("selector out of range")
 
-    occ = collections.defaultdict(lambda: 0)
+    occ: dict[int, int] = collections.defaultdict(int)
     for roll1, frequency1 in freq_dicts[mod1].items():
         for roll2, frequency2 in freq_dicts[mod2].items():
             k = sum(roll1[s - 1] for s in selector1) - sum(
@@ -87,7 +92,7 @@ def versus(
     mode: int = 0,
 ):
     occurences = fastversus(selectors1, selectors2, mod1, mod2)
-    yield ascii_graph(occurences, mode)
+    return ascii_graph(occurences, mode)
 
 
 def modify_dmg(specific_modifiers, dmg, damage_type, armor):
@@ -144,14 +149,11 @@ def chances(
     if not selector:
         raise DescriptiveError("No Selectors!")
     modifier = int(modifier)
-    yield "processing..."
     occurrences = fastdata(selector, modifier)
-    yield "generating result..."
     if number_of_quantiles is None:
-        yield ascii_graph(occurrences, mode)
+        return ascii_graph(occurrences, mode)
     else:
         total = sum(occurrences.values())
-        yield "generating graph..."
         vals = [occurrences[x] for x in sorted(occurrences.keys())]
         if not mode:
             fy = [x / total for x in vals]
@@ -168,7 +170,6 @@ def chances(
             alpha=0.75,
             linewidth=1,
         )
-        yield "finalizing graph"
         buf = io.BytesIO()
         if max(occurrences.keys()) < 31:
             plt.xticks(list(range(1, max(occurrences.keys()) + 1)))
@@ -180,14 +181,13 @@ def chances(
             + (("R" + str(modifier)) if modifier else "")
         )
         plt.ylabel("%")
-        yield "sending data..."
         plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
         if interactive:
             plt.show()
 
         plt.close()
         buf.seek(0)
-        yield buf
+        return buf
 
 
 def count_sorted_rolls(num_dice, num_sides):
