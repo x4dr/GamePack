@@ -478,8 +478,9 @@ class DiceParser:
             roll = roll.replace(kv[0], kv[1], 1)
 
         if self.defines.get("defaultselector", "").startswith("@") and "@" not in roll:
-            pos = re.match(r"\ş*\d(\d,\s)*", roll).endpos
-            roll = roll[:pos] + self.defines["defaultselector"] + roll[pos:]
+            roll = re.sub(
+                r"\s*\d[\d,\s]*", r"\g<0>" + self.defines["defaultselector"], roll
+            )
             self.defines["returnfun"] = ""
             change = True
 
