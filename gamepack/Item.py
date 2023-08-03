@@ -1,5 +1,5 @@
 import math
-from typing import Union, List
+from typing import Union, List, Self
 
 
 class Item:
@@ -49,7 +49,7 @@ class Item:
         return fendeconvert(self.price * self.count, "money")
 
     @classmethod
-    def process_table(cls, table: List[List[str]], flash) -> (List["Item"], List[str]):
+    def process_table(cls, table: List[List[str]], flash) -> (List[Self], List[str]):
         # returns the list of found/resolved items and a list of bonus headers from the table
         def get_offset(reqs: tuple[str, ...], optional=False):
             # to deal with arbitrary header orderings and names, find the column number of one of the requirements

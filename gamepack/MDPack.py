@@ -63,7 +63,10 @@ class MDObj:
                     lines.append(line)  # push the current line back
                     return cls(text, children, original, flash, table_first_line)
                 else:
-                    children[line.lstrip("# ").strip()] = cls.from_md(
+                    k = line.lstrip("# ").strip()
+                    while k in children:
+                        k += "_"  # duplicate keys would have been inaccessible anyway
+                    children[k] = cls.from_md(
                         lines=lines,  # by reference
                         level=current_level,
                         flash=flash,
@@ -239,6 +242,11 @@ def search_tables(md: str, seek: str, surround=None) -> str:
 
 
 def traverse_md(md: str, seek: str) -> str:
+    """
+    returns all lines under a heading
+    :param md: markdown to operate on, expects no trailing newline
+    :param seek: heading to search for
+    """
     result = ""
     level = 0
     for line in md.split("\n"):
