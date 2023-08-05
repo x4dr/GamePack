@@ -1,8 +1,6 @@
 import logging
 from typing import List, Dict, Tuple, Callable
 
-from gamepack.Item import fendeconvert, value_category, fenconvert, Item
-
 log = logging.Logger(__name__)
 
 
@@ -93,14 +91,11 @@ class MDObj:
                     results.append((row[0], "|".join(row[1:])))
         return results
 
-    def extract_tables(
-        self, start_at_line, flash: Callable[[str], None] = None
-    ) -> List[List[List[str]]]:
+    def extract_tables(self, start_at_line) -> List[List[List[str]]]:
         """
         traverses the output of split_md and consumes table text where possible.
         Tables are appended to a List, at the end of each tuple
         :param start_at_line: the line to start at, 0 indexed
-        :param flash: if given, tables are processed through
         :return: a List of Tables
         """
         text = ""
@@ -116,10 +111,6 @@ class MDObj:
             text += line
         if run:
             tables.append(table(run))
-        if flash:
-            for t in tables:
-                if t:
-                    total_table(t, flash)
         self.plaintext = text
         for t in tables:
             if not t:
@@ -313,31 +304,3 @@ def split_row(row: str, length: int) -> List[str]:
         split = split[1:]
     # fill jagged edges with empty strings and cut tolength
     return (split + [""] * (length - len(split)))[:length]
-
-
-def total_table(table_input, flash):
-    try:
-        if table_input[-1][0].lower() in Item.table_total:
-            trackers = [[0, ""] for _ in range(len(table_input[0]) - 1)]
-            table_input[-1] = table_input[-1] + (
-                len(table_input[0]) - len(table_input[-1])
-            ) * [""]
-            for row in table_input[1:-1]:
-                for i in range(len(trackers)):
-                    r = row[i + 1].strip().lower().replace(",", "")
-                    if r:
-                        # noinspection PyBroadException
-                        try:
-                            if not trackers[i][1]:
-                                trackers[i][1] = value_category(r)
-                            trackers[i][0] += fenconvert(r)
-                        except Exception:
-                            pass  # even text columns will get attempted, so any failure means we just skip
-            for i, t in enumerate(trackers):
-                table_input[-1][i + 1] = fendeconvert(t[0], t[1])
-    except Exception as e:
-        flash(
-            "tabletotal failed for '"
-            + ("\n".join("\t".join(row) for row in table_input).strip() + "':\n ")
-            + str(e.args)
-        )

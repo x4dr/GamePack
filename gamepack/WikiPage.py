@@ -1,13 +1,17 @@
+import logging
 import subprocess
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Self
+
+import bleach
 
 from gamepack.Dice import DescriptiveError
 from gamepack.Item import Item
 from gamepack.MDPack import MDObj
 
-from NossiSite.base import log
+log = logging.getLogger(__name__)
 
 
 class WikiPage:
@@ -29,12 +33,24 @@ class WikiPage:
         meta: list[str],
         modified: float = None,
     ):
+        if Item.item_cache is None:
+            WikiPage.cache_items()
         self.title = title
         self.tags = tags
         self.body = body
         self.links = links
         self.meta = meta
         self.last_modified = modified
+
+    @lru_cache(maxsize=2)
+    def md(self, sanitize: bool = False) -> MDObj:
+        """
+        :param sanitize: whether to sanitize the markdown
+        :return: markdown of page
+        """
+        if sanitize:
+            return MDObj.from_md(bleach.clean(self.body), table_first_line=0)
+        return MDObj.from_md(self.body, table_first_line=0)
 
     @classmethod
     def wikipath(cls) -> Path:
@@ -214,7 +230,10 @@ class WikiPage:
         changed = []
         if page is None:
             for key in list(cls.page_cache.keys()):
-                if cls.page_cache[key].last_modified != key.stat().st_mtime:
+                if (
+                    cls.page_cache[key].last_modified
+                    != (cls.wikipath() / key).stat().st_mtime
+                ):
                     del cls.page_cache[key]
                     cls.load(key)
                     changed.append(key)
@@ -230,20 +249,14 @@ class WikiPage:
 
     @classmethod
     def cache_items(cls):
-        items = MDObj.from_md(cls.load_str("items")).tables
-        prices = MDObj.from_md(cls.load_str("prices")).tables
+        Item.item_cache = {}
+        cls.__caching = True
+        items, _ = Item.process_tree(cls.load_str("items").md(), print)
+        item_from_prices, _ = Item.process_tree(cls.load_str("prices").md(), print)
+        items += item_from_prices
 
-        to_cache = [
-            Item.process_table(x, lambda x: log.info("Prices Processing: " + str(x)))[0]
-            for x in prices
-        ]
-        to_cache += [
-            Item.process_table(x, lambda x: log.info("Items Processing: " + str(x)))[0]
-            for x in items
-        ]
         cache = {}
-        for processed_table in to_cache:
-            for y in processed_table:
-                cache[y.name] = y
+        for x in items:
+            cache[x.name] = x
 
         Item.item_cache = cache

@@ -8,9 +8,9 @@ from collections import OrderedDict
 
 from typing import List, Tuple
 
-from gamepack.Item import Item
+from gamepack.Item import Item, total_table
 from gamepack.DiceParser import fullparenthesis, fast_fullparenthesis
-from gamepack.MDPack import MDObj, total_table
+from gamepack.MDPack import MDObj
 
 
 class FenCharacter:
@@ -295,7 +295,15 @@ class FenCharacter:
 
     def inventory_table(self):
         inv_table = [
-            ["Name", "Anzahl", "Gewicht", "Preis", "Gewicht Gesamt", "Preis Gesamt"]
+            [
+                "Name",
+                "Anzahl",
+                "Gewicht",
+                "Preis",
+                "Gewicht Gesamt",
+                "Preis Gesamt",
+                "Beschreibung",
+            ]
             + list(self.Inventory_Bonus_Headers)
         ]
         for i in self.Inventory:
@@ -307,6 +315,7 @@ class FenCharacter:
                     i.singular_price,
                     i.total_weight,
                     i.total_price,
+                    i.description,
                 ]
                 + [i.additional_info.get(x) or "" for x in self.Inventory_Bonus_Headers]
             )

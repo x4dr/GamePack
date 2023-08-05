@@ -46,7 +46,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(
             table[1],
             [
-                "[ test [[q:-: test :-]]]",
+                "[!q:test]",
                 "2",
                 "1kg",
                 "1s",
@@ -144,6 +144,6 @@ class TestDiceParser(TestCase):
         self.assertEqual(fc.get_xp_for("test3"), 3)
 
     def test_from_md(self):
-        x = rawload("alec")
+        x = rawload("character/alec")
         fc = FenCharacter.from_md(x[x.index("#") :])
         self.assertEqual(fc.Categories["Mystisch"]["Fähigkeiten"]["Durchhalten"], "2")
