@@ -2,6 +2,7 @@ import random
 from unittest import TestCase
 
 from gamepack.FenCharacter import FenCharacter
+from gamepack.Item import Item
 from gamepack.MDPack import MDObj
 from gamepack.fengraph import rawload
 
@@ -21,6 +22,7 @@ class TestDiceParser(TestCase):
 
     def test_inventory_table(self):
         c = FenCharacter()
+        Item.item_cache = {}
         o = MDObj.from_md(
             "| Name | Anzahl | Gewicht | Preis | Beschreibung |\n"
             "| ---- | ------ | ------- | ----- | ------------ |\n"

@@ -1,5 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
+
+from gamepack.Item import total_table
 from gamepack.MDPack import (
     search_tables,
     traverse_md,
@@ -7,7 +9,6 @@ from gamepack.MDPack import (
     table_row_edit,
     table_add,
     table_remove,
-    total_table,
 )
 
 
