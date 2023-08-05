@@ -76,6 +76,23 @@ class MDObj:
             text += line + "\n"
         return cls(text, children, original, flash, table_first_line)
 
+    def search_all(self, searchterm: str) -> [(str, str)]:
+        """
+        searches all children and tables for a searchterm
+        :param searchterm: the term to search for
+        :return: a list of tuples of the form (heading, text)
+        """
+        results = []
+        for k, v in self.children.items():
+            if k.strip().startswith(searchterm):
+                results.append((k, v.originalMD))
+            results += [(k, r) for r in v.search_all(searchterm)]
+        for subtable in self.tables:
+            for row in subtable:
+                if row[0].strip().startswith(searchterm):
+                    results.append((row[0], "|".join(row[1:])))
+        return results
+
     def extract_tables(
         self, start_at_line, flash: Callable[[str], None] = None
     ) -> List[List[List[str]]]:

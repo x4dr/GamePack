@@ -6,24 +6,35 @@ class Item:
     name: str
     weights: float
     price: Union[float, None]
+    description: str
     additional_info: dict[str, str]
     item_cache = {}  # to be injected  from outside
     table_total = ("gesamt", "total", "summe", "sum")
     table_name = ("objekt", "object", "name", "gegenstand", "item")
+    table_description = ("beschreibung", "description", "desc", "details")
     table_weight = ("gewicht", "weight")
     table_money = ("preis", "kosten", "price", "cost")
     table_amount = ("zahl", "anzahl", "menge", "amount", "count", "stück")
-    table_all = table_total + table_amount + table_money + table_weight + table_name
+    table_all = (
+        table_total
+        + table_amount
+        + table_money
+        + table_description
+        + table_weight
+        + table_name
+    )
 
     def __init__(
         self,
         name: str,
         weight: float,
         price: float,
+        description: str = "",
         count: float = 1.0,
         additional=None,
     ):
         self.name = name
+        self.description = description
         self.weight = tryfloatdefault(weight)
         self.price = tryfloatdefault(price)
         self.count = tryfloatdefault(count, 1)
@@ -81,6 +92,8 @@ class Item:
         get_offset(cls.table_amount, True)  # preload with nonoptional
         if get_offset(cls.table_name) is not None:
             for row in table[1:]:
+                if not any(row):
+                    continue
                 if row[0].lower() in cls.table_total:
                     continue
                 unused_values = {
@@ -101,16 +114,19 @@ class Item:
                                     get_cell(row, cls.table_name),
                                     0,
                                     0,
+                                    description=get_cell(row, cls.table_description)
+                                    or "",
                                     count=get_cell(row, cls.table_amount) or 1,
                                     additional=unused_values,
                                 )
                             )
                     else:
                         res.append(
-                            cls(
+                            Item(
                                 row[get_offset(cls.table_name)],
                                 fenconvert(get_cell(row, cls.table_weight)),
                                 fenconvert(get_cell(row, cls.table_money)),
+                                description=get_cell(row, cls.table_description) or "",
                                 count=get_cell(row, cls.table_amount) or 1,
                                 additional=unused_values,
                             )

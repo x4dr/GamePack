@@ -207,7 +207,44 @@ class FenCharacter:
         res += sum([1 for x in s if x.strip()])
         return res
 
-    def load_from_md(self, body, flash=None):
+    @classmethod
+    def from_mdobj(cls, mdobj: MDObj, flash=None):
+        self = cls()
+        if not flash:
+
+            def flash(err):
+                self.errors.append(err)
+
+        # inform about things that should not be there
+        if mdobj.plaintext.strip():
+            flash("Loose Text: " + mdobj.plaintext)
+
+        for t in mdobj.tables:
+            if t:
+                flash(
+                    "Loose Table:" + "\n".join("\t".join(x for x in row) for row in t)
+                )
+
+        for s in mdobj.children.keys():
+            if s.lower().strip() in self.value_headings:
+                stats, errors = mdobj.children[s].confine_to_tables(headers=False)
+                self.Categories.update(stats)
+                for e in errors:
+                    flash(e)
+            else:
+                if s.strip().lower() in self.description_headings:
+                    details, errors = mdobj.children[s].confine_to_tables(headers=False)
+                    self.Character = details
+                    for e in errors:
+                        flash(e)
+                else:
+                    self.Meta[s] = mdobj.children[s]
+
+        self.post_process(flash)
+        return self
+
+    @classmethod
+    def from_md(cls, body, flash=None):
         """
         takes in the entire character sheet and constructs the Fencharacter object from it
 
@@ -215,41 +252,8 @@ class FenCharacter:
         :param body: md string with the charactersheet
         :return:
         """
-        if not flash:
-
-            def flash(err):
-                self.errors.append(err)
-
         sheetparts = MDObj.from_md(body, table_first_line=0)
-
-        # inform about things that should not be there
-        if sheetparts.plaintext.strip():
-            flash("Loose Text: " + sheetparts.plaintext)
-
-        for t in sheetparts.tables:
-            if t:
-                flash(
-                    "Loose Table:" + "\n".join("\t".join(x for x in row) for row in t)
-                )
-
-        for s in sheetparts.children.keys():
-            if s.lower().strip() in self.value_headings:
-                stats, errors = sheetparts.children[s].confine_to_tables(headers=False)
-                self.Categories.update(stats)
-                for e in errors:
-                    flash(e)
-            else:
-                if s.strip().lower() in self.description_headings:
-                    details, errors = sheetparts.children[s].confine_to_tables(
-                        headers=False
-                    )
-                    self.Character = details
-                    for e in errors:
-                        flash(e)
-                else:
-                    self.Meta[s] = sheetparts.children[s]
-
-        self.post_process(flash)
+        return cls.from_mdobj(sheetparts, flash)
 
     def post_process(self, flash):
         # tally inventory
@@ -289,12 +293,6 @@ class FenCharacter:
         for content in node.children.values():
             self.process_xp(content)
 
-    @classmethod
-    def from_md(cls, arg, flash=None):
-        res = cls()
-        res.load_from_md(arg, flash)
-        return res
-
     def inventory_table(self):
         inv_table = [
             ["Name", "Anzahl", "Gewicht", "Preis", "Gewicht Gesamt", "Preis Gesamt"]
@@ -303,7 +301,7 @@ class FenCharacter:
         for i in self.Inventory:
             inv_table.append(
                 [
-                    f"[ {i.name} [[q:-: {i.name} :-]]]",
+                    f"[!q:{i.name}]",
                     f"{i.count:g}",
                     i.singular_weight,
                     i.singular_price,
