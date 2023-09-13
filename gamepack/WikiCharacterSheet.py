@@ -18,17 +18,19 @@ class WikiCharacterSheet(WikiPage):
         return cls(page.title, page.tags, page.body, page.links, page.meta)
 
     @classmethod
-    def load(cls, page: Path) -> Self:
-        p = WikiPage.load(page)
+    def load(cls, page: Path, cache=True) -> Self:
+        p = WikiPage.load(page, cache)
         if isinstance(p, WikiCharacterSheet):
             return p
         elif p:
-            WikiPage.page_cache[page] = cls.from_wikipage(p)  # inject into cache
+            WikiPage.page_cache[page] = cls.from_wikipage(
+                p
+            )  # update cached object with sheet info
             return WikiPage.page_cache[page]
 
     @classmethod
-    def load_str(cls, page: str) -> Self:
-        p = WikiPage.load_str(page)
+    def load_str(cls, page: str, cache=True) -> Self:
+        p = WikiPage.load_str(page, cache)
         if isinstance(p, WikiCharacterSheet):
             return p
         elif p:

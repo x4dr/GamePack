@@ -94,17 +94,18 @@ class WikiPage:
         return p
 
     @classmethod
-    def load_str(cls, page: str) -> Self:
-        return cls.load(cls.locate(page))
+    def load_str(cls, page: str, cache=True) -> Self:
+        return cls.load(cls.locate(page), cache)
 
     @classmethod
-    def load(cls, page: Path) -> Self:
+    def load(cls, page: Path, cache=True) -> Self:
         """
         loads page from wiki
         :param page: name of page
+        :param cache: whether to retrieve from cache
         :return: title, tags, body
         """
-        res = cls.page_cache.get(page, None)
+        res = cls.page_cache.get(page, None) if cache else None
         if res is not None:
             return res
         try:
@@ -230,12 +231,14 @@ class WikiPage:
         changed = []
         if page is None:
             for key in list(cls.page_cache.keys()):
-                if (
-                    cls.page_cache[key].last_modified
-                    != (cls.wikipath() / key).stat().st_mtime
-                ):
+                p = cls.page_cache.get(key, None)
+                if p is None:
+                    continue
+                n = cls.wikipath() / key
+                if not n.exists() or p.last_modified != n.stat().st_mtime:
                     del cls.page_cache[key]
-                    cls.load(key)
+                    if n.exists():
+                        cls.load(key)
                     changed.append(key)
         else:
             if page in cls.page_cache:
