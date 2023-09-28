@@ -2,3 +2,4 @@ numpy
 matplotlib
 requests
 antlr4-python3-runtime==4.9.2
+pillow>=10.0.1 # not directly required, pinned by Snyk to avoid a vulnerability
