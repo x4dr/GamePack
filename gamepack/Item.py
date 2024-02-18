@@ -1,7 +1,7 @@
 import math
 from typing import Union, List, Self
 
-from gamepack.MDPack import MDObj
+from gamepack.MDPack import MDObj, MDTable
 
 
 class Item:
@@ -128,21 +128,21 @@ class Item:
 
     @classmethod
     def process_table(
-        cls, table: List[List[str]], flash, temp_cache=None
+        cls, table: MDTable, flash, temp_cache=None
     ) -> (List[Self], List[str]):
         # returns the list of found/resolved items and a list of bonus headers from the table
 
         # to deal with arbitrary header orderings and names, find the column number of one of the requirements
 
-        headers = [x.lower() for x in table[0]]
+        headers = table.headers
         offsets = {}
         unknown_headers = [
             (i, header)
             for i, header in enumerate(headers)
             if header.lower() not in (item for t in cls.table_all for item in t)
         ]
+        headers = [x.lower() for x in headers]
         for header in headers:
-            header = header.lower()
             if header in cls.table_name:
                 offsets[cls.table_name] = headers.index(header)
             elif header in cls.table_weight:
@@ -163,7 +163,7 @@ class Item:
         if offsets.get(cls.table_name) is None:
             return [], [x[1] for x in unknown_headers]
         res = []
-        for row in table[1:]:  # skip header
+        for row in table.rows:  # skip header
             if not any(row):  # skip empty rows
                 continue
             if row[0].lower() in cls.table_total:  # skip totaling rows

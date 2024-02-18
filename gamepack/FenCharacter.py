@@ -180,7 +180,7 @@ class FenCharacter:
         - Every letter is one XP
         - Parenthesis mean the XP is conditional and will not be counted
         - Entries in [] are counted as ',' separated and allow for longer names
-        - '/' are comments until the next word boundary
+        - '/' are comments until the end of the line
         - Numbers represent themselves
 
         """
@@ -197,7 +197,7 @@ class FenCharacter:
                 res += 1 + paren.count(",")
             s = s.replace("[" + paren + "]", "", 1)
             paren = fullparenthesis(s, "[", "]")
-        s = re.sub(r"/.+?\b", "", s)
+        s = re.sub(r"/.*", "", s)
         while number := re.search(r"\d+", s):
             number.groups(0)
             start, stop = number.span()
@@ -221,19 +221,17 @@ class FenCharacter:
 
         for t in mdobj.tables:
             if t:
-                flash(
-                    "Loose Table:" + "\n".join("\t".join(x for x in row) for row in t)
-                )
+                flash("Loose Table:" + t.to_md())
 
         for s in mdobj.children.keys():
             if s.lower().strip() in self.value_headings:
-                stats, errors = mdobj.children[s].confine_to_tables(headers=False)
+                stats, errors = mdobj.children[s].confine_to_tables()
                 self.Categories.update(stats)
                 for e in errors:
                     flash(e)
             else:
                 if s.strip().lower() in self.description_headings:
-                    details, errors = mdobj.children[s].confine_to_tables(headers=False)
+                    details, errors = mdobj.children[s].confine_to_tables()
                     self.Character = details
                     for e in errors:
                         flash(e)
@@ -252,7 +250,7 @@ class FenCharacter:
         :param body: md string with the charactersheet
         :return:
         """
-        sheetparts = MDObj.from_md(body, table_first_line=0)
+        sheetparts = MDObj.from_md(body)
         return cls.from_mdobj(sheetparts, flash)
 
     def post_process(self, flash):
@@ -280,16 +278,12 @@ class FenCharacter:
 
     def process_xp(self, node: MDObj):
         for table in node.tables:
-            first = True
-            for row in table:
+            table.headers = [x for x in table.headers if x.strip() != "="] + ["="]
+            for row in table.rows:
                 if len(row) < 2:
                     continue  # skip invalid rows
                 self._xp_cache[row[0]] = self.parse_xp(row[1])
-                if first:
-                    row.append("=")
-                    first = False
-                else:
-                    row.append(self._xp_cache[row[0]])
+                row.append(self._xp_cache[row[0]])
         for content in node.children.values():
             self.process_xp(content)
 
@@ -322,3 +316,10 @@ class FenCharacter:
         inv_table.append(["Gesamt"] + len(self.Inventory_Bonus_Headers) * [""])
         total_table(inv_table, print)
         return inv_table
+
+    def to_markdown(self, sanitize=False):
+        """
+        :param sanitize: whether to sanitize the markdown
+        :return: markdown of page
+        """
+        return self.md(sanitize).to_md()

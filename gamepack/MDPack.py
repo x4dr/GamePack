@@ -4,6 +4,176 @@ from typing import List, Dict, Tuple, Callable
 log = logging.Logger(__name__)
 
 
+class MDTable:
+    def __init__(
+        self, rows: List[List[str]], headers: List[str], style: List[str] | None = None
+    ):
+        for row in rows:
+            if len(row) != len(headers):
+                raise ValueError("Row length does not match headers")
+        self.rows = rows
+        self.headers = headers
+        self.style = style or [None] * len(headers)
+        self.prev_line_nr = None  # To help with placing the table back into context
+
+    @staticmethod
+    def split_row(row: str, length: int) -> List[str]:
+        """
+        splits a md table row into a list of cells, using the length to decide if the row was missing
+        the initial
+        :param row: md table row string
+        :param length: exact number of columns
+        :return: List of the first length table cells
+        """
+        row = row.strip()
+        first_cell_potentially_missing = False
+        if row.startswith("|"):
+            first_cell_potentially_missing = True
+            row = row[1:]
+        if row.endswith("|"):
+            row = row[:-1]
+        rows = [x.strip() for x in row.split("|")]
+        if len(rows) < length and first_cell_potentially_missing:
+            rows = [""] + rows
+        return (rows + [""] * (length - len(rows)))[:length]
+
+    @staticmethod
+    def extract_styles(row: List[str]) -> List[str]:
+        """
+        extracts the styles from a md table row
+        :param row: md table row string
+        :return: List of the styles
+        """
+        styles = []
+        for cell in row:
+            if cell.startswith(":") and cell.endswith(":"):
+                styles.append("c")
+            elif cell.startswith(":"):
+                styles.append("l")
+            elif cell.endswith(":"):
+                styles.append("r")
+            else:
+                styles.append(None)
+        return styles
+
+    @classmethod
+    def from_md(cls, md: str) -> "MDTable":
+        """
+        gets table from md text.
+        Assumes all text is part of table and will enforce the tablewidth given in
+        format row. This means non-table text will be assumed to be just the first
+        column and the rest will be filled with "". Every column past the ones
+        alignment was defined for will be cut.
+        :param md: md text from the first to the last line of the table
+        :return: list of table rows, all having uniform length
+        """
+        lines = md.splitlines()
+        headers = lines.pop(0).split("|")
+        # remove first and last cell if they are empty
+        if not headers[0].strip():
+            headers = headers[1:]
+        if not headers[-1].strip():
+            headers = headers[:-1]
+        headers = [x.strip() for x in headers]
+
+        rows = [cls.split_row(row, len(headers)) for row in lines]
+        if not rows:
+            return cls([], headers)
+        # remove the separator
+        if all(x in "- |:" for x in "".join(rows[0])):
+            styles = cls.extract_styles(rows.pop(0))
+        else:
+            styles = [None] * len(headers)
+        # ensure all rows have the same length
+        for row in rows:
+            row += [""] * (len(headers) - len(row))
+        # ensure no row is longer than headers
+        rows = [row[: len(headers)] for row in rows]
+        return cls(rows, headers, styles)
+
+    def to_md(self):
+        """
+        converts the table back to markdown
+        :return: markdown
+        """
+        columns = len(self.headers)
+        if not self.rows:
+            self.rows = [[""] * columns]
+        column_widths = [
+            max(len(self.headers[i]), max(len(r[i]) for r in self.rows))
+            for i in range(columns)
+        ]
+
+        result = "| "
+        result += " | ".join(
+            self.line_align(self.headers[h], self.style[h], column_widths[h])
+            for h in range(columns)
+        )
+        result += " |  \n"
+        for i in range(len(self.headers)):
+            s = self.style[i] or "x"
+            stylebegin = ":" if s in "lc" else ""
+            styleend = ":" if s in "rc" else ""
+            lesser = len(stylebegin + styleend) - 1
+            result += f"|{stylebegin}-{'-' * (column_widths[i]-lesser)}{styleend}"
+        result += "|  \n"
+        for row in self.rows:
+            result += "| "
+            for i in range(columns):
+                result += (
+                    self.line_align(row[i], self.style[i], column_widths[i]) + " | "
+                )
+            result += " \n"
+        return result
+
+    @staticmethod
+    def line_align(line: str, align: str, length: int) -> str:
+        """
+        aligns a line according to the table's alignment
+        :param line: the line to align
+        :param align: the alignment of the line
+        :param length: the length to align to
+        :return: the aligned line
+        """
+        if align == "l":
+            return line.ljust(length)
+        elif align == "r":
+            return line.rjust(length)
+        elif align == "c":
+            return line.center(length)
+        return line.ljust(length)
+
+    def search(self, searchterm) -> List[str] | None:
+        """
+        searches the table for a searchterm
+        :param searchterm: the term to search for
+        :return: True if the searchterm is found
+        """
+        for row in self.rows + self.headers:
+            for cell in row:
+                if searchterm in cell:
+                    return row
+        return None
+
+    def to_simple(self):
+        return {"styles": self.style, "headers": self.headers, "rows": self.rows}
+
+    def update_cell(self, row: int, col: int, data: str):
+        while row >= len(self.rows):
+            self.rows.append([])
+        while col >= len(self.rows[row]):
+            self.rows[row].append("")
+        self.rows[row][col] = data
+
+    def update_rows(self, data: List[List[str]]):
+        for i, r in enumerate(data):
+            for h, d in enumerate(r):
+                self.update_coordinate(i, h, d)
+
+    def clear_rows(self):
+        self.rows = []
+
+
 class MDObj:
     def __init__(
         self,
@@ -11,15 +181,10 @@ class MDObj:
         children: Dict[str, "MDObj"],
         original: str,
         flash: Callable[[str], None],
-        start_tables_at_line: int | None,
     ):
         self.plaintext = plaintext
-        self.children = children
-        self.tables = (
-            self.extract_tables(start_tables_at_line)
-            if start_tables_at_line is not None
-            else []
-        )
+        self.children: Dict[str, "MDObj"] = children
+        self.tables = self.extract_tables()
         self.originalMD = original
         self.flash = flash
 
@@ -28,7 +193,10 @@ class MDObj:
 
     @classmethod
     def from_md(
-        cls, lines, level=0, flash=None, table_first_line: int | None = 0
+        cls,
+        lines,
+        level=0,
+        flash=None,
     ) -> "MDObj":
         """
         breaks down the structure of a md text into nested tuples of a string
@@ -38,7 +206,7 @@ class MDObj:
         (top line on top of the stack)
         @param level: the level of heading this split started and therefore should end on
         @param flash: function to call with errors
-        @param table_first_line: if None, tables are ignored. Otherwise, the first line of a table (header) is skipped
+
         @return: a Tuple of the direct text and a dict containing recursive output
 
         """
@@ -59,7 +227,7 @@ class MDObj:
                 if current_level and level >= current_level:
                     # we moved out of our subtree
                     lines.append(line)  # push the current line back
-                    return cls(text, children, original, flash, table_first_line)
+                    return cls(text, children, original, flash)
                 else:
                     k = line.lstrip("# ").strip()
                     while k in children:
@@ -68,11 +236,10 @@ class MDObj:
                         lines=lines,  # by reference
                         level=current_level,
                         flash=flash,
-                        table_first_line=table_first_line,
                     )
                     continue
             text += line + "\n"
-        return cls(text, children, original, flash, table_first_line)
+        return cls(text, children, original, flash)
 
     def search_all(self, searchterm: str) -> [(str, str)]:
         """
@@ -86,44 +253,41 @@ class MDObj:
                 results.append((k, v.originalMD))
             results += [(k, r) for r in v.search_all(searchterm)]
         for subtable in self.tables:
-            for row in subtable:
+            for row in subtable.headers + subtable.rows:
                 if row[0].strip().startswith(searchterm):
                     results.append((row[0], "|".join(row[1:])))
         return results
 
-    def extract_tables(self, start_at_line) -> List[List[List[str]]]:
+    def extract_tables(self) -> List[MDTable]:
         """
         traverses the output of split_md and consumes table text where possible.
         Tables are appended to a List, at the end of each tuple
-        :param start_at_line: the line to start at, 0 indexed
         :return: a List of Tables
         """
         text = ""
+        linenr = 0
         tables = []
         run = ""
         for line in self.plaintext.splitlines(True):
+            linenr += 1
             if "|" in line:
                 run += line
                 continue
             elif run:
-                tables.append(table(run))
+                tables.append(MDTable.from_md(run))
+                tables[-1].prev_line_nr = linenr
                 run = ""
             text += line
         if run:
-            tables.append(table(run))
+            tables.append(MDTable.from_md(run))
+            tables[-1].prev_line_nr = linenr
         self.plaintext = text
-        for t in tables:
-            if not t:
-                continue
-            for _ in range(start_at_line):
-                t.pop(0)
         return tables
 
-    def confine_to_tables(self, headers=True) -> Tuple[Dict[str, object], List[str]]:
+    def confine_to_tables(self) -> Tuple[Dict[str, object], List[str]]:
         """
         simplifies a mdtree into just a dictionary of dictionaries.
         Makes the assumption that either children or a table can be had, and that all leaves are key value in the end
-        :param headers: if false, headers of the tables will be cut off
         :return: Dictionary that recursively always ends in ints
         """
         result = {}
@@ -134,8 +298,7 @@ class MDObj:
             log.info(msg)
 
         for subtable in self.tables:
-            skiprow = 1 if not headers else 0
-            for row in subtable[skiprow:]:
+            for row in subtable.rows:
                 if not row:
                     continue
                 if len(row) != 2:
@@ -145,7 +308,7 @@ class MDObj:
 
         for child, content in self.children.items():
             if content.children or content.tables:
-                result[child], newerrors = content.confine_to_tables(headers)
+                result[child], newerrors = content.confine_to_tables()
                 errors += newerrors
             else:
                 result[child] = content.plaintext
@@ -162,7 +325,7 @@ class MDObj:
 
     @classmethod
     def just_tables(cls, tables) -> "MDObj":
-        tablesonly = cls("", {}, "", lambda x: None, False)
+        tablesonly = cls("", {}, "", lambda x: None)
         tablesonly.tables = tables
         return tablesonly
 
@@ -175,6 +338,44 @@ class MDObj:
         for _, child in self.children.items():
             if result := child.search_children(name):
                 return result
+        return None
+
+    def to_md(self, layer=0) -> str:
+        """
+        reconstructs the original markdown from the object
+        """
+        result = self.plaintext.rstrip() + "\n"
+        for t in self.tables:
+            if t.prev_line_nr:
+                lines = result.splitlines(True)
+                result = (
+                    "".join(
+                        lines[: t.prev_line_nr]
+                        + t.to_md().splitlines(True)
+                        + lines[t.prev_line_nr :]
+                    )
+                    + "\n"
+                )
+            else:
+                result += t.to_md() + "\n"
+        for k, v in self.children.items():
+            result += f"{'#'*(layer+1)} {k}\n{v.to_md(layer + 1)}"
+
+        return result
+
+    def search_tables(self, searchterm: str) -> MDTable | None:
+        """
+        searches all tables in the MD and its children, returning the first matching table
+        """
+        for t in self.tables:
+            if t.search(searchterm):
+                return t
+        for n, c in self.children.items():
+            if searchterm.strip().lower() == n.strip().lower() and len(c.tables) == 1:
+                return c.tables[0]
+            r = c.search_tables(searchterm)
+            if r:
+                return r
         return None
 
 
@@ -190,6 +391,15 @@ def table_row_edit(md: str, key: str, value: str) -> str:
     end = "|" if old.endswith("|") else ""
     new = f"{start} {key} | {value} {end}"
     return md.replace(old, new, 1)
+
+
+def table_md(t: List[List[str]]) -> str:
+    """
+    converts a table to markdown
+    :param t: table
+    :return: markdown
+    """
+    return "\n".join(["|".join([x for x in row if x is not None]) for row in t if row])
 
 
 def table_add(md: str, key: str, new: str) -> str:
@@ -272,35 +482,3 @@ def traverse_md(md: str, seek: str) -> str:
                     level = current_level
                 result += line + "\n"
     return result
-
-
-def table(text: str) -> List[List[str]]:
-    """
-    gets table from md text.
-    Assumes all text is part of table and will enforce the tablewidth given in
-    format row. This means non-table text will be assumed to be just the first
-    column and the rest will be filled with "". Every column past the ones
-    alignment was defined for will be cut.
-    :param text: md text from the first to the last line of the table
-    :return: list of table rows, all having uniform length
-    """
-    rows = [row.strip() for row in text.split("\n") if row.strip()]
-    if len(rows) > 1:
-        formatline = [x for x in rows[1].split("|") if "-" in x]
-        length = len(formatline)
-        return [split_row(rows[0], length)] + [split_row(x, length) for x in rows[2:]]
-    return []
-
-
-def split_row(row: str, length: int) -> List[str]:
-    """
-    splits the row into the given length at |, cutting and adding as needed
-    :param row: md table row string
-    :param length: exakt number of columns
-    :return: List of the first length table cells
-    """
-    split = [x.strip() for x in row.split("|")]
-    if len(split) > length and row.startswith("|"):
-        split = split[1:]
-    # fill jagged edges with empty strings and cut tolength
-    return (split + [""] * (length - len(split)))[:length]

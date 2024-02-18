@@ -10,6 +10,7 @@ from gamepack.MDPack import (
     table_add,
     table_remove,
 )
+from gamepack.fengraph import rawload
 
 
 class TestMDObj(unittest.TestCase):
@@ -201,3 +202,23 @@ class TestMDObj(unittest.TestCase):
 
         # Check that the output matches the expected output
         self.assertEqual(input_table, expected_output)
+
+    def test_to_md(self):
+        # iterate over all files in ~/wiki/character
+        import pathlib
+
+        for file in pathlib.Path.expanduser(pathlib.Path("~/wiki/character")).iterdir():
+            if file.is_file():
+                with file.open() as f:
+                    md = f.read()
+                    mdobj = MDObj.from_md(md)
+                with file.open("w") as f:
+                    f.write(mdobj.to_md())
+        sut = MDObj.from_md(rawload("character/ragin"))
+        self.maxDiff = None
+        self.assertEqual(rawload("character/ragin"), sut.originalMD)
+
+        with open("test.md", "w") as f:
+            f.write(sut.to_md())
+
+        self.assertEqual(sut.originalMD, sut.to_md())

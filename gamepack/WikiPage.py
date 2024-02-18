@@ -49,8 +49,8 @@ class WikiPage:
         :return: markdown of page
         """
         if sanitize:
-            return MDObj.from_md(bleach.clean(self.body), table_first_line=0)
-        return MDObj.from_md(self.body, table_first_line=0)
+            return MDObj.from_md(bleach.clean(self.body))
+        return MDObj.from_md(self.body)
 
     @classmethod
     def wikipath(cls) -> Path:
