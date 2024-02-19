@@ -8,9 +8,9 @@ from collections import OrderedDict
 
 from typing import List, Tuple
 
-from gamepack.Item import Item, total_table
+from gamepack.Item import Item
 from gamepack.DiceParser import fullparenthesis, fast_fullparenthesis
-from gamepack.MDPack import MDObj
+from gamepack.MDPack import MDObj, MDTable
 
 
 class FenCharacter:
@@ -44,6 +44,7 @@ class FenCharacter:
     experience_headings = ["erfahrung", "experience", "xp", "fortschritt"]
     wound_headings = ["wunden", "wounds", "damage", "schaden"]
     note_headings = ["notes", "notiz", "notizen", "zettel"]
+    concept_headings = ["konzept", "konzepte", "concepts"]
 
     def __init__(
         self,
@@ -62,6 +63,7 @@ class FenCharacter:
         self.Timestamp = time.strftime("%Y/%m/%d-%H:%M:%S")
         self._xp_cache = {}
         self.errors = []
+        self.headings_used = {}
 
     def stat_definitions(self) -> dict:
         """
@@ -133,7 +135,7 @@ class FenCharacter:
         c = self.Categories[name]
         f = {}
         for k in c.keys():
-            if k.lower() in ["konzepte", "concepts"]:
+            if k.lower() in self.concept_headings:
                 f.update(c[k])
         return len(f)
 
@@ -207,6 +209,23 @@ class FenCharacter:
         res += sum([1 for x in s if x.strip()])
         return res
 
+    @staticmethod
+    def recursive_category_handle(category: MDObj) -> dict:
+        """
+        a recursive category either has a table or a dictionary of subcategories
+        :param category: category name
+        :return: dictionary of all stats in this category
+        """
+        if category.tables:
+            return {
+                r[0] if len(r) > 0 else "": r[1] if len(r) > 1 else ""
+                for r in category.tables[0].rows
+            }
+        res = {}
+        for k, v in category.children.items():
+            res[k] = FenCharacter.recursive_category_handle(v)
+        return res
+
     @classmethod
     def from_mdobj(cls, mdobj: MDObj, flash=None):
         self = cls()
@@ -225,14 +244,14 @@ class FenCharacter:
 
         for s in mdobj.children.keys():
             if s.lower().strip() in self.value_headings:
-                stats, errors = mdobj.children[s].confine_to_tables()
-                self.Categories.update(stats)
-                for e in errors:
-                    flash(e)
+                self.headings_used["values"] = s
+                self.Categories = self.recursive_category_handle(mdobj.children[s])
+                self.headings_used["categories"] = self.Categories.keys()
             else:
                 if s.strip().lower() in self.description_headings:
                     details, errors = mdobj.children[s].confine_to_tables()
                     self.Character = details
+                    self.headings_used["description"] = s
                     for e in errors:
                         flash(e)
                 else:
@@ -240,6 +259,39 @@ class FenCharacter:
 
         self.post_process(flash)
         return self
+
+    def to_mdobj(self, flash=None):
+        if not flash:
+
+            def flash(err):
+                self.errors.append(err)
+
+        children = {}
+        description = {}
+        for k, v in self.Character.items():
+            description[k] = MDObj(v, {}, "", flash)
+        children[self.headings_used.get("description", "Description")] = MDObj(
+            "", description, "", flash
+        )
+        stats = {}
+        for categoryhead, section in self.Categories.items():
+            cat = {}
+            for sectionhead, stat in section.items():
+                stat_table = [[k, v] for k, v in stat.items()]
+                t = MDTable(
+                    rows=stat_table,
+                    headers=self.headings_used["categories"][categoryhead][sectionhead],
+                )
+                cat[sectionhead] = MDObj("", {}, "", flash)
+                cat[sectionhead].tables.append(t)
+
+            stats[categoryhead] = MDObj("", cat, "", flash)
+        children[self.headings_used.get("values", "Values")] = MDObj(
+            "", stats, "", flash
+        )
+        for k, v in self.Meta.items():
+            children[k] = v
+        return MDObj("", children, "", flash)
 
     @classmethod
     def from_md(cls, body, flash=None):
@@ -258,9 +310,6 @@ class FenCharacter:
         for k in self.Meta.keys():
             if k.lower() in self.inventory_headings:
                 self.process_inventory(self.Meta[k], flash)
-                self.Meta[k].children["Total"] = MDObj.just_tables(
-                    [self.inventory_table()]
-                )
             if k.lower() in self.experience_headings:
                 if not self._xp_cache:  # generate once
                     self._xp_cache = {}
@@ -286,40 +335,3 @@ class FenCharacter:
                 row.append(self._xp_cache[row[0]])
         for content in node.children.values():
             self.process_xp(content)
-
-    def inventory_table(self):
-        inv_table = [
-            [
-                "Name",
-                "Anzahl",
-                "Gewicht",
-                "Preis",
-                "Gewicht Gesamt",
-                "Preis Gesamt",
-                "Beschreibung",
-            ]
-            + list(self.Inventory_Bonus_Headers)
-        ]
-        for i in self.Inventory:
-            inv_table.append(
-                [
-                    f"[!q:{i.name}]",
-                    f"{i.count:g}",
-                    i.singular_weight,
-                    i.singular_price,
-                    i.total_weight,
-                    i.total_price,
-                    i.description,
-                ]
-                + [i.additional_info.get(x) or "" for x in self.Inventory_Bonus_Headers]
-            )
-        inv_table.append(["Gesamt"] + len(self.Inventory_Bonus_Headers) * [""])
-        total_table(inv_table, print)
-        return inv_table
-
-    def to_markdown(self, sanitize=False):
-        """
-        :param sanitize: whether to sanitize the markdown
-        :return: markdown of page
-        """
-        return self.md(sanitize).to_md()

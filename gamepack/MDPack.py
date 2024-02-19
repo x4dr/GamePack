@@ -96,13 +96,16 @@ class MDTable:
         converts the table back to markdown
         :return: markdown
         """
+        self.canonize()
         columns = len(self.headers)
         if not self.rows:
             self.rows = [[""] * columns]
-        column_widths = [
-            max(len(self.headers[i]), max(len(r[i]) for r in self.rows))
-            for i in range(columns)
-        ]
+
+        column_widths = [len(self.headers[i]) for i in range(columns)]
+        for row in self.rows:
+            for i in range(columns):
+                if len(row) > i:
+                    column_widths[i] = max(column_widths[i], len(row[i]))
 
         result = "| "
         result += " | ".join(
@@ -168,10 +171,20 @@ class MDTable:
     def update_rows(self, data: List[List[str]]):
         for i, r in enumerate(data):
             for h, d in enumerate(r):
-                self.update_coordinate(i, h, d)
+                self.update_cell(i, h, d)
 
     def clear_rows(self):
         self.rows = []
+
+    def canonize(self):
+        # make all cells str
+        self.rows = [[str(x) for x in row] for row in self.rows]
+        self.headers = [str(x) for x in self.headers]
+        self.style += [None] * (len(self.headers) - len(self.style))
+
+        # delete empty rows at the end
+        while self.rows and not any(x for x in self.rows[-1] if x.strip()):
+            self.rows.pop()
 
 
 class MDObj:
@@ -284,7 +297,7 @@ class MDObj:
         self.plaintext = text
         return tables
 
-    def confine_to_tables(self) -> Tuple[Dict[str, object], List[str]]:
+    def confine_to_tables(self) -> Tuple[Dict[str, str | dict], List[str]]:
         """
         simplifies a mdtree into just a dictionary of dictionaries.
         Makes the assumption that either children or a table can be had, and that all leaves are key value in the end
@@ -323,17 +336,36 @@ class MDObj:
             error(f"Extraneous Text: '{self.plaintext.strip()}'")
         return result, errors
 
+    @staticmethod
+    def from_dict(cls, inp: Dict[str, str | dict]) -> "MDObj":
+        """
+        inverse of confine_to_tables
+        """
+        children = {}
+        plaintext = ""
+        for k, v in inp.items():
+            if isinstance(v, str):
+                children[k] = cls(v, {}, "", lambda x: None)
+            elif isinstance(v, MDTable):
+                children[k] = v
+            elif isinstance(v, dict):
+                children[k] = cls.from_dict(v)
+        return cls(plaintext, children, "", lambda x: None)
+
     @classmethod
-    def just_tables(cls, tables) -> "MDObj":
+    def just_tables(cls, tables: MDTable) -> "MDObj":
         tablesonly = cls("", {}, "", lambda x: None)
         tablesonly.tables = tables
         return tablesonly
 
-    def search_children(self, name: str):
+    def search_children(self, name: str) -> "MDObj":
         # search direct children first
         for child_name in self.children:
             if name.lower().strip() == child_name.lower().strip():
                 return self.children[child_name]
+        for t in self.tables:
+            if t.search(name):
+                return self
         # then do a depth first search for the first matching entry
         for _, child in self.children.items():
             if result := child.search_children(name):
