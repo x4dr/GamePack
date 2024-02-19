@@ -138,15 +138,13 @@ class TestMDObj(unittest.TestCase):
         mdtext = "# My Table\n\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Value 1  | Value 2  |"
         mdobj = MDObj.from_md(mdtext)
         result, errors = mdobj.confine_to_tables()
-        self.assertDictEqual(
-            result, {"My Table": {"Header 1": "Header 2", "Value 1": "Value 2"}}
-        )
+        self.assertDictEqual(result, {"My Table": {"Value 1": "Value 2"}})
         self.assertEqual(errors, [])
 
         # Test a simple table without headers
         mdtext = "# My Table\n\n| Value 1 | Value 2 |"
         mdobj = MDObj.from_md(mdtext)
-        result, errors = mdobj.confine_to_tables(headers=False)
+        result, errors = mdobj.confine_to_tables()
         self.assertDictEqual(result, {"My Table": {}})
         self.assertEqual(errors, [])
 
@@ -159,7 +157,8 @@ class TestMDObj(unittest.TestCase):
         | Value 1  | Value 2  |
 
         ## Subheading
-
+        asd
+        ## extraneous subheading
         # My Table 2
         | Header 3 | Header 4 |
         | -------- | -------- |
@@ -170,16 +169,19 @@ class TestMDObj(unittest.TestCase):
             result,
             {
                 "My Table 1": {
-                    "Header 1": "Header 2",
                     "Value 1": "Value 2",
-                    "Subheading": "\n",
+                    "Subheading": "        asd\n",
+                    "extraneous subheading": "",
                 },
-                "My Table 2": {"Header 3": "Header 4", "Value 3": "Value 4"},
+                "My Table 2": {"Value 3": "Value 4"},
             },
         )
         self.assertEqual(
             errors,
-            ["Extraneous Subheading: 'Subheading'", "Extraneous Text: 'preamble'"],
+            [
+                "Extraneous Subheading: 'Subheading, extraneous subheading'",
+                "Extraneous Text: 'preamble'",
+            ],
         )
 
     def test_total_table(self):

@@ -10,7 +10,7 @@ class Item:
     price: Union[float, None]
     description: str
     additional_info: dict[str, str]
-    item_cache = None  # to be injected from outside
+    item_cache = {}  # to be injected from outside
     table_total = ("gesamt", "total", "summe", "sum")
     table_name = ("objekt", "object", "name", "gegenstand", "item")
     table_description = ("beschreibung", "description", "desc", "details")
@@ -33,7 +33,7 @@ class Item:
         weight: float,
         price: float,
         description: str = "",
-        count: float = 1.0,
+        count: float | str = 1.0,
         additional=None,
     ):
         self.name = name
@@ -63,7 +63,7 @@ class Item:
         return fendeconvert(self.price * self.count, "money")
 
     @classmethod
-    def from_table_row(cls, row: list, offsets: dict, temp_cache: dict = None):
+    def from_table_row(cls, row: list[str], offsets: dict, temp_cache: dict = None):
         # unknown offsets will be set to -1, so we need to pad the row with the default value
         row.append("")
         if not temp_cache:
@@ -127,14 +127,12 @@ class Item:
         return item
 
     @classmethod
-    def process_table(
-        cls, table: MDTable, flash, temp_cache=None
-    ) -> (List[Self], List[str]):
-        # returns the list of found/resolved items and a list of bonus headers from the table
-
-        # to deal with arbitrary header orderings and names, find the column number of one of the requirements
-
-        headers = table.headers
+    def process_offsets(cls, headers: list[str]) -> (dict[str, int], list[str]):
+        """
+        :param headers: list of headers
+        :return: dictionary of offsets and a list of unknown headers
+        to deal with arbitrary header orderings and names, find the column number of one of the requirements
+        """
         offsets = {}
         unknown_headers = [
             (i, header)
@@ -159,12 +157,22 @@ class Item:
                 offsets[req] = -1
         for unknown_header in unknown_headers:
             offsets[unknown_header[1]] = unknown_header[0]
+        return offsets, unknown_headers
 
+    @classmethod
+    def process_table(
+        cls, table: MDTable, flash, temp_cache=None
+    ) -> (List[Self], List[str]):
+        # returns the list of found/resolved items and a list of bonus headers from the table
+
+        #
+
+        offsets, unknown_headers = cls.process_offsets(table.headers)
         if offsets.get(cls.table_name) is None:
             return [], [x[1] for x in unknown_headers]
         res = []
-        for row in table.rows:  # skip header
-            if not any(row):  # skip empty rows
+        for row in table.rows:
+            if not any(x.strip() for x in row):  # skip empty rows
                 continue
             if row[0].lower() in cls.table_total:  # skip totaling rows
                 continue

@@ -8,7 +8,7 @@ from collections import OrderedDict
 
 from typing import List, Tuple
 
-from gamepack.Item import Item
+from gamepack.Item import Item, total_table
 from gamepack.DiceParser import fullparenthesis, fast_fullparenthesis
 from gamepack.MDPack import MDObj, MDTable
 
@@ -335,3 +335,33 @@ class FenCharacter:
                 row.append(self._xp_cache[row[0]])
         for content in node.children.values():
             self.process_xp(content)
+
+    def inventory_table(self):
+        inv_table = [
+            [
+                "Name",
+                "Anzahl",
+                "Gewicht",
+                "Preis",
+                "Gewicht Gesamt",
+                "Preis Gesamt",
+                "Beschreibung",
+            ]
+            + list(self.Inventory_Bonus_Headers)
+        ]
+        for i in self.Inventory:
+            inv_table.append(
+                [
+                    f"[!q:{i.name}]",
+                    f"{i.count:g}",
+                    i.singular_weight,
+                    i.singular_price,
+                    i.total_weight,
+                    i.total_price,
+                    i.description,
+                ]
+                + [i.additional_info.get(x) or "" for x in self.Inventory_Bonus_Headers]
+            )
+        inv_table.append(["Gesamt"] + len(self.Inventory_Bonus_Headers) * [""])
+        total_table(inv_table, print)
+        return inv_table
