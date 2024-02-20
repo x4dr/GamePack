@@ -38,6 +38,6 @@ class WikiCharacterSheet(WikiPage):
             WikiPage.page_cache[page] = cls.from_wikipage(p)
             return WikiPage.page_cache[page]
 
-    def save(self, page: Path, author: str, message: str):
+    def save(self, page: Path, author: str, message: str = None):
         self.body = self.char.to_md()
         super().save(page, author, message)
