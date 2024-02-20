@@ -9,7 +9,7 @@ from gamepack.fengraph import rawload
 
 class TestDiceParser(TestCase):
     def setUp(self) -> None:
-        self.c = FenCharacter()
+        self.c: FenCharacter = FenCharacter()
         random.seed(0)
 
     def test_xp_parse(self):
@@ -19,6 +19,15 @@ class TestDiceParser(TestCase):
         self.assertEqual(1, self.c.parse_xp("a(cond) b"))
         self.assertEqual(4, self.c.parse_xp("[asd, sdf, dfg, gfh]"))
         self.assertEqual(6, self.c.parse_xp("a 5 /teststr a"))
+        self.assertEqual(11, self.c.parse_xp("10a"))
+
+    def test_xp_add(self):
+        self.c.Meta["Experience"] = MDObj.from_md("|key|value|\n|-|-|\n|test| SSS |")
+        self.c.headings_used["xp"] = "Experience"
+        self.c.add_xp("test", 5)
+        self.assertEqual(8, self.c.get_xp_for("test"))
+        self.c.add_xp("test", -10)
+        self.assertEqual(-2, self.c.get_xp_for("test"))
 
     def test_inventory_table(self):
         c = FenCharacter()

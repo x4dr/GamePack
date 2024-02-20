@@ -112,21 +112,21 @@ class MDTable:
             self.line_align(self.headers[h], self.style[h], column_widths[h])
             for h in range(columns)
         )
-        result += " |  \n"
+        result += " |\n"
         for i in range(len(self.headers)):
             s = self.style[i] or "x"
             stylebegin = ":" if s in "lc" else ""
             styleend = ":" if s in "rc" else ""
             lesser = len(stylebegin + styleend) - 1
             result += f"|{stylebegin}-{'-' * (column_widths[i]-lesser)}{styleend}"
-        result += "|  \n"
+        result += "|\n"
         for row in self.rows:
             result += "| "
-            for i in range(columns):
-                result += (
-                    self.line_align(row[i], self.style[i], column_widths[i]) + " | "
-                )
-            result += " \n"
+            result += " | ".join(
+                self.line_align(row[i], self.style[i], column_widths[i])
+                for i in range(columns)
+            )
+            result += " |\n"
         return result
 
     @staticmethod
@@ -194,10 +194,11 @@ class MDObj:
         children: Dict[str, "MDObj"],
         original: str,
         flash: Callable[[str], None],
+        tables: List[MDTable] = None,
     ):
         self.plaintext = plaintext
         self.children: Dict[str, "MDObj"] = children
-        self.tables = self.extract_tables()
+        self.tables = tables or self.extract_tables()
         self.originalMD = original
         self.flash = flash
 

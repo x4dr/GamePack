@@ -156,7 +156,7 @@ class WikiPage:
         except FileNotFoundError:
             raise DescriptiveError(str(page) + " not found in wiki.")
 
-    def save(self, page: Path, author: str):
+    def save(self, page: Path, author: str, message=None):
         if page.suffix != ".md":
             raise DescriptiveError("page must be a .md file")
         print(f"saving '{self.title}' as {page} ...")
@@ -170,7 +170,7 @@ class WikiPage:
             f.write("---\n")
             f.write(self.body.replace("\r", ""))
         with (self.wikipath() / "control").open("a+") as h:
-            h.write(f"{page} edited by {author}\n")
+            h.write(message or f"{page} edited by {author}\n")
         self.cacheclear(page)
         if subprocess.run(
             [Path("~").expanduser() / "bin/wikiupdate"], shell=True

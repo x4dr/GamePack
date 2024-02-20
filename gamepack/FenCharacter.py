@@ -61,7 +61,7 @@ class FenCharacter:
         self.Notes: MDObj = MDObj.from_md("")
         self.Storage = ""
         self.Timestamp = time.strftime("%Y/%m/%d-%H:%M:%S")
-        self._xp_cache = {}
+        self.xp_cache = {}
         self.errors = []
         self.headings_used = {}
 
@@ -165,7 +165,7 @@ class FenCharacter:
         :param name: name of some stat
         :return: total amount of xp associated with that name
         """
-        return self._xp_cache.get(name, 0)
+        return self.xp_cache.get(name.lower(), 0)
 
     @staticmethod
     def parse_xp(s):
@@ -200,7 +200,7 @@ class FenCharacter:
             s = s.replace("[" + paren + "]", "", 1)
             paren = fullparenthesis(s, "[", "]")
         s = re.sub(r"/.*", "", s)
-        while number := re.search(r"\d+", s):
+        while number := re.search(r"-?\d+", s):
             number.groups(0)
             start, stop = number.span()
             extracted = s[start:stop]
@@ -209,8 +209,32 @@ class FenCharacter:
         res += sum([1 for x in s if x.strip()])
         return res
 
+    def add_xp(self, name, value) -> int:
+        """
+        :param name: name of the stat
+        :param value: amount of xp to add
+        :return: new total
+        """
+        xp_mdo = self.Meta[self.headings_used["xp"]]
+        if not xp_mdo.tables:
+            xp_mdo.tables.append(MDTable([], ["Skill, XP"]))
+        t = xp_mdo.tables[0]
+        for row in t.rows:
+            if not row:
+                continue
+            if row[0].lower() == name.lower():
+                row[1] = re.sub(
+                    r"^\d*", lambda x: str(int(x.group() or 0) + value), row[1], 1
+                )
+                break
+        else:
+            t.rows.append([name, str(value)])
+        self.xp_cache = {}  # reset because process only addse
+        self.process_xp(xp_mdo)
+        return self.get_xp_for(name)
+
     @staticmethod
-    def recursive_category_handle(category: MDObj) -> dict:
+    def recursive_category_handle(category: MDObj) -> (dict, dict | list[str]):
         """
         a recursive category either has a table or a dictionary of subcategories
         :param category: category name
@@ -220,11 +244,12 @@ class FenCharacter:
             return {
                 r[0] if len(r) > 0 else "": r[1] if len(r) > 1 else ""
                 for r in category.tables[0].rows
-            }
+            }, category.tables[0].headers
         res = {}
+        h = {}
         for k, v in category.children.items():
-            res[k] = FenCharacter.recursive_category_handle(v)
-        return res
+            res[k], h[k] = FenCharacter.recursive_category_handle(v)
+        return res, h
 
     @classmethod
     def from_mdobj(cls, mdobj: MDObj, flash=None):
@@ -245,8 +270,11 @@ class FenCharacter:
         for s in mdobj.children.keys():
             if s.lower().strip() in self.value_headings:
                 self.headings_used["values"] = s
-                self.Categories = self.recursive_category_handle(mdobj.children[s])
-                self.headings_used["categories"] = self.Categories.keys()
+                (
+                    self.Categories,
+                    self.headings_used["categories"],
+                ) = self.recursive_category_handle(mdobj.children[s])
+
             else:
                 if s.strip().lower() in self.description_headings:
                     details, errors = mdobj.children[s].confine_to_tables()
@@ -259,6 +287,32 @@ class FenCharacter:
 
         self.post_process(flash)
         return self
+
+    @staticmethod
+    def construct_mdobj_from_category(
+        category_dict: dict, headings: dict | list[str], flash
+    ):
+        """
+        :param category_dict: dictionary of all stats in this category
+        :param headings: headings of the lowest level tables at each leaf
+        :param flash: function to call for each error
+        :return: MDObj of the category
+        """
+        if not category_dict:
+            return MDObj("", {}, "", flash)
+        children = {
+            k: FenCharacter.construct_mdobj_from_category(v, headings[k], flash)
+            for k, v in category_dict.items()
+            if isinstance(v, dict)
+        }
+        if children:
+            return MDObj("", children, "", flash)
+        table = [[k, v] for k, v in category_dict.items() if isinstance(v, str)]
+        if not isinstance(headings, list):
+            flash(str(headings) + " not valid table headings!")
+            headings = [str(headings), str(headings)]
+
+        return MDObj("", {}, "", flash, [MDTable(table, headings)])
 
     def to_mdobj(self, flash=None):
         if not flash:
@@ -273,21 +327,11 @@ class FenCharacter:
         children[self.headings_used.get("description", "Description")] = MDObj(
             "", description, "", flash
         )
-        stats = {}
-        for categoryhead, section in self.Categories.items():
-            cat = {}
-            for sectionhead, stat in section.items():
-                stat_table = [[k, v] for k, v in stat.items()]
-                t = MDTable(
-                    rows=stat_table,
-                    headers=self.headings_used["categories"][categoryhead][sectionhead],
-                )
-                cat[sectionhead] = MDObj("", {}, "", flash)
-                cat[sectionhead].tables.append(t)
 
-            stats[categoryhead] = MDObj("", cat, "", flash)
-        children[self.headings_used.get("values", "Values")] = MDObj(
-            "", stats, "", flash
+        children[
+            self.headings_used.get("values", "Values")
+        ] = self.construct_mdobj_from_category(
+            self.Categories, self.headings_used["categories"], flash
         )
         for k, v in self.Meta.items():
             children[k] = v
@@ -305,14 +349,18 @@ class FenCharacter:
         sheetparts = MDObj.from_md(body)
         return cls.from_mdobj(sheetparts, flash)
 
+    def to_md(self, flash=None):
+        return self.to_mdobj(flash).to_md()
+
     def post_process(self, flash):
         # tally inventory
         for k in self.Meta.keys():
             if k.lower() in self.inventory_headings:
                 self.process_inventory(self.Meta[k], flash)
             if k.lower() in self.experience_headings:
-                if not self._xp_cache:  # generate once
-                    self._xp_cache = {}
+                self.headings_used["xp"] = k
+                if not self.xp_cache:  # generate once
+                    self.xp_cache = {}
                     self.process_xp(self.Meta[k])
             if k.lower() in self.note_headings:
                 self.Notes = self.Meta[k]
@@ -331,8 +379,9 @@ class FenCharacter:
             for row in table.rows:
                 if len(row) < 2:
                     continue  # skip invalid rows
-                self._xp_cache[row[0]] = self.parse_xp(row[1])
-                row.append(self._xp_cache[row[0]])
+                key = row[0].lower()
+                self.xp_cache[key] = self.xp_cache.get(key, 0) + self.parse_xp(row[1])
+                row.append(self.xp_cache[key])
         for content in node.children.values():
             self.process_xp(content)
 
