@@ -105,8 +105,12 @@ class WikiPage:
         :param cache: whether to retrieve from cache
         :return: title, tags, body
         """
+        filetime = page.stat().st_mtime
         res = cls.page_cache.get(page, None) if cache else None
         if res is not None:
+            if res.last_modified != filetime:
+                cls.refresh_cache(page)
+                res = cls.page_cache.get(page, None)
             return res
         try:
             p = cls.wikipath() / page
@@ -149,7 +153,7 @@ class WikiPage:
                     body=body,
                     links=links,
                     meta=meta,
-                    modified=p.stat().st_mtime,
+                    modified=filetime,
                 )
                 cls.page_cache[page] = loaded_page
                 return loaded_page
@@ -227,7 +231,7 @@ class WikiPage:
         print(f"index took: {str(1000 * (time.time() - cls.wikistamp))} milliseconds")
 
     @classmethod
-    def refresh_cache(cls, page: Path = None):
+    def refresh_cache(cls, page: Path = None) -> list[Path]:
         changed = []
         if page is None:
             for key in list(cls.page_cache.keys()):
