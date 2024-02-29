@@ -105,15 +105,15 @@ class WikiPage:
         :param cache: whether to retrieve from cache
         :return: title, tags, body
         """
-        filetime = page.stat().st_mtime
-        res = cls.page_cache.get(page, None) if cache else None
-        if res is not None:
-            if res.last_modified != filetime:
-                cls.refresh_cache(page)
-                res = cls.page_cache.get(page, None)
-            return res
         try:
             p = cls.wikipath() / page
+            filetime = p.stat().st_mtime
+            res = cls.page_cache.get(page, None) if cache else None
+            if res is not None:
+                if res.last_modified != filetime:
+                    cls.refresh_cache(page)
+                    res = cls.page_cache.get(page, None)
+                return res
             with p.open() as f:
                 mode = "init"
                 title = ""
