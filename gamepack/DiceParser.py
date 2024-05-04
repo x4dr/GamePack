@@ -159,9 +159,11 @@ class DiceParser:
     def extract_literal(matches):
         literal = matches["literal"].strip()
         return {
-            "amount": literal
-            if literal and all(x == "-" for x in literal)
-            else [int(x) for x in literal[1:-1].split(",")]
+            "amount": (
+                literal
+                if literal and all(x == "-" for x in literal)
+                else [int(x) for x in literal[1:-1].split(",")]
+            )
         }
 
     @staticmethod
@@ -476,10 +478,12 @@ class DiceParser:
         for kv in triggerreplace:
             change = True
             roll = roll.replace(kv[0], kv[1], 1)
-
-        if self.defines.get("defaultselector", "").startswith("@") and "@" not in roll:
-            roll = re.sub(
-                r"\s*\d[\d,\s]*", r"\g<0>" + self.defines["defaultselector"], roll
+        numbers_and_commas = re.compile(r"\s*\d[\d,\s]*$")
+        if self.defines.get("defaultselector", "").startswith(
+            "@"
+        ) and numbers_and_commas.match(roll):
+            roll = numbers_and_commas.sub(
+                r"\g<0>" + self.defines["defaultselector"], roll
             )
             self.defines["returnfun"] = ""
             change = True
