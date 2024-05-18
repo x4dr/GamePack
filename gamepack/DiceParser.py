@@ -212,8 +212,9 @@ class DiceParser:
     def do_roll(self, roll, depth=0) -> Dice:
         """Wrapper around make_roll that handles edgecases"""
         if isinstance(roll, str):
-            if ";" in roll:
-                roll = "(" + ")(".join(roll.split(";")) + ")"
+            while ";" in roll:
+                next_rolls, roll = roll.rsplit(";",1)
+                self.do_roll(next_rolls)
 
             roll = roll.strip()
         roll = self.resolveroll(roll, depth)
