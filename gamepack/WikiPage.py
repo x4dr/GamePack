@@ -176,10 +176,10 @@ class WikiPage:
         with (self.wikipath() / "control").open("a+") as h:
             h.write(message or f"{page} edited by {author}\n")
         self.cacheclear(page)
-        if subprocess.run(
-            [Path("~").expanduser() / "bin/wikiupdate"], shell=True
-        ).returncode:
-            raise DescriptiveError("wikiupdate failed")
+        sp = subprocess.run([Path("~").expanduser() / "bin/wikiupdate"], shell=True)
+        if sp.returncode:
+            print(sp.returncode, sp.stderr)
+            raise DescriptiveError("wikiupdate failed ")
 
     @classmethod
     def cacheclear(cls, page: Path):

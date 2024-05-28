@@ -299,20 +299,20 @@ class FenCharacter:
         :return: MDObj of the category
         """
         if not category_dict:
-            return MDObj("", {}, "", flash)
+            return MDObj("", {}, flash)
         children = {
             k: FenCharacter.construct_mdobj_from_category(v, headings[k], flash)
             for k, v in category_dict.items()
             if isinstance(v, dict)
         }
         if children:
-            return MDObj("", children, "", flash)
+            return MDObj("", children, flash)
         table = [[k, v] for k, v in category_dict.items() if isinstance(v, str)]
         if not isinstance(headings, list):
             flash(str(headings) + " not valid table headings!")
             headings = [str(headings), str(headings)]
 
-        return MDObj("", {}, "", flash, [MDTable(table, headings)])
+        return MDObj("", {}, flash, [MDTable(table, headings)])
 
     def to_mdobj(self, flash=None):
         if not flash:
@@ -323,19 +323,19 @@ class FenCharacter:
         children = {}
         description = {}
         for k, v in self.Character.items():
-            description[k] = MDObj(v, {}, "", flash)
+            description[k] = MDObj(v, {}, flash)
         children[self.headings_used.get("description", "Description")] = MDObj(
-            "", description, "", flash
+            "", description, flash
         )
 
-        children[
-            self.headings_used.get("values", "Values")
-        ] = self.construct_mdobj_from_category(
-            self.Categories, self.headings_used["categories"], flash
+        children[self.headings_used.get("values", "Values")] = (
+            self.construct_mdobj_from_category(
+                self.Categories, self.headings_used["categories"], flash
+            )
         )
         for k, v in self.Meta.items():
             children[k] = v
-        return MDObj("", children, "", flash)
+        return MDObj("", children, flash)
 
     @classmethod
     def from_md(cls, body, flash=None):

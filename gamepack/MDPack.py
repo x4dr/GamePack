@@ -192,14 +192,17 @@ class MDObj:
         self,
         plaintext: str,
         children: Dict[str, "MDObj"],
-        original: str,
         flash: Callable[[str], None],
         tables: List[MDTable] = None,
+        level: int = 0,
+        header: str = "",
     ):
+        self.originalMD = plaintext
         self.plaintext = plaintext
         self.children: Dict[str, "MDObj"] = children
         self.tables = tables or self.extract_tables()
-        self.originalMD = original
+        self.level = level
+        self.header = header
         self.flash = flash
 
     def __repr__(self):
@@ -210,6 +213,7 @@ class MDObj:
         cls,
         lines,
         level=0,
+        header="",
         flash=None,
     ) -> "MDObj":
         """
@@ -241,7 +245,14 @@ class MDObj:
                 if current_level and level >= current_level:
                     # we moved out of our subtree
                     lines.append(line)  # push the current line back
-                    return cls(text, children, original, flash)
+                    # and remove them from the OriginalMD which represents the parsed MD of the subtree
+                    return cls(
+                        text,
+                        children,
+                        flash,
+                        level=level,
+                        header=header,
+                    )
                 else:
                     k = line.lstrip("# ").strip()
                     while k in children:
@@ -249,11 +260,12 @@ class MDObj:
                     children[k] = cls.from_md(
                         lines=lines,  # by reference
                         level=current_level,
+                        header=k,
                         flash=flash,
                     )
                     continue
             text += line + "\n"
-        return cls(text, children, original, flash)
+        return cls(text, children, flash, header=header, level=level)
 
     def search_all(self, searchterm: str) -> [(str, str)]:
         """
@@ -373,11 +385,17 @@ class MDObj:
                 return result
         return None
 
-    def to_md(self, layer=0) -> str:
+    def to_md(self) -> str:
         """
         reconstructs the original markdown from the object
         """
-        result = self.plaintext.rstrip() + "\n"
+        result = ""
+        if self.header.strip():
+            result += f"\n{'#'*self.level} {self.header}\n"
+        if self.plaintext.strip():
+            result += self.plaintext.rstrip() + "\n"
+        if self.tables:
+            result += "\n"
         for t in self.tables:
             if t.prev_line_nr:
                 lines = result.splitlines(True)
@@ -391,8 +409,8 @@ class MDObj:
                 )
             else:
                 result += t.to_md() + "\n"
-        for k, v in self.children.items():
-            result += f"{'#'*(layer+1)} {k}\n{v.to_md(layer + 1)}"
+        for v in self.children.values():
+            result += f"{v.to_md()}"
 
         return result
 
@@ -410,6 +428,18 @@ class MDObj:
             if r:
                 return r
         return None
+
+    def replace_content_by_path(self, path: [str], new: str):
+        focus = self
+        for p in path[:-1]:
+            focus = focus.children[p]
+        focus.children[path[-1]] = MDObj.from_md(new)
+
+    def get_content_by_path(self, path: [str]):
+        focus = self
+        for p in path:
+            focus = focus.children[p]
+        return focus
 
 
 def table_row_edit(md: str, key: str, value: str) -> str:
