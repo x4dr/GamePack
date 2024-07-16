@@ -4,4 +4,4 @@ requests==2.31.0
 antlr4-python3-runtime==4.9.2
 
 bleach~=6.0.0
-setuptools~=68.0.0
+setuptools~=70.0.0
