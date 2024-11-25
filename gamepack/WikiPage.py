@@ -1,11 +1,13 @@
 import logging
-import subprocess
+import os.path
 import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Self
 
 import bleach
+import yaml
+from git import Repo
 
 from gamepack.Dice import DescriptiveError
 from gamepack.Item import Item
@@ -30,8 +32,9 @@ class WikiPage:
         tags: list[str],
         body: str,
         links: list[str],
-        meta: list[str],
+        meta: dict,
         modified: float = None,
+        file: Path = None,
     ):
         if Item.item_cache is None:
             WikiPage.cache_items()
@@ -39,8 +42,11 @@ class WikiPage:
         self.tags = tags
         self.body = body
         self.links = links
-        self.meta = meta
+        if isinstance(meta, str):
+            meta = yaml.safe_load(meta)
+        self.meta: dict = meta
         self.last_modified = modified
+        self.file = file
 
     @lru_cache(maxsize=2)
     def md(self, sanitize: bool = False) -> MDObj:
@@ -105,8 +111,13 @@ class WikiPage:
         :param cache: whether to retrieve from cache
         :return: title, tags, body
         """
+
+        def lineloader(file):
+            for readline in file.readlines():
+                yield readline
+
         try:
-            p = cls.wikipath() / page
+            p = page if page.is_absolute() else cls.wikipath() / page
             filetime = p.stat().st_mtime
             res = cls.page_cache.get(page, None) if cache else None
             if res is not None:
@@ -115,45 +126,38 @@ class WikiPage:
                     res = cls.page_cache.get(page, None)
                 return res
             with p.open() as f:
-                mode = "init"
-                title = ""
-                tags = []
+                lines = lineloader(f)
+                for line in lines:
+                    if line.strip().startswith("---"):
+                        break
+                    # consume everything until preamble start and discard
+                preamble = ""
+                for line in lines:
+                    if not line.strip():
+                        continue
+                    if line.strip().startswith("---"):
+                        break
+                    preamble += line
+
+                    # consume everything until preamble end into preamble
+                if not preamble:
+                    preamble = ""
                 body = ""
-                meta = []
-                links = []
-                for line in f.readlines():
-                    if mode == "init" and line.strip().startswith("---"):
-                        mode = "preamble"
-                        continue
-                    if mode and line.startswith("tags:"):
-                        tags += [t for t in line[5:].strip().split(" ") if t]
-                        continue
-                    if mode and line.startswith("title:"):
-                        title = line[6:].strip()
-                        continue
-                    if mode and line.startswith("outgoing links:"):
-                        links = [
-                            x.strip("' ")
-                            for x in line[len("outgoing links:") :].strip().split("',")
-                        ]
-                        continue
-                    if mode == "meta" and not line.strip():
-                        mode = ""
-                        continue
-                    if mode == "preamble":
-                        if line.strip().startswith("---"):
-                            mode = ""
-                            continue
-                        meta.append(line.strip())
-                        continue
-                    body += line
+                try:
+                    preamble = yaml.safe_load(preamble) or {}
+                except yaml.YAMLError:
+                    body = f"???\n{preamble}\n???"
+
+                body += "".join(lines)
+
                 loaded_page = cls(
-                    title=title,
-                    tags=tags,
+                    title=preamble.get("title") or page.stem,
+                    tags=preamble.get("tags") or [],
                     body=body,
-                    links=links,
-                    meta=meta,
+                    links=preamble.get("outgoing links") or [],
                     modified=filetime,
+                    meta=preamble,
+                    file=p,
                 )
                 cls.page_cache[page] = loaded_page
                 return loaded_page
@@ -164,25 +168,54 @@ class WikiPage:
         if page.suffix != ".md":
             raise DescriptiveError("page must be a .md file")
         print(f"saving '{self.title}' as {page} ...")
+        self.meta["title"] = self.title
+        self.meta["tags"] = self.tags
+        self.meta["outgoing links"] = self.links
         with (self.wikipath() / page).open("w+") as f:
             f.write("---\n")
-            f.write("title: " + self.title + "  \n")
-            f.write("tags: " + " ".join(self.tags) + "  \n")
-            f.write("outgoing links: '" + "', '".join(self.links) + "'  \n")
-            for x in self.meta:
-                f.write(x + "\n")
+            f.write(
+                yaml.dump(
+                    self.meta,
+                    default_flow_style=False,
+                    encoding=None,
+                    allow_unicode=True,
+                )
+            )
             f.write("---\n")
             f.write(self.body.replace("\r", ""))
-        with (self.wikipath() / "control").open("a+") as h:
-            h.write(message or f"{page} edited by {author}\n")
         self.cacheclear(page)
-        sp = subprocess.run([Path("~").expanduser() / "bin/wikiupdate"], shell=True)
-        if sp.returncode:
-            print(sp.returncode, sp.stderr)
-            raise DescriptiveError("wikiupdate failed ")
+
+        commit_and_push(
+            self.wikipath(), page, message or f"{page} edited by {author}\n"
+        )
+
+    def save_overwrite(self, author, message=None):
+        print(f"overwriting '{self.title}' at {self.file} ...")
+        self.meta["title"] = self.title
+        self.meta["tags"] = self.tags
+        self.meta["outgoing links"] = self.links
+        with self.file.open("w+") as f:
+            f.write("---\n")
+            f.write(
+                yaml.dump(
+                    self.meta,
+                    default_flow_style=False,
+                    encoding=None,
+                    allow_unicode=True,
+                )
+            )
+            f.write("---\n")
+            f.write(self.body.replace("\r", ""))
+        self.cacheclear(self.file)
+
+        commit_and_push(
+            self.wikipath(), self.file, message or f"{self.file} edited by {author}\n"
+        )
 
     @classmethod
     def cacheclear(cls, page: Path):
+        if not page.is_absolute():
+            page = cls.wikipath() / page
         canonical_name = page.as_posix().replace(page.name, page.stem)
         cls.wikicache.pop(canonical_name, None)
         cls.page_cache.pop(page, None)
@@ -194,7 +227,7 @@ class WikiPage:
         for p in cls.wikipath().glob("**/*.md"):
             if p.relative_to(cls.wikipath()).as_posix().startswith("."):
                 continue  # skip hidden files
-            mds.append(p.relative_to(cls.wikipath()))
+            mds.append(p)
         return sorted(mds)
 
     @classmethod
@@ -267,3 +300,20 @@ class WikiPage:
             cache[x.name] = x
 
         Item.item_cache = cache
+
+
+def commit_and_push(repo, file, commit_message: str):
+    repo = Repo(os.path.expanduser(repo))
+    # Check for changes
+    if not repo.is_dirty():
+        return
+    # Stage all changes
+    repo.git.add(file)
+
+    # Commit changes
+    repo.index.commit(commit_message)
+
+    # Push changes
+    # origin = repo.remote(name="origin")
+    # origin.push()
+    log.info(f"Committed and pushed changes with message: '{commit_message}'")
