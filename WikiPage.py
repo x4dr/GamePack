@@ -21,6 +21,7 @@ class WikiPage:
     Class to represent a wiki page.
     """
 
+    live = False
     page_cache: dict[Path, Self] = {}
     wikicache: dict[str, dict[str, list[str]]] = {}
     _wikipath: Path = None
@@ -303,6 +304,9 @@ class WikiPage:
 
 
 def commit_and_push(repo, file, commit_message: str):
+    if not WikiPage.live:
+        log.info(f"Not live, not pushing.")
+        return
     repo = Repo(os.path.expanduser(repo))
     # Check for changes
     if not repo.is_dirty():

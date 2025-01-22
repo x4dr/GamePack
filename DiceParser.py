@@ -213,7 +213,7 @@ class DiceParser:
         """Wrapper around make_roll that handles edgecases"""
         if isinstance(roll, str):
             while ";" in roll:
-                next_rolls, roll = roll.rsplit(";",1)
+                next_rolls, roll = roll.rsplit(";", 1)
                 self.do_roll(next_rolls)
 
             roll = roll.strip()
