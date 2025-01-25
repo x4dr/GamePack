@@ -1,5 +1,7 @@
 import logging
 import os.path
+import re
+import threading
 import time
 from functools import lru_cache
 from pathlib import Path
@@ -26,6 +28,9 @@ class WikiPage:
     wikicache: dict[str, dict[str, list[str]]] = {}
     _wikipath: Path = None
     wikistamp = 0
+    clock_re = re.compile(
+        r"\[clock\|(?P<name>.*?)\|(?P<current>.*?)\|(?P<maximum>.*?)]"
+    )
 
     def __init__(
         self,
@@ -37,6 +42,7 @@ class WikiPage:
         modified: float = None,
         file: Path = None,
     ):
+        self.save_msg_queue = []
         if Item.item_cache is None:
             WikiPage.cache_items()
         self.title = title
@@ -120,11 +126,11 @@ class WikiPage:
         try:
             p = page if page.is_absolute() else cls.wikipath() / page
             filetime = p.stat().st_mtime
-            res = cls.page_cache.get(page, None) if cache else None
+            res = cls.page_cache.get(p, None) if cache else None
             if res is not None:
-                if res.last_modified != filetime:
-                    cls.refresh_cache(page)
-                    res = cls.page_cache.get(page, None)
+                if res.last_modified < filetime:
+                    cls.refresh_cache(p)
+                    res = cls.page_cache.get(p, None)
                 return res
             with p.open() as f:
                 lines = lineloader(f)
@@ -160,7 +166,7 @@ class WikiPage:
                     meta=preamble,
                     file=p,
                 )
-                cls.page_cache[page] = loaded_page
+                cls.page_cache[p] = loaded_page
                 return loaded_page
         except FileNotFoundError:
             raise DescriptiveError(str(page) + " not found in wiki.")
@@ -207,11 +213,17 @@ class WikiPage:
             )
             f.write("---\n")
             f.write(self.body.replace("\r", ""))
-        self.cacheclear(self.file)
+        self.cacheupdate()
 
         commit_and_push(
             self.wikipath(), self.file, message or f"{self.file} edited by {author}\n"
         )
+
+    def save_low_prio(self, message):
+        print(f"overwriting '{self.title}' at {self.file} ...")
+        if message and message not in self.save_msg_queue:
+            self.save_msg_queue.append(message)
+        self.cacheupdate()
 
     @classmethod
     def cacheclear(cls, page: Path):
@@ -221,6 +233,17 @@ class WikiPage:
         cls.wikicache.pop(canonical_name, None)
         cls.page_cache.pop(page, None)
         cls.updatewikicache()
+
+    def cacheupdate(self):
+        page = self.file
+        canonical_name = canonical_name = page.as_posix().replace(page.name, page.stem)
+        self.wikicache[canonical_name] = {}
+        self.wikicache[canonical_name]["tags"] = self.tags
+        self.wikicache[canonical_name]["links"] = self.links
+        if not page.is_absolute():
+            page = self.wikipath() / page
+        self.last_modified = time.time()
+        self.page_cache[page] = self
 
     @classmethod
     def wikindex(cls) -> [Path]:
@@ -302,6 +325,30 @@ class WikiPage:
 
         Item.item_cache = cache
 
+    def get_clock(self, name) -> re.Match | None:
+        for candidate in self.clock_re.finditer(self.body):
+            if candidate.group("name") == name:
+                return candidate
+        return None
+
+    def change_clock(self, name, delta) -> Self:
+        c = self.get_clock(name)
+        if not c:
+            return self
+        try:
+            current = int(c.group("current"))
+        except Exception:
+            current = 0
+        current += delta
+        print("replacing", c, current)
+        self.body = (
+            self.body[: c.start()]
+            + f"[clock|{c.group("name")}|{current}|{c.group("maximum")}]"
+            + self.body[c.end() :]
+        )
+        print(">>>", self.body)
+        return self
+
 
 def commit_and_push(repo, file, commit_message: str):
     if not WikiPage.live:
@@ -318,6 +365,19 @@ def commit_and_push(repo, file, commit_message: str):
     repo.index.commit(commit_message)
 
     # Push changes
-    # origin = repo.remote(name="origin")
-    # origin.push()
+    origin = repo.remote(name="origin")
+    origin.push()
     log.info(f"Committed and pushed changes with message: '{commit_message}'")
+
+
+def savequeue():
+    time.sleep(300)
+    for w in WikiPage.page_cache.values():
+        if w.save_msg_queue:
+            w.save_overwrite("system", "\n".join(w.save_msg_queue))
+
+
+def start_savequeue():
+    t = threading.Thread(target=savequeue)
+    t.daemon = True
+    t.start()
