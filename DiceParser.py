@@ -578,16 +578,16 @@ def fast_fullparenthesis(text: str) -> str:
     :return: text between first opening token and first matching closing token or raises ValueError
     if an unmatched opening parenthesis is found
     """
-    if "(" not in text:
+    start = text.find("(")
+    if start == -1:
         return ""
-    i = text.index("(") + 1
+    start += 1
     lvl = 1
-    while lvl > 0 and i < len(text):
-        if text[i] == "(":
+    for i, c in enumerate(text[start:], start):
+        if c == "(":
             lvl += 1
-        elif text[i] == ")":
+        elif c == ")":
             lvl -= 1
-        i += 1
-    if lvl > 0:
-        raise DescriptiveError("unmatched '(' in text: " + text)
-    return text[text.index("(") + 1 : i - 1]
+            if lvl == 0:
+                return text[start:i]
+    raise ValueError(f"unmatched '(' in text: {text}")
