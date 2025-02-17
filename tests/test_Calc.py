@@ -2,7 +2,7 @@ import ast
 import unittest
 
 # Import the code to test
-from gamepack.Calc import (
+from Calc import (
     eval_node,
     eval_expression,
     eval_constant,

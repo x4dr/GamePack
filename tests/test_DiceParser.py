@@ -2,12 +2,12 @@ import random
 from unittest import TestCase
 from unittest.mock import Mock
 
-from gamepack.DiceParser import (
+from Dice import DescriptiveError
+from DiceParser import (
     DiceParser,
     Node,
     fullparenthesis,
     DiceCodeError,
-    DescriptiveError,
     MessageReturn,
 )
 
