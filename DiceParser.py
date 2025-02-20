@@ -9,6 +9,7 @@ from RegexRouter import RegexRouter, DuplicateKeyException, PartialMatchExceptio
 
 logger = logging.getLogger(__name__)
 math_formula_regex = re.compile(r"(\b\d[\d\s+/*-]+\d\b)")
+numbers_and_commas = re.compile(r"\s*\d[\d,\s]*$")
 
 
 class DiceCodeError(Exception):
@@ -208,9 +209,10 @@ class DiceParser:
     def do_roll(self, roll, depth=0) -> Dice:
         """Wrapper around make_roll that handles edgecases"""
         if isinstance(roll, str):
-            while ";" in roll:
-                next_rolls, roll = roll.rsplit(";", 1)
-                self.do_roll(next_rolls)
+            if ";" in roll:
+                for subroll in roll.split(";"):
+                    self.do_roll(subroll)
+                return Dice.empty()
 
             roll = roll.strip()
         roll = self.resolveroll(roll, depth)
@@ -258,6 +260,8 @@ class DiceParser:
                 roll = Node(oldroll, depth)
             res = self.resolveroll(roll, depth)
             return res
+        if not roll.code and not roll.dependent:
+            return roll
         roll.code, change = self.pretrigger(roll.code)
         if change or depth < 1:
             roll.rebuild()
@@ -475,7 +479,7 @@ class DiceParser:
         for kv in triggerreplace:
             change = True
             roll = roll.replace(kv[0], kv[1], 1)
-        numbers_and_commas = re.compile(r"\s*\d[\d,\s]*$")
+
         if self.defines.get("defaultselector", "").startswith(
             "@"
         ) and numbers_and_commas.match(roll):
@@ -571,7 +575,7 @@ def fast_fullparenthesis(text: str) -> str:
     """
     Finds the text within a parenthesis (only for opening='(' and closing=')')
     :param text: the text to be searched
-    :return: text between first opening token and first matching closing token or raises ValueError
+    :return: text between first opening token and first matching closing token or raises DescriptiveError
     if an unmatched opening parenthesis is found
     """
     start = text.find("(")
@@ -586,4 +590,4 @@ def fast_fullparenthesis(text: str) -> str:
             lvl -= 1
             if lvl == 0:
                 return text[start:i]
-    raise ValueError(f"unmatched '(' in text: {text}")
+    raise DescriptiveError(f"unmatched '(' in text: {text}")

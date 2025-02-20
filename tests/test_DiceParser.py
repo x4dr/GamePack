@@ -128,7 +128,8 @@ class TestDiceParser(TestCase):
 
     def test_triggerorder(self):
         self.assertEqual(self.p.do_roll("&loop 7 2&").result, None)
-        self.assertNotEqual(self.p.do_roll("&loop 7 2&;6g;&loop 4 3&").result, None)
+        self.assertEqual(self.p.do_roll("&loop 7 1&;6g;&loop 5 1&").result, None)
+        self.assertNotEqual(self.p.do_roll("&loop 7 1&6g&loop 5 1&").result, None)
 
     def test_pretrigger(self):
         p = DiceParser(

@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import numpy
 
-from gamepack.NewDice import DiceInterpretation, Dice, DescriptiveError
+from NewDice import DiceInterpretation, Dice, DescriptiveError
 
 
 # noinspection DuplicatedCode

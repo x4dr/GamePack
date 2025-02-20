@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import MagicMock
 
-from gamepack.Item import total_table
-from gamepack.MDPack import (
+from Item import total_table
+from MDPack import (
     search_tables,
     traverse_md,
     MDObj,
@@ -10,7 +10,7 @@ from gamepack.MDPack import (
     table_add,
     table_remove,
 )
-from gamepack.fengraph import rawload
+from fengraph import rawload
 
 
 class TestMDObj(unittest.TestCase):
@@ -27,9 +27,8 @@ class TestMDObj(unittest.TestCase):
             "| Value 4  | Value 5  | Value 6  |\n"
         )
 
-        self.md_obj = MDObj.from_md(self.md_text, flash=MagicMock())
-
     def test_search_children(self):
+        self.md_obj = MDObj.from_md(self.md_text, flash=MagicMock())
         # test with existing child
         subsubtitle = self.md_obj.search_children("sub-subtitle 1.1")
         self.assertIsNotNone(subsubtitle)
@@ -170,7 +169,7 @@ class TestMDObj(unittest.TestCase):
             {
                 "My Table 1": {
                     "Value 1": "Value 2",
-                    "Subheading": "        asd\n",
+                    "Subheading": "asd",
                     "extraneous subheading": "",
                 },
                 "My Table 2": {"Value 3": "Value 4"},
@@ -209,6 +208,14 @@ class TestMDObj(unittest.TestCase):
         # iterate over all files in ~/wiki/character
         import pathlib
 
+        sut = MDObj.from_md(rawload("character/ragin"))
+        self.maxDiff = None
+        self.assertEqual(rawload("character/ragin"), sut.originalMD)
+
+        with open("test_chr.md", "w") as f:
+            f.write(sut.to_md())
+
+        self.assertEqual(sut.originalMD, sut.to_md())
         for file in pathlib.Path.expanduser(pathlib.Path("~/wiki/character")).iterdir():
             if file.is_file():
                 with file.open() as f:
@@ -216,11 +223,3 @@ class TestMDObj(unittest.TestCase):
                     mdobj = MDObj.from_md(md)
                 with file.open("w") as f:
                     f.write(mdobj.to_md())
-        sut = MDObj.from_md(rawload("character/ragin"))
-        self.maxDiff = None
-        self.assertEqual(rawload("character/ragin"), sut.originalMD)
-
-        with open("test.md", "w") as f:
-            f.write(sut.to_md())
-
-        self.assertEqual(sut.originalMD, sut.to_md())

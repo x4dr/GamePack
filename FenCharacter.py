@@ -8,9 +8,9 @@ from collections import OrderedDict
 
 from typing import List, Tuple
 
-from gamepack.Item import Item, total_table
-from gamepack.DiceParser import fullparenthesis, fast_fullparenthesis
-from gamepack.MDPack import MDObj, MDTable
+from Item import Item, total_table
+from DiceParser import fullparenthesis, fast_fullparenthesis
+from MDPack import MDObj, MDTable
 
 
 class FenCharacter:
@@ -46,14 +46,10 @@ class FenCharacter:
     note_headings = ["notes", "notiz", "notizen", "zettel"]
     concept_headings = ["konzept", "konzepte", "concepts"]
 
-    def __init__(
-        self,
-        name="",
-    ):
+    def __init__(self):
         self.Inventory_Bonus_Headers: set[str] = set()
         self.definitions = None
         self.Tags = ""
-        self.Name = name
         self.Character = OrderedDict()
         self.Meta: OrderedDict[str, MDObj] = OrderedDict()
         self.Categories = OrderedDict()
@@ -291,7 +287,7 @@ class FenCharacter:
     @staticmethod
     def construct_mdobj_from_category(
         category_dict: dict, headings: dict | list[str], flash
-    ):
+    ) -> MDObj:
         """
         :param category_dict: dictionary of all stats in this category
         :param headings: headings of the lowest level tables at each leaf
@@ -300,18 +296,20 @@ class FenCharacter:
         """
         if not category_dict:
             return MDObj("", {}, flash)
-        children = {
-            k: FenCharacter.construct_mdobj_from_category(v, headings[k], flash)
-            for k, v in category_dict.items()
-            if isinstance(v, dict)
-        }
-        if children:
-            return MDObj("", children, flash)
+        categories = MDObj("")
+        for k, v in category_dict.items():
+            if isinstance(v, dict):
+                categories.add_child(
+                    FenCharacter.construct_mdobj_from_category(
+                        v, headings[k], flash
+                    ).with_header(k)
+                )
+        if categories.children:
+            return categories
         table = [[k, v] for k, v in category_dict.items() if isinstance(v, str)]
         if not isinstance(headings, list):
             flash(str(headings) + " not valid table headings!")
             headings = [str(headings), str(headings)]
-
         return MDObj("", {}, flash, [MDTable(table, headings)])
 
     def to_mdobj(self, flash=None):
@@ -320,22 +318,24 @@ class FenCharacter:
             def flash(err):
                 self.errors.append(err)
 
-        children = {}
-        description = {}
+        description = MDObj(
+            "",
+            flash=flash,
+            header=self.headings_used.get("description", "Description"),
+        )
         for k, v in self.Character.items():
-            description[k] = MDObj(v, {}, flash)
-        children[self.headings_used.get("description", "Description")] = MDObj(
-            "", description, flash
-        )
+            description.add_child(MDObj(v, flash=flash, header=k))
 
-        children[self.headings_used.get("values", "Values")] = (
-            self.construct_mdobj_from_category(
-                self.Categories, self.headings_used["categories"], flash
-            )
-        )
+        categories = self.construct_mdobj_from_category(
+            self.Categories, self.headings_used["categories"], flash
+        ).with_header(self.headings_used.get("values", "Values"))
+        mdo = MDObj("")
+        mdo.add_child(description)
+        mdo.add_child(categories)
         for k, v in self.Meta.items():
-            children[k] = v
-        return MDObj("", children, flash)
+            mdo.add_child(v.with_header(k))
+        mdo.add_child(self.Notes.with_header(self.headings_used.get("notes", "Notes")))
+        return mdo
 
     @classmethod
     def from_md(cls, body, flash=None):

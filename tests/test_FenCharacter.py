@@ -1,10 +1,10 @@
 import random
 from unittest import TestCase
 
-from gamepack.FenCharacter import FenCharacter
-from gamepack.Item import Item
-from gamepack.MDPack import MDObj
-from gamepack.fengraph import rawload
+from FenCharacter import FenCharacter
+from Item import Item
+from MDPack import MDObj
+from fengraph import rawload
 
 
 class TestDiceParser(TestCase):
@@ -158,3 +158,34 @@ class TestDiceParser(TestCase):
         x = rawload("character/npc/alec")
         fc = FenCharacter.from_md(x[x.index("#") :])
         self.assertEqual(fc.Categories["Mystisch"]["Fähigkeiten"]["Durchhalten"], "2")
+
+    def test_round_trip(self):
+        self.c = FenCharacter()
+        self.c.Character["Name"] = "Testname"
+        self.c.Meta["Experience"] = MDObj.from_md("|key|value|\n|-|-|\n|test| 5 |")
+        self.c.headings_used["xp"] = "Experience"
+        self.c.headings_used["categories"] = {
+            "category1": {"section1": "attribute", "section2": "skills"},
+            "category2": {"section3": "attribute"},
+        }
+        self.c.Categories = {
+            "category1": {
+                "section1": {"stat1": "1", "stat2": "2"},
+                "section2": {"stat3": "3"},
+            },
+            "category2": {"section3": {"stat4": "4"}},
+        }
+        self.c.Notes = MDObj.from_md("Some notes here.")
+        # Convert to Markdown
+        md_output = self.c.to_md()
+
+        # Convert back to FenCharacter
+        new_c = FenCharacter.from_md(md_output)
+
+        # Compare the original and new objects
+        self.assertEqual(self.c.Character["Name"], new_c.Character["Name"])
+        self.assertEqual(
+            self.c.Meta["Experience"]["test"], new_c.Meta["Experience"]["test"]
+        )
+        self.assertDictEqual(self.c.Categories, new_c.Categories)
+        self.assertEqual(self.c.Notes.to_md(), new_c.Notes.to_md())
