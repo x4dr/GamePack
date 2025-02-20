@@ -351,7 +351,7 @@ class MDObj:
         """
         simplifies a mdtree into just a dictionary of dictionaries.
         Makes the assumption that either children or a table can be had, and that all leaves are key value in the end
-        :return: Dictionary that recursively always ends in ints
+        :return: A Tuple of adictionary that recursively always ends in values, and a list of errors
         """
         result = {}
         errors = []
