@@ -1,7 +1,7 @@
 import math
 from typing import Union, List, Self
 
-from gamepack.MDPack import MDObj, MDTable
+from MDPack import MDObj, MDTable
 
 
 class Item:

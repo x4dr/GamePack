@@ -11,9 +11,9 @@ from typing import Dict
 import matplotlib.pyplot as plt
 import requests
 
-from gamepack.Dice import DescriptiveError
-from gamepack.data import dicecache_db
-from gamepack.fasthelpers import ascii_graph
+from Dice import DescriptiveError
+from data import dicecache_db
+from fasthelpers import ascii_graph
 
 log = logging.Logger("fengraph")
 
