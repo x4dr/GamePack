@@ -347,7 +347,7 @@ class WikiPage:
         print("replacing", c, current)
         self.body = (
             self.body[: c.start()]
-            + f"[clock|{c.group("name")}|{current}|{c.group("maximum")}]"
+            + f"[clock|{c.group('name')}|{current}|{c.group('maximum')}]"
             + self.body[c.end() :]
         )
         print(">>>", self.body)
