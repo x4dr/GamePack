@@ -251,7 +251,7 @@ class MDObj:
             value = t.get(key)
             if value:
                 return value
-        raise KeyError(f"{key} not found in {self.header or "MDObj"}")
+        raise KeyError(f"{key} not found in {self.header or 'MDObj'}")
 
     @classmethod
     def from_md(

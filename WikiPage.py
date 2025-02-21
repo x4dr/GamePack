@@ -55,8 +55,6 @@ class WikiPage:
         self.meta: dict = meta
         self.last_modified = modified
         self.file = file
-        if not self.file:
-            raise ValueError("yeet")
 
     @lru_cache(maxsize=2)
     def md(self, sanitize: bool = False) -> MDObj:
