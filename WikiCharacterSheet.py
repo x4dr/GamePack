@@ -2,20 +2,39 @@ from pathlib import Path
 from typing import Self
 
 from gamepack.FenCharacter import FenCharacter
+from gamepack.PBTACharacter import PBTACharacter
 from gamepack.WikiPage import WikiPage
 
 
 class WikiCharacterSheet(WikiPage):
     def __init__(
-        self, title: str, tags: list[str], body: str, links: list[str], meta: list[str]
+        self,
+        title: str,
+        tags: list[str],
+        body: str,
+        links: list[str],
+        meta: dict,
+        modified: float | None,
+        file: Path,
     ):
-        super().__init__(title, tags, body, links, meta)
-        self.char = FenCharacter.from_mdobj(self.md(True))
+        super().__init__(title, tags, body, links, meta, modified, file)
+        if "pbta" in self.tags:
+            self.char = PBTACharacter.from_mdobj(self.md(True))
+        else:
+            self.char = FenCharacter.from_mdobj(self.md(True))
         self.sheet = {}
 
     @classmethod
     def from_wikipage(cls, page: WikiPage) -> Self:
-        return cls(page.title, page.tags, page.body, page.links, page.meta)
+        return cls(
+            page.title,
+            page.tags,
+            page.body,
+            page.links,
+            page.meta,
+            page.last_modified,
+            page.file,
+        )
 
     @classmethod
     def load(cls, page: Path, cache=True) -> Self:

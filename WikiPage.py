@@ -14,6 +14,7 @@ from git import Repo
 from gamepack.Dice import DescriptiveError
 from gamepack.Item import Item
 from gamepack.MDPack import MDObj
+from gamepack.PBTAItem import PBTAItem
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ class WikiPage:
         tags: list[str],
         body: str,
         links: list[str],
-        meta: dict,
+        meta: dict | str,
         modified: float = None,
         file: Path = None,
     ):
@@ -54,6 +55,8 @@ class WikiPage:
         self.meta: dict = meta
         self.last_modified = modified
         self.file = file
+        if not self.file:
+            raise ValueError("yeet")
 
     @lru_cache(maxsize=2)
     def md(self, sanitize: bool = False) -> MDObj:
@@ -306,24 +309,27 @@ class WikiPage:
                 del cls.page_cache[page]
                 cls.load(page)
                 changed.append(page)
-
-        if "items" in changed or "prices" in changed:
-            cls.cache_items()
+        cls.cache_items()
         return changed
 
     @classmethod
     def cache_items(cls):
-        Item.item_cache = {}
-        cls.__caching = True
-        items, _ = Item.process_tree(cls.load_str("items").md(), print)
-        item_from_prices, _ = Item.process_tree(cls.load_str("prices").md(), print)
-        items += item_from_prices
+        for itemclass in [Item, PBTAItem]:
+            itemclass.item_cache = {}
+            cls.__caching = True
+            items, _ = itemclass.process_tree(
+                cls.load_str(itemclass.home_md).md(), print
+            )
+            item_from_prices, _ = itemclass.process_tree(
+                cls.load_str("prices").md(), print
+            )
+            items += item_from_prices
 
-        cache = {}
-        for x in items:
-            cache[x.name] = x
+            cache = {}
+            for x in items:
+                cache[x.name] = x
 
-        Item.item_cache = cache
+            itemclass.item_cache = cache
 
     def get_clock(self, name) -> re.Match | None:
         for candidate in self.clock_re.finditer(self.body):

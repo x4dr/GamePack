@@ -1,23 +1,25 @@
-from Item import Item
-from MDPack import MDObj, MDTable
+from .MDPack import MDObj, MDTable
+from .PBTAItem import PBTAItem
 
 
 class PBTACharacter:
     def __init__(
         self,
-        info=None,
-        moves=None,
-        stats=None,
+        info,
+        moves,
+        health,
+        stats,
         inventory=None,
         inventory_bonus_headers=None,
         notes=None,
         meta=None,
         errors=None,
     ):
-        self.info = {} if info is None else info
-        self.moves = [] if moves is None else moves
-        self.stats = {} if stats is None else stats
-        self.inventory = [] if inventory is None else inventory
+        self.info: dict[str, str] = info
+        self.moves: list[str] = moves
+        self.health: dict[str, (int, int)] = health
+        self.stats: dict[str, dict] = stats
+        self.inventory = inventory or []
         self.inventory_bonus_headers = (
             set() if inventory_bonus_headers is None else inventory_bonus_headers
         )
@@ -25,11 +27,15 @@ class PBTACharacter:
         self.meta = {} if meta is None else meta
         self.errors = [] if errors is None else errors
 
-    info_headings = {"info"}
-    moves_headings = {"moves"}
-    stats_headings = {"stats", "attributes"}
-    inventory_headings = {"inventory", "gear"}
-    note_headings = {"notes"}
+    info_headings = ["info"]
+    health_headings = ["health", "damage"]
+    current_headings = ["current", "cur"]
+    max_headings = ["maximum", "max"]
+    type_headings = ["type", "name", "stat"]
+    moves_headings = ["moves"]
+    stats_headings = ["stats", "attributes"]
+    inventory_headings = ["inventory", "gear"]
+    note_headings = ["notes"]
 
     def post_process(self, flash):
         # tally inventory
@@ -40,8 +46,9 @@ class PBTACharacter:
                 self.notes = self.meta[k].plaintext
 
     def process_inventory(self, node: MDObj, flash):
+
         for table in node.tables:
-            items, headers = Item.process_table(table, flash)
+            items, headers = PBTAItem.process_table(table)
             self.inventory.extend(items)
             self.inventory_bonus_headers.update(headers)
         for content in node.children.values():
@@ -54,6 +61,7 @@ class PBTACharacter:
             handle_error = errors.append
 
         info = {}
+        health = {}
         moves = []
         stats = {}
         meta = {}
@@ -68,18 +76,47 @@ class PBTACharacter:
             elif k.lower() in cls.stats_headings:
                 stats, err = v.confine_to_tables()
                 handle_error(err)
+            elif k.lower() in cls.health_headings:
+                health = {}
+                for t in v.tables:
+                    name = t.header_pos(cls.type_headings, 0)
+                    current = t.header_pos(cls.current_headings, 1)
+                    maximum = t.header_pos(cls.max_headings, 2)
+                    health.update(
+                        {
+                            row[name].title(): {
+                                cls.current_headings[0].title(): row[current],
+                                cls.max_headings[0].title(): row[maximum],
+                            }
+                            for row in t.rows
+                        }
+                    )
             else:
                 meta[k] = v
 
         character = cls(
             info=info,
             moves=moves,
+            health=health,
             stats=stats,
             meta=meta,
             errors=errors,
         )
         character.post_process(handle_error)
         return character
+
+    def health_get(self, key: str) -> (int, int):
+        h = self.health[key.title()]
+
+        try:
+            current = int(h[self.current_headings[0].title()])
+        except ValueError:
+            current = 1
+        try:
+            maximum = int(h[self.max_headings[0].title()])
+        except ValueError:
+            maximum = 1
+        return current, maximum
 
     @classmethod
     def from_md(cls, body: str, flash=None):
@@ -97,24 +134,56 @@ class PBTACharacter:
         sections = MDObj("", flash=error_handler)
 
         # Basic Information Section
-        info = MDObj("", {}, error_handler, header="Info")
+        info = MDObj("", {}, error_handler, header=self.info_headings[0].title())
         for key, value in self.info.items():
             info.add_child(MDObj(value, {}, error_handler, header=key))
         sections.add_child(info)
 
+        # Health Section
+        health = MDObj(
+            "",
+            {},
+            error_handler,
+            header=self.health_headings[0].title(),
+        )
+
+        rows = [
+            [stat, str(current), str(maximum)]
+            for stat, (current, maximum) in self.health.items()
+        ]
+        headers = ["Type", "Current", "Maximum"]
+        health_table = MDTable(rows, headers)
+        health.tables.append(health_table)
+        sections.add_child(health)
+
         # Moves Section
         moves_table = self._create_moves_table()
-        sections.add_child(MDObj("", {}, error_handler, [moves_table], header="Moves"))
+        sections.add_child(
+            MDObj(
+                "",
+                {},
+                error_handler,
+                [moves_table],
+                header=self.moves_headings[0].title(),
+            )
+        )
 
         # Stats Section
         stats_table = self._create_stats_table()
-        sections.add_child(MDObj("", {}, error_handler, [stats_table], header="Stats"))
+        sections.add_child(
+            MDObj(
+                "",
+                {},
+                error_handler,
+                [stats_table],
+                header=self.stats_headings[0].title(),
+            )
+        )
 
         # Inventory Section
         inventory_section = self._create_inventory_section(error_handler)
         sections.add_child(inventory_section)
-        # Notes Section
-        sections.add_child(MDObj(self.notes))
+        sections.add_child(MDObj(self.notes, header="Notes"))
 
         return sections
 
@@ -141,21 +210,14 @@ class PBTACharacter:
         headers = [
             "Name",
             "Quantity",
-            "Weight",
-            "Price",
-            "Total Weight",
-            "Total Price",
-            "Description",
+            "Load" "Description",
         ]
         headers.extend(self.inventory_bonus_headers)
         rows = [
             [
                 f"{item.name}",
                 f"{item.count:g}",
-                item.singular_weight,
-                item.singular_price,
-                item.total_weight,
-                item.total_price,
+                item.load,
                 item.description,
             ]
             + [item.additional_info.get(x) or "" for x in self.inventory_bonus_headers]

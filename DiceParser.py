@@ -3,9 +3,9 @@ import re
 from collections import deque
 from typing import List, Union, Dict
 
-import Calc
-from Dice import DescriptiveError, Dice
-from RegexRouter import RegexRouter, DuplicateKeyException, PartialMatchException
+from .Calc import evaluate
+from .Dice import DescriptiveError, Dice
+from .RegexRouter import RegexRouter, DuplicateKeyException, PartialMatchException
 
 logger = logging.getLogger(__name__)
 math_formula_regex = re.compile(r"(\b\d[\d\s+/*-]+\d\b)")
@@ -85,7 +85,7 @@ class Node:
         # replace any amount of whitespace with just one space
         to_calculate = re.sub(r"\s+", " ", to_calculate)
         to_calculate = math_formula_regex.sub(
-            lambda x: str(Calc.evaluate(x.group(), frozenset())), to_calculate
+            lambda x: str(evaluate(x.group(), frozenset())), to_calculate
         )
 
         return to_calculate

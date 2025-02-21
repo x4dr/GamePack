@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Tuple, Callable, Self
+from typing import List, Dict, Tuple, Callable, Self, Optional
 
 log = logging.Logger(__name__)
 
@@ -123,6 +123,8 @@ class MDTable:
             result += f"|{stylebegin}-{'-' * (column_widths[i] - lesser)}{styleend}"
         result += "|\n"
         for row in self.rows:
+            if len(row) < columns:  # pad empty cells
+                row.extend([""] * (columns - len(row)))
             result += "| "
             result += " | ".join(
                 self.line_align(row[i], self.style[i], column_widths[i])
@@ -205,6 +207,13 @@ class MDTable:
                 return row[1]
         return default
 
+    def header_pos(self, possible_headers: list[str], default: int) -> int:
+        lowercase = [x.lower() for x in self.headers]
+        for candidate in possible_headers:
+            if candidate.lower() in lowercase:
+                return lowercase.index(candidate.lower())
+        return default
+
 
 class MDObj:
     def __init__(
@@ -247,7 +256,7 @@ class MDObj:
     @classmethod
     def from_md(
         cls,
-        lines,
+        lines: str | list[str],
         level=0,
         header="",
         flash=None,
@@ -404,11 +413,11 @@ class MDObj:
 
     @classmethod
     def just_tables(cls, tables: MDTable) -> "MDObj":
-        tablesonly = cls("", {}, "", lambda x: None)
-        tablesonly.tables = tables
+        tablesonly = cls("", {}, lambda x: None)
+        tablesonly.tables = [tables]
         return tablesonly
 
-    def search_children(self, name: str) -> "MDObj":
+    def search_children(self, name: str) -> Optional["MDObj"]:
         # search direct children first
         for child_name in self.children:
             if name.lower().strip() == child_name.lower().strip():
@@ -436,7 +445,6 @@ class MDObj:
         """
         adds a child to the object
         :param child: child MDObj to add
-        :param name: optional name of child, if not provided uses child.header
         """
         if self.is_ancestor(child):
             raise Exception(
