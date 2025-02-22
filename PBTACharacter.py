@@ -123,6 +123,9 @@ class PBTACharacter:
         sheetparts = MDObj.from_md(body)
         return cls.from_mdobj(sheetparts, flash)
 
+    def to_md(self):
+        return self.to_mdobj().to_md()
+
     def to_mdobj(self, error_handler=None):
         if not error_handler:
 
