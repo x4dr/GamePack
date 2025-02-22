@@ -213,7 +213,8 @@ class PBTACharacter:
         headers = [
             "Name",
             "Quantity",
-            "Load" "Description",
+            "Load",
+            "Description",
         ]
         headers.extend(self.inventory_bonus_headers)
         rows = [
