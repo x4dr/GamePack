@@ -1,5 +1,5 @@
-from .MDPack import MDObj, MDTable
-from .PBTAItem import PBTAItem
+from gamepack.MDPack import MDObj, MDTable
+from gamepack.PBTAItem import PBTAItem
 
 
 class PBTACharacter:

@@ -3,9 +3,13 @@ import re
 from collections import deque
 from typing import List, Union, Dict
 
-from .Calc import evaluate
-from .Dice import DescriptiveError, Dice
-from .RegexRouter import RegexRouter, DuplicateKeyException, PartialMatchException
+from gamepack.Calc import evaluate
+from gamepack.Dice import DescriptiveError, Dice
+from gamepack.RegexRouter import (
+    RegexRouter,
+    DuplicateKeyException,
+    PartialMatchException,
+)
 
 logger = logging.getLogger(__name__)
 math_formula_regex = re.compile(r"(\b\d[\d\s+/*-]+\d\b)")

@@ -1,7 +1,7 @@
 import random
 from unittest import TestCase
 
-from Dice import Dice, DescriptiveError
+from gamepack.Dice import Dice, DescriptiveError
 
 
 class TestDice(TestCase):

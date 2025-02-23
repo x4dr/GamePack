@@ -414,7 +414,7 @@ class MDObj:
     @classmethod
     def just_tables(cls, tables: MDTable) -> "MDObj":
         tablesonly = cls("", {}, lambda x: None)
-        tablesonly.tables = [tables]
+        tablesonly.tables = tables
         return tablesonly
 
     def search_children(self, name: str) -> Optional["MDObj"]:

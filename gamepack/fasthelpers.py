@@ -1,7 +1,7 @@
 import math
 import time
 
-from DiceParser import DiceParser
+from gamepack.DiceParser import DiceParser
 
 
 def montecarlo(roll, run_for=10):

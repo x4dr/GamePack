@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import MagicMock
 
-from Item import total_table
-from MDPack import (
+from gamepack.Item import total_table
+from gamepack.MDPack import (
     search_tables,
     traverse_md,
     MDObj,
@@ -10,7 +10,7 @@ from MDPack import (
     table_add,
     table_remove,
 )
-from fengraph import rawload
+from gamepack.fengraph import rawload
 
 
 class TestMDObj(unittest.TestCase):

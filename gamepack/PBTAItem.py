@@ -1,46 +1,40 @@
-import math
-from typing import Union, List, Self
+from typing import List, Self
 
-from .MDPack import MDObj, MDTable
+from gamepack.MDPack import MDObj, MDTable
 
 
-class Item:
-    home_md = "items.md"
+class PBTAItem:
+    home_md = "pbtaitems.md"
     name: str
-    weights: float
-    price: Union[float, None]
+    load: int
     description: str
     additional_info: dict[str, str]
     item_cache = {}  # to be injected from outside
-    table_total = ("gesamt", "total", "summe", "sum")
-    table_name = ("objekt", "object", "name", "gegenstand", "item")
-    table_description = ("beschreibung", "description", "desc", "details")
-    table_weight = ("gewicht", "weight")
-    table_money = ("preis", "kosten", "price", "cost")
-    table_amount = ("zahl", "anzahl", "menge", "amount", "count", "stück")
+    table_total = ("sum", "summe", "total", "gesamt")
+    table_name = ("item", "gegenstand", "name", "object", "objekt")
+    table_description = ("details", "desc", "description", "beschreibung")
+    table_load = ("load", "belastung", "last")
+    table_amount = ("amount", "menge", "anzahl", "zahl", "stück", "count")
 
     table_all = (
         table_total,
         table_amount,
-        table_money,
+        table_load,
         table_description,
-        table_weight,
         table_name,
     )
 
     def __init__(
         self,
         name: str,
-        weight: float,
-        price: float,
+        load: int,
         description: str = "",
         count: float | str = 1.0,
         additional=None,
     ):
         self.name = name
         self.description = description
-        self.weight = tryfloatdefault(weight)
-        self.price = tryfloatdefault(price)
+        self.load = load
         self.count = tryfloatdefault(count, 1)
         self.additional_info = additional or {}
 
@@ -48,20 +42,8 @@ class Item:
         return f"{self.count:g} {self.name}"
 
     @property
-    def singular_weight(self):
-        return fendeconvert(self.weight, "weight")
-
-    @property
-    def singular_price(self):
-        return fendeconvert(self.price, "money")
-
-    @property
-    def total_weight(self):
-        return fendeconvert(self.weight * self.count, "weight")
-
-    @property
-    def total_price(self):
-        return fendeconvert(self.price * self.count, "money")
+    def total_load(self):
+        return self.load * self.count
 
     @classmethod
     def from_table_row(cls, row: list[str], offsets: dict, temp_cache: dict = None):
@@ -72,8 +54,7 @@ class Item:
         name = row[offsets[cls.table_name]]
         item = cls(
             name=name,
-            weight=fenconvert(row[offsets[cls.table_weight]]),
-            price=fenconvert(row[offsets[cls.table_money]]),
+            load=tryfloatdefault(row[offsets[cls.table_load]], 1),
             description=row[offsets[cls.table_description]],
             count=row[offsets[cls.table_amount]],
             additional={
@@ -83,10 +64,8 @@ class Item:
             },
         )
         if cached := (temp_cache.get(name) or cls.item_cache.get(name)):
-            if not row[offsets[cls.table_weight]]:
-                item.weight = cached.weight
-            if not row[offsets[cls.table_money]]:
-                item.price = cached.price
+            if not row[offsets[cls.table_load]]:
+                item.load = cached.load
             if not row[offsets[cls.table_description]]:
                 item.description = cached.description
             for k in list(item.additional_info.keys()) + list(
@@ -101,9 +80,7 @@ class Item:
     @classmethod
     def from_mdobj(cls, name, mdobj: MDObj):
         used = []
-        weight, u = extract(cls.table_weight, mdobj)
-        used.append(u)
-        price, u = extract(cls.table_money, mdobj)
+        load, u = extract(cls.table_load, mdobj)
         used.append(u)
         count, u = extract(cls.table_amount, mdobj)
         used.append(u)
@@ -117,10 +94,10 @@ class Item:
                 additional[heading] = mdobj.children[heading].plaintext
 
         count = tryfloatdefault(count, 1)
+        load = tryfloatdefault(load, 1)
         item = cls(
             name=name,
-            weight=fenconvert(weight),
-            price=fenconvert(price),
+            load=load,
             description=description,
             count=count,
             additional=additional,
@@ -144,10 +121,8 @@ class Item:
         for header in headers:
             if header in cls.table_name:
                 offsets[cls.table_name] = headers.index(header)
-            elif header in cls.table_weight:
-                offsets[cls.table_weight] = headers.index(header)
-            elif header in cls.table_money:
-                offsets[cls.table_money] = headers.index(header)
+            elif header in cls.table_load:
+                offsets[cls.table_load] = headers.index(header)
             elif header in cls.table_amount:
                 offsets[cls.table_amount] = headers.index(header)
             elif header in cls.table_description:
@@ -161,9 +136,7 @@ class Item:
         return offsets, unknown_headers
 
     @classmethod
-    def process_table(
-        cls, table: MDTable, flash, temp_cache=None
-    ) -> (List[Self], List[str]):
+    def process_table(cls, table: MDTable, temp_cache=None) -> (List[Self], List[str]):
         # returns the list of found/resolved items and a list of bonus headers from the table
 
         #
@@ -197,7 +170,7 @@ class Item:
             bonus_headers.extend(headers)
         temp_cache = {k.name.lower(): k for k in res}
         for table in tables:
-            items, headers = cls.process_table(table, flash, temp_cache)
+            items, headers = cls.process_table(table, temp_cache)
             res.extend(items)
             bonus_headers.extend(headers)
         return res, bonus_headers
@@ -212,7 +185,7 @@ def tryfloatdefault(inp, default=0):
         return default
     try:
         return float(inp)
-    except:
+    except Exception:
         return tryfloatdefault(inp[:-1])
 
 
@@ -232,87 +205,17 @@ def value_category(inp: str) -> str:
     return ""
 
 
-def fenconvert(inp: str) -> float:
-    """
-    converts numeric measurements found in pages of the fen wiki into their
-    number representation from this point units/types are implicit and only given by context.
-    Money has the suffixes c,s and g and is converted into copper coins.
-    Weight has the suffixes t,kg and gr and will be converted into grams.
-    All outputs are floats, inputs can be suffixed or not
-    :param inp: the inputstring containing optional suffixes
-    :return: float number to be treated as implicitly typed
-    """
-    conversions = {**weights, **currencies}  # merge dicts, duplicates will be clobbered
-    inp = inp.strip()
-    for k, length in sorted(
-        [(str(k), len(k)) for k in conversions.keys()], key=lambda x: x[1], reverse=True
-    ):
-        if inp.lower().endswith(k):
-            return float(tryfloatdefault(inp, 0)) * conversions[k]
-
-    return tryfloatdefault(inp, 0)
-
-
-def fendeconvert(val: float, conv: str) -> str:
-    """
-    undoes fenconvert while choosing the units
-    :param val: base unit for a category of units
-    :param conv: category name
-    """
-    conversions = {"weight": (10**3, weights), "money": (10**2, currencies)}.get(
-        conv, None
-    )
-    sign = 1 if val >= 0 else -1
-    val = abs(val)
-    if conversions:
-        units = [
-            x[1]
-            for x in sorted(
-                [(val, key) for key, val in conversions[1].items()], key=lambda x: x[0]
-            )
-        ]
-        base = conversions[0]
-        exp = int(math.log(val, base)) if val > 0 else 0  # no log possible
-        exp = min(len(units) - 1, exp)  # biggest unit for all that are too big
-        return f"{sign * val / conversions[1][units[exp]]:.10g}" + units[exp]
-    return str(sign * val)
-
-
 def extract(headings, mdobj) -> (str, str):
     for heading in headings:
         if heading in mdobj.children:
             return mdobj.children[heading].plaintext, heading
+
     lines = mdobj.plaintext.split("\n")
+
     for heading in headings:
         for line in lines:
             if line.strip(" \t*-").startswith(heading):
-                return line.strip(" \t*-")[len(heading) :].strip(" \t*-"), heading
+                extracted_content = line.strip(" \t*-")[len(heading) :].strip(" \t*-")
+                return extracted_content, heading
+
     return None, None
-
-
-def total_table(table_input, flash):
-    try:
-        if table_input[-1][0].lower() in Item.table_total:
-            trackers = [[0, ""] for _ in range(len(table_input[0]) - 1)]
-            table_input[-1] = table_input[-1] + (
-                len(table_input[0]) - len(table_input[-1])
-            ) * [""]
-            for row in table_input[1:-1]:
-                for i in range(len(trackers)):
-                    r = row[i + 1].strip().lower().replace(",", "")
-                    if r:
-                        # noinspection PyBroadException
-                        try:
-                            if not trackers[i][1]:
-                                trackers[i][1] = value_category(r)
-                            trackers[i][0] += fenconvert(r)
-                        except Exception:
-                            pass  # even text columns will get attempted, so any failure means we just skip
-            for i, t in enumerate(trackers):
-                table_input[-1][i + 1] = fendeconvert(t[0], t[1])
-    except Exception as e:
-        flash(
-            "tabletotal failed for '"
-            + ("\n".join("\t".join(row) for row in table_input).strip() + "':\n ")
-            + str(e.args)
-        )

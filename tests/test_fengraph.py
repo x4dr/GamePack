@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from fasthelpers import ascii_graph, montecarlo, plot
+from gamepack.fasthelpers import ascii_graph, montecarlo, plot
 
 
 class TestDice(TestCase):

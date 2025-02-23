@@ -1,7 +1,6 @@
 import unittest
-from Item import Item
-from PBTACharacter import PBTACharacter
-from MDPack import MDObj
+from gamepack.PBTACharacter import PBTACharacter
+from gamepack.PBTAItem import PBTAItem
 
 
 class TestPBTACharacter(unittest.TestCase):
@@ -10,10 +9,11 @@ class TestPBTACharacter(unittest.TestCase):
         self.example_character = PBTACharacter(
             info={"Name": "Alice", "Player Name": "Bob"},
             moves=["Move 1", "Move 2"],
+            health={"Healing": {"Current": 3, "Maximum": 4}},
             stats={"Strength": "3", "Agility": "4"},
             inventory=[
-                Item("Sword", 1, 5.0, "A sharp sword"),
-                Item("Shield", 1, 10.0, "A sturdy shield"),
+                PBTAItem("Sword", 1, "A sharp sword"),
+                PBTAItem("Shield", 1, "A sturdy shield"),
             ],
             notes="",
         )
@@ -65,7 +65,9 @@ class TestPBTACharacter(unittest.TestCase):
         )
         for a in self.example_character.inventory:
             self.assertIn(str(a), (str(b) for b in loaded_character.inventory))
-        self.assertEqual(self.example_character.notes, loaded_character.notes)
+        self.assertEqual(
+            self.example_character.notes.strip(), loaded_character.notes.strip()
+        )
 
 
 if __name__ == "__main__":

@@ -1,10 +1,10 @@
 import random
 from unittest import TestCase
 
-from FenCharacter import FenCharacter
-from Item import Item
-from MDPack import MDObj
-from fengraph import rawload
+from gamepack.FenCharacter import FenCharacter
+from gamepack.Item import Item
+from gamepack.MDPack import MDObj
+from gamepack.fengraph import rawload
 
 
 class TestDiceParser(TestCase):

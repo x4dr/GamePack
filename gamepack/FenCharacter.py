@@ -8,9 +8,9 @@ from collections import OrderedDict
 
 from typing import List, Tuple
 
-from .Item import Item, total_table
-from .DiceParser import fullparenthesis, fast_fullparenthesis
-from .MDPack import MDObj, MDTable
+from gamepack.Item import Item, total_table
+from gamepack.DiceParser import fullparenthesis, fast_fullparenthesis
+from gamepack.MDPack import MDObj, MDTable
 
 
 class FenCharacter:
