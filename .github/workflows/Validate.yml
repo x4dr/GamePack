@@ -24,7 +24,7 @@ jobs:
       - name: Run unittests/coverage
         run: |
           pip install coverage
-          coverage run --source . --omit "*venv/*" -m unittest discover --verbose tests
+          coverage run --source . --omit "*venv/*" -m unittest discover --verbose tests && \
           coverage report -m -i --fail-under=80 --skip-covered --skip-empty | tee report.txt
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
@@ -61,3 +61,19 @@ jobs:
         path: ~/.cache/pre-commit
         key: pre-commit|${{ env.PY }}|${{ hashFiles('.pre-commit-config.yaml') }}
     - uses: pre-commit/action@v3.0.0
+
+  validation_check:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Validation Success
+        run: |
+          if [ -f report.txt ]; then
+            coverage=$(grep 'TOTAL' report.txt | awk '{print $4}')
+            if (( $(echo "$coverage > 80" | bc -l) )); then
+              echo "success=true" >> $GITHUB_OUTPUT
+            else
+              echo "success=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
