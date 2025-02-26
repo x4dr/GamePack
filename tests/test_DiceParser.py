@@ -156,10 +156,10 @@ class TestDiceParser(TestCase):
 
     def test_ifthen(self):
         p = DiceParser()
-        r = p.do_roll("&param difficulty& &if 3 4 f6 then 4 $ -1 e6 else 0 done& f6")
-        r.r = [10 for _ in r.r]
+        dice = p.do_roll("&param difficulty& &if 3 4 f6 then 4 $ -1 e6 else 0 done& f6")
+        dice.r = [10 for _ in dice.r]
         self.assertIn(
-            r.result,
+            dice.result,
             range(0, 11),
         )
 

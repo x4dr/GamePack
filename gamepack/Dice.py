@@ -15,7 +15,7 @@ class Dice:
     # noinspection PyUnusedLocal
     def __init__(
         self,
-        amount: list[int] | int,
+        amount: list[int] | int | None,
         sides: int,
         difficulty: int | None = None,
         onebehaviour=0,

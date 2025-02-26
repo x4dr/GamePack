@@ -2,10 +2,20 @@ import ast
 import operator
 import re
 from functools import lru_cache
-from typing import Any, Callable, Type, Tuple
+from typing import Any, Callable, Type, Tuple, Union
+
+NodeTypes = Union[
+    ast.Expression,
+    ast.Constant,
+    ast.Name,
+    ast.BinOp,
+    ast.UnaryOp,
+]
 
 
-def eval_node(node: ast.expr | ast.AST, variables: frozenset[Tuple[str, Any]]) -> float:
+def eval_node(
+    node: ast.expr | NodeTypes, variables: frozenset[Tuple[str, Any]]
+) -> float:
     for ast_type, evaluator in EVALUATORS.items():
         if isinstance(node, ast_type):
             return evaluator(node, variables)

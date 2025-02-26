@@ -237,7 +237,7 @@ class WikiPage:
 
     def cacheupdate(self):
         page = self.file
-        canonical_name = canonical_name = page.as_posix().replace(page.name, page.stem)
+        canonical_name = page.as_posix().replace(page.name, page.stem)
         self.wikicache[canonical_name] = {}
         self.wikicache[canonical_name]["tags"] = self.tags
         self.wikicache[canonical_name]["links"] = self.links
@@ -341,7 +341,7 @@ class WikiPage:
             return self
         try:
             current = int(c.group("current"))
-        except Exception:
+        except ValueError:
             current = 0
         current += delta
         print("replacing", c, current)

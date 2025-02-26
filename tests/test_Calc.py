@@ -49,9 +49,9 @@ class TestEval(unittest.TestCase):
 
     def test_eval_node_unknown(self):
         # Test eval_node with an unknown node type
-        node = ast.AugAssign()
+        node = ast.Delete()
         with self.assertRaises(KeyError):
-            eval_node(node, frozenset())
+            eval_node(node, frozenset())  # noqa, testing wrong usage
 
     def test_eval_expression(self):
         # Test eval_expression with a valid expression

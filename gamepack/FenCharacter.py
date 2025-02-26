@@ -220,7 +220,7 @@ class FenCharacter:
                 continue
             if row[0].lower() == name.lower():
                 row[1] = re.sub(
-                    r"^\d*", lambda x: str(int(x.group() or 0) + value), row[1], 1
+                    r"^\d*", lambda x: str(int(x.group() or 0) + value), row[1], count=1
                 )
                 break
         else:
@@ -367,7 +367,7 @@ class FenCharacter:
 
     def process_inventory(self, node: MDObj, flash):
         for table in node.tables:
-            items, headers = Item.process_table(table, flash)
+            items, headers = Item.process_table(table)
             self.Inventory += items
             self.Inventory_Bonus_Headers.update(headers)
         for content in node.children.values():

@@ -412,7 +412,7 @@ class MDObj:
         return cls(plaintext, children, "", lambda x: None)
 
     @classmethod
-    def just_tables(cls, tables: MDTable) -> "MDObj":
+    def just_tables(cls, tables: [MDTable]) -> "MDObj":
         tablesonly = cls("", {}, lambda x: None)
         tablesonly.tables = tables
         return tablesonly

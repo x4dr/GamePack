@@ -1,5 +1,6 @@
 from typing import List, Self
 
+from gamepack.Item import tryfloatdefault
 from gamepack.MDPack import MDObj, MDTable
 
 
@@ -178,15 +179,6 @@ class PBTAItem:
 
 weights = {"g": 1, "kg": 10**3, "t": 10**6}
 currencies = {"k": 1, "s": 10**2, "a": 10**4}
-
-
-def tryfloatdefault(inp, default=0):
-    if not inp:
-        return default
-    try:
-        return float(inp)
-    except Exception:
-        return tryfloatdefault(inp[:-1])
 
 
 def value_category(inp: str) -> str:

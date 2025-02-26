@@ -161,12 +161,8 @@ class Item:
         return offsets, unknown_headers
 
     @classmethod
-    def process_table(
-        cls, table: MDTable, flash, temp_cache=None
-    ) -> (List[Self], List[str]):
+    def process_table(cls, table: MDTable, temp_cache=None) -> (List[Self], List[str]):
         # returns the list of found/resolved items and a list of bonus headers from the table
-
-        #
 
         offsets, unknown_headers = cls.process_offsets(table.headers)
         if offsets.get(cls.table_name) is None:
@@ -197,7 +193,7 @@ class Item:
             bonus_headers.extend(headers)
         temp_cache = {k.name.lower(): k for k in res}
         for table in tables:
-            items, headers = cls.process_table(table, flash, temp_cache)
+            items, headers = cls.process_table(table, temp_cache)
             res.extend(items)
             bonus_headers.extend(headers)
         return res, bonus_headers
@@ -212,7 +208,7 @@ def tryfloatdefault(inp, default=0):
         return default
     try:
         return float(inp)
-    except:
+    except ValueError:
         return tryfloatdefault(inp[:-1])
 
 

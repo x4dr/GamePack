@@ -9,6 +9,7 @@ from gamepack.MDPack import (
     table_row_edit,
     table_add,
     table_remove,
+    MDTable,
 )
 from gamepack.fengraph import rawload
 
@@ -124,8 +125,14 @@ class TestMDObj(unittest.TestCase):
 
     def test_just_tables(self):
         tables = [
-            [["Header 1", "Header 2"], ["Row 1, Column 1", "Row 1, Column 2"]],
-            [["Header 3", "Header 4"], ["Row 2, Column 1", "Row 2, Column 2"]],
+            MDTable(
+                headers=["Header 1", "Header 2"],
+                rows=[["Row 1, Column 1", "Row 1, Column 2"]],
+            ),
+            MDTable(
+                headers=["Header 3", "Header 4"],
+                rows=[["Row 2, Column 1", "Row 2, Column 2"]],
+            ),
         ]
         mdobj = MDObj.just_tables(tables)
         self.assertEqual(mdobj.tables, tables)

@@ -260,7 +260,7 @@ class DiceParser:
                 roll = Node(roll, depth)
             except MessageReturn:
                 raise
-            except Exception:
+            except DescriptiveError:
                 roll = Node(oldroll, depth)
             res = self.resolveroll(roll, depth)
             return res
