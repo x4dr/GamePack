@@ -11,25 +11,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python environment
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11.2"
-      - name: Setup VENV
+          python-version: "3.11"
+      - name: Install Local Package
         run: |
-          python3 -m venv .venv
-          . .venv/bin/activate
-          pip install -r requirements.txt
+          pip install -e .
+
       - name: set up the wiki environment
         run: |
           git clone https://github.com/x4dr/Fen.git ~/wiki
       - name: Run unittests/coverage
         run: |
-          . .venv/bin/activate
           pip install coverage
           coverage run --source . --omit "*venv/*" -m unittest discover --verbose tests
           coverage report -m -i --fail-under=80 --skip-covered --skip-empty | tee report.txt
       - name: Upload Coverage Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage_report
           path: report.txt
@@ -52,10 +50,10 @@ jobs:
     name: Pre-Commit Hooks that should have been run by committer
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
-        python-version: "3.11.2"
+        python-version: "3.11"
     - name: set PY
       run: echo "PY=$(python --version --version | sha256sum | cut -d' ' -f1)" >> $GITHUB_ENV
     - uses: actions/cache@v3
