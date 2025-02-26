@@ -38,7 +38,12 @@ jobs:
           flag-name: run-linux-py311
           parallel: true
       - name: Require 80% Coverage
-        run: ! grep -q "Coverage failure:" report.txt
+        run: |
+          if grep -q "Coverage failure:" report.txt; then
+            echo "Coverage check failed!"
+            exit 1
+          fi
+
   finish:
     needs: test
     if: ${{ always() }}
