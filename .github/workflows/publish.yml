@@ -23,7 +23,7 @@ jobs:
         pip install -e .
     - name: Run tests
       run: |
-        pytest
+        python -m unittest discover --verbose tests
 
   bump-and-publish:
     needs: build-and-test

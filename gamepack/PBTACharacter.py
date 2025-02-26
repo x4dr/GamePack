@@ -46,7 +46,6 @@ class PBTACharacter:
                 self.notes = self.meta[k].plaintext
 
     def process_inventory(self, node: MDObj, flash):
-
         for table in node.tables:
             items, headers = PBTAItem.process_table(table)
             self.inventory.extend(items)

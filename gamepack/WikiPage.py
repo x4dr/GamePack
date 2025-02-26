@@ -356,7 +356,7 @@ class WikiPage:
 
 def commit_and_push(repo, file, commit_message: str):
     if not WikiPage.live:
-        log.info(f"Not live, not pushing.")
+        log.info("Not live, not pushing.")
         return
     repo = Repo(os.path.expanduser(repo))
     # Check for changes
