@@ -68,7 +68,3 @@ class TestPBTACharacter(unittest.TestCase):
         self.assertEqual(
             self.example_character.notes.strip(), loaded_character.notes.strip()
         )
-
-
-if __name__ == "__main__":
-    unittest.main()

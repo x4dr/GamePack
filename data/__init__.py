@@ -1,19 +1,15 @@
 import importlib.resources
-import pathlib
 import sqlite3
-
+from pathlib import Path
 
 cache = []
 
 
-def handle(res):
-    try:
-        with importlib.resources.files("gamepack.data").joinpath(res) as path:
-            return path.as_posix()
-    except FileNotFoundError as e:
-        path = pathlib.Path(e.filename)
-        path.touch()
-        return path.as_posix()
+def handle(res) -> Path:
+    p = Path(str(importlib.resources.files("data").joinpath(res)))
+    if not p.is_file():
+        p.touch()
+    return p
 
 
 def dicecache_db() -> sqlite3.Connection:

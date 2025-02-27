@@ -3,11 +3,6 @@ from unittest import TestCase
 from gamepack.fasthelpers import ascii_graph, montecarlo, plot
 
 
-class TestDice(TestCase):
-    def setUp(self) -> None:
-        pass
-
-
 # a unittest for the above
 class TestDiceParser(TestCase):
     def test_ascii_graph(self):

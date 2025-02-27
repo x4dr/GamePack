@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import List
 from unittest import TestCase
 
+from data import dicecache_db
+
 
 class TestIndependency(TestCase):
     modules: List[Path] = []
@@ -24,8 +26,6 @@ class TestIndependency(TestCase):
 
     def test_loadability(self):
         """establish that each module is loadable and has no circular reference issues"""
-        if not self.modules:
-            self.setUpClass()
         for module in TestIndependency.modules:
             with self.subTest(msg=f"Loading {module.as_posix()[3:-3]} "):
                 spec = importlib.util.spec_from_file_location(
@@ -36,7 +36,13 @@ class TestIndependency(TestCase):
 
     def test_dummy(self):
         self.assertTrue(True)
-        self.assertTrue(True)
-        self.assertTrue(True)
-        self.assertTrue(True)
-        self.assertTrue(True)
+
+    def test_data(self):
+        from data import handle
+
+        with dicecache_db() as sut:
+            self.assertEqual(sut.total_changes, 0)
+        with dicecache_db() as sut:
+            self.assertEqual(sut.total_changes, 0)
+        sut.close()
+        Path(handle("dicecache.sqlite")).unlink()

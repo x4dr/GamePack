@@ -1,7 +1,9 @@
 import random
+import re
 from unittest import TestCase
 
 from gamepack.Dice import Dice, DescriptiveError
+from gamepack.RegexRouter import RegexRouter, PartialMatchException
 
 
 class TestDice(TestCase):
@@ -86,3 +88,20 @@ class TestDice(TestCase):
         d.roll()
         self.assertEqual(0, d.resonance(7))  # just by chance on random.seed(0)
         self.assertEqual(1, d.resonance(8))  # just by chance on random.seed(0)
+
+    def test_partial_match_exception(self):
+        router = RegexRouter()
+
+        # Register some routes
+        @router.register(re.compile(r"hello (?P<name>\w+)"))
+        def hello_handler(match):
+            return {"greeting": f"Hello, {match['name']}!"}
+
+        # Input string that does not fully match all registered routes
+        input_string = "hello world goodbye"
+
+        with self.assertRaises(PartialMatchException) as context:
+            router.run(input_string, require=True)
+
+        # Check the exception message
+        self.assertIn("Not a Full match! leftover: ", str(context.exception))

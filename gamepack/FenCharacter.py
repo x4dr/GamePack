@@ -327,7 +327,7 @@ class FenCharacter:
             description.add_child(MDObj(v, flash=flash, header=k))
 
         categories = self.construct_mdobj_from_category(
-            self.Categories, self.headings_used["categories"], flash
+            self.Categories, self.headings_used.get("categories", {}), flash
         ).with_header(self.headings_used.get("values", "Values"))
         mdo = MDObj("")
         mdo.add_child(description)

@@ -108,7 +108,7 @@ class WikiPage:
         return p
 
     @classmethod
-    def load_str(cls, page: str, cache=True) -> Self:
+    def load_locate(cls, page: str, cache=True) -> Self:
         return cls.load(cls.locate(page), cache)
 
     @classmethod
@@ -191,7 +191,7 @@ class WikiPage:
             )
             f.write("---\n")
             f.write(self.body.replace("\r", ""))
-        self.cacheclear(page)
+        self.reload_cache(page)
 
         commit_and_push(
             self.wikipath(), page, message or f"{page} edited by {author}\n"
@@ -227,7 +227,7 @@ class WikiPage:
         self.cacheupdate()
 
     @classmethod
-    def cacheclear(cls, page: Path):
+    def reload_cache(cls, page: Path):
         if not page.is_absolute():
             page = cls.wikipath() / page
         canonical_name = page.as_posix().replace(page.name, page.stem)
@@ -316,10 +316,10 @@ class WikiPage:
             itemclass.item_cache = {}
             cls.__caching = True
             items, _ = itemclass.process_tree(
-                cls.load_str(itemclass.home_md).md(), print
+                cls.load_locate(itemclass.home_md).md(), print
             )
             item_from_prices, _ = itemclass.process_tree(
-                cls.load_str("prices").md(), print
+                cls.load_locate("prices").md(), print
             )
             items += item_from_prices
 

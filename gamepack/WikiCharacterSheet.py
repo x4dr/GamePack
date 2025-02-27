@@ -48,8 +48,8 @@ class WikiCharacterSheet(WikiPage):
             return WikiPage.page_cache[page]
 
     @classmethod
-    def load_str(cls, page: str, cache=True) -> Self:
-        p = WikiPage.load_str(page, cache)
+    def load_locate(cls, page: str, cache=True) -> Self:
+        p = WikiPage.load_locate(page, cache)
         if isinstance(p, WikiCharacterSheet):
             return p
         elif p:
