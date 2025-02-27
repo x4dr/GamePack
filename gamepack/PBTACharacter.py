@@ -1,3 +1,4 @@
+from gamepack.Item import tryfloatdefault
 from gamepack.MDPack import MDObj, MDTable
 from gamepack.PBTAItem import PBTAItem
 
@@ -90,6 +91,11 @@ class PBTACharacter:
                             for row in t.rows
                         }
                     )
+                for woundlevel, description in v.children.items():
+                    # expecting woundlevels containing one descrition per line
+                    if woundlevel and woundlevel.isdigit():
+                        health[woundlevel] = description.plaintext.splitlines("False")
+
             else:
                 meta[k] = v
 
@@ -148,6 +154,16 @@ class PBTACharacter:
             error_handler,
             header=self.health_headings[0].title(),
         )
+
+        # Add wound levels to the health section
+        for woundlevel, description in sorted(
+            self.health.items(), key=lambda x: tryfloatdefault(x[0], 0)
+        ):
+            if woundlevel.isdigit():
+                health.add_child(
+                    MDObj("\n".join(description), {}, error_handler, header=woundlevel)
+                )
+                del self.health[woundlevel]
 
         rows = [
             [stat, str(current), str(maximum)]

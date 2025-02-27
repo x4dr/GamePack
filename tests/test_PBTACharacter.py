@@ -9,7 +9,10 @@ class TestPBTACharacter(unittest.TestCase):
         self.example_character = PBTACharacter(
             info={"Name": "Alice", "Player Name": "Bob"},
             moves=["Move 1", "Move 2"],
-            health={"Healing": {"Current": 3, "Maximum": 4}},
+            health={
+                "Healing": {"Current": 3, "Maximum": 4},
+                "3": ["level 3 wound", "somehow, another"],
+            },
             stats={"Strength": "3", "Agility": "4"},
             inventory=[
                 PBTAItem("Sword", 1, "A sharp sword"),
