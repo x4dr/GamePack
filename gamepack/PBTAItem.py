@@ -15,7 +15,7 @@ class PBTAItem:
     table_name = ("item", "gegenstand", "name", "object", "objekt")
     table_description = ("details", "desc", "description", "beschreibung")
     table_load = ("load", "belastung", "last")
-    table_amount = ("amount", "menge", "anzahl", "zahl", "stück", "count")
+    table_amount = ("amount", "menge", "anzahl", "zahl", "stück", "count", "quantity")
 
     table_all = (
         table_total,
@@ -139,9 +139,6 @@ class PBTAItem:
     @classmethod
     def process_table(cls, table: MDTable, temp_cache=None) -> (List[Self], List[str]):
         # returns the list of found/resolved items and a list of bonus headers from the table
-
-        #
-
         offsets, unknown_headers = cls.process_offsets(table.headers)
         if offsets.get(cls.table_name) is None:
             return [], [x[1] for x in unknown_headers]

@@ -43,6 +43,7 @@ class PBTACharacter:
         "Resolve": ["Attune", "Command", "Consort", "Sway"],
     }
     stat_table_headers = ["Stat", "Value"]
+    wound_headings = ["harm", "wounds", "wunden", "injuries", "verletzungen"]
 
     def post_process(self, flash):
         # tally inventory
@@ -97,10 +98,13 @@ class PBTACharacter:
                             for row in t.rows
                         }
                     )
-                for woundlevel, description in v.children.items():
-                    # expecting woundlevels containing one descrition per line
-                    if woundlevel and woundlevel.isdigit():
-                        health[woundlevel] = description.plaintext.splitlines("False")
+                for section, child in v.children.items():
+                    if section.lower() not in cls.wound_headings:
+                        continue
+                    for severity, descriptionobj in child.children.items():
+                        health[severity] = descriptionobj.plaintext.strip().splitlines(
+                            "False"
+                        )
 
             else:
                 meta[k] = v
@@ -146,7 +150,6 @@ class PBTACharacter:
             error_handler = default_error_handler
 
         sections = MDObj("", flash=error_handler)
-
         # Basic Information Section
         info = MDObj("", {}, error_handler, header=self.info_headings[0].title())
         for key, value in self.info.items():
@@ -161,21 +164,28 @@ class PBTACharacter:
             header=self.health_headings[0].title(),
         )
 
-        # Add wound levels to the health section
+        harm = MDObj("", header=self.wound_headings[0])
         for woundlevel, description in sorted(
             self.health.items(), key=lambda x: tryfloatdefault(x[0], 0)
         ):
+
             if woundlevel.isdigit():
-                health.add_child(
+                harm.add_child(
                     MDObj("\n".join(description), {}, error_handler, header=woundlevel)
                 )
-                del self.health[woundlevel]
 
-        rows = [
-            [stat, str(current), str(maximum)]
-            for stat, (current, maximum) in self.health.items()
-        ]
+        health.add_child(harm)
         headers = ["Type", "Current", "Maximum"]
+        rows = [
+            [
+                statname,
+                stats[headers[1]],
+                stats[headers[2]],
+            ]
+            for statname, stats in self.health.items()
+            if not str(statname).isdigit()
+        ]
+
         health_table = MDTable(rows, headers)
         health.tables.append(health_table)
         sections.add_child(health)
@@ -236,7 +246,6 @@ class PBTACharacter:
         headers = [
             "Name",
             "Quantity",
-            "Load",
             "Description",
         ]
         headers.extend(self.inventory_bonus_headers)
@@ -244,7 +253,6 @@ class PBTACharacter:
             [
                 f"{item.name}",
                 f"{item.count:g}",
-                item.load,
                 item.description,
             ]
             + [item.additional_info.get(x) or "" for x in self.inventory_bonus_headers]

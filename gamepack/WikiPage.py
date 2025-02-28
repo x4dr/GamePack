@@ -9,7 +9,7 @@ from typing import Self
 
 import bleach
 import yaml
-from git import Repo
+from git import Repo, GitCommandError
 
 from gamepack.Dice import DescriptiveError
 from gamepack.Item import Item
@@ -370,8 +370,11 @@ def commit_and_push(repo, file, commit_message: str):
 
     # Push changes
     origin = repo.remote(name="origin")
-    origin.push()
-    log.info(f"Committed and pushed changes with message: '{commit_message}'")
+    try:
+        origin.push()
+        log.info(f"Committed and pushed changes with message: '{commit_message}'")
+    except GitCommandError:
+        log.error("Failed to push changes.")
 
 
 def savequeue():
