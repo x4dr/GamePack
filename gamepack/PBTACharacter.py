@@ -47,11 +47,12 @@ class PBTACharacter:
 
     def post_process(self, flash):
         # tally inventory
-        for k in self.meta.keys():
+        for k in list(self.meta.keys()):
             if k.lower() in self.inventory_headings:
                 self.process_inventory(self.meta[k], flash)
             if k.lower() in self.note_headings:
                 self.notes = self.meta[k].plaintext
+                del self.meta[k]
 
     def process_inventory(self, node: MDObj, flash):
         for table in node.tables:
