@@ -37,6 +37,12 @@ class PBTACharacter:
     stats_headings = ["stats", "attributes"]
     inventory_headings = ["inventory", "gear"]
     note_headings = ["notes"]
+    stat_structure = {
+        "Insight": ["Hunt", "Study", "Survey", "Tinker"],
+        "Prowess": ["Skirmish", "Finesse", "Prowl", "Wreck"],
+        "Resolve": ["Attune", "Command", "Consort", "Sway"],
+    }
+    stat_table_headers = ["Stat", "Value"]
 
     def post_process(self, flash):
         # tally inventory
@@ -187,16 +193,7 @@ class PBTACharacter:
         )
 
         # Stats Section
-        stats_table = self._create_stats_table()
-        sections.add_child(
-            MDObj(
-                "",
-                {},
-                error_handler,
-                [stats_table],
-                header=self.stats_headings[0].title(),
-            )
-        )
+        sections.add_child(self._create_stats_section())
 
         # Inventory Section
         inventory_section = self._create_inventory_section(error_handler)
@@ -212,14 +209,25 @@ class PBTACharacter:
         rows = [[move] for move in self.moves]
         return MDTable(rows, headers)
 
-    def _create_stats_table(self):
+    def _create_stats_section(self) -> MDObj:
+        result = MDObj("", header=self.stats_headings[0].title())
+
         if not self.stats:
-            return None
-        headers = ["Stat", "Value"]
-        data = []
-        for k, v in self.stats.items():
-            data.append([k, v])
-        return MDTable(data, headers)
+            self.stats = {}
+
+        for category, skills in self.stat_structure.items():
+            data = [
+                [skill, self.stats.get(category, {}).get(skill, "0")]
+                for skill in skills
+            ]
+            result.add_child(
+                MDObj(
+                    "",
+                    header=category.title(),
+                    tables=[MDTable(data, self.stat_table_headers)],
+                )
+            )
+        return result
 
     def _create_inventory_section(self, error_handler):
         if not self.inventory:

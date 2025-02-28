@@ -13,7 +13,7 @@ class TestPBTACharacter(unittest.TestCase):
                 "Healing": {"Current": 3, "Maximum": 4},
                 "3": ["level 3 wound", "somehow, another"],
             },
-            stats={"Strength": "3", "Agility": "4"},
+            stats={"Insight": {"Hunt": "3"}, "Resolve": {"Attune": "4"}},
             inventory=[
                 PBTAItem("Sword", 1, "A sharp sword"),
                 PBTAItem("Shield", 1, "A sturdy shield"),
@@ -27,8 +27,8 @@ class TestPBTACharacter(unittest.TestCase):
         self.assertEqual(self.example_character.info["Player Name"], "Bob")
         self.assertIn("Move 1", self.example_character.moves)
         self.assertIn("Move 2", self.example_character.moves)
-        self.assertEqual(self.example_character.stats["Strength"], "3")
-        self.assertEqual(self.example_character.stats["Agility"], "4")
+        self.assertEqual(self.example_character.stats["Insight"]["Hunt"], "3")
+        self.assertEqual(self.example_character.stats["Resolve"]["Attune"], "4")
         self.assertEqual(len(self.example_character.inventory), 2)
 
     def test_to_mdobj_conversion(self):
@@ -45,7 +45,16 @@ class TestPBTACharacter(unittest.TestCase):
         # Compare the original and loaded characters
         self.assertEqual(self.example_character.info, loaded_character.info)
         self.assertEqual(self.example_character.moves, loaded_character.moves)
-        self.assertEqual(self.example_character.stats, loaded_character.stats)
+
+        for catname, cat in self.example_character.stats.items():
+            for key, value in cat.items():
+                self.assertIn(key, loaded_character.stats[catname])
+                self.assertEqual(
+                    value,
+                    loaded_character.stats[catname][key],
+                    f"{cat} in {loaded_character.stats[catname]}",
+                )
+
         self.assertEqual(
             len(self.example_character.inventory), len(loaded_character.inventory)
         )
@@ -62,7 +71,6 @@ class TestPBTACharacter(unittest.TestCase):
         # Compare the original and loaded characters
         self.assertEqual(self.example_character.info, loaded_character.info)
         self.assertEqual(self.example_character.moves, loaded_character.moves)
-        self.assertEqual(self.example_character.stats, loaded_character.stats)
         self.assertEqual(
             len(self.example_character.inventory), len(loaded_character.inventory)
         )

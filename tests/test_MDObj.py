@@ -10,6 +10,7 @@ from gamepack.MDPack import (
     table_add,
     table_remove,
     MDTable,
+    MDChecklist,
 )
 from gamepack.fengraph import rawload
 
@@ -222,7 +223,7 @@ class TestMDObj(unittest.TestCase):
         with open("test_chr.md", "w") as f:
             f.write(sut.to_md())
 
-        self.assertEqual(sut.originalMD, sut.to_md())
+        self.assertMultiLineEqual(sut.originalMD, sut.to_md())
         for file in pathlib.Path.expanduser(pathlib.Path("~/wiki/character")).iterdir():
             if file.is_file():
                 with file.open() as f:
@@ -230,3 +231,95 @@ class TestMDObj(unittest.TestCase):
                     mdobj = MDObj.from_md(md)
                 with file.open("w") as f:
                     f.write(mdobj.to_md())
+
+    def test_extract_and_insert_tables(self):
+        """Ensure tables are correctly extracted and restored."""
+        md_text = """# Task List
+                        
+## Work Notes
+                    
+| Task    | Status  |
+|---------|---------|
+| Report  | Pending |
+| Meeting | Done    |
+
+End of document.
+"""
+        # Step 1: Extract tables
+        text_without_tables, tables = MDTable.extract_tables(md_text)
+
+        # Step 2: Ensure text integrity without tables
+        expected_text = """# Task List
+                        
+## Work Notes
+                    
+
+End of document."""
+        self.assertEqual(text_without_tables.strip(), expected_text.strip())
+
+        # Step 3: Reinsert tables
+        restored_text = MDTable.insert_tables(text_without_tables, tables)
+        self.assertEqual(md_text.strip(), restored_text)
+
+    def test_extract_and_insert_checklists(self):
+        """Ensure checklists are correctly extracted and restored."""
+        md_text = """# Task List
+
+Here are my tasks:
+
+- [ ] Buy groceries
+- [x] Finish project
+- [ ] Call John
+
+End of document."""
+        # Step 1: Extract checklists
+        text_without_checklists, checklists = MDChecklist.extract_checklists(md_text)
+
+        # Step 2: Ensure text integrity without checklists
+        expected_text = """# Task List
+
+Here are my tasks:
+
+
+End of document."""
+        self.assertEqual(text_without_checklists.strip(), expected_text.strip())
+
+        # Step 3: Reinsert checklists
+        restored_text = MDChecklist.insert_checklists(
+            text_without_checklists, checklists
+        )
+        self.assertEqual(md_text.strip(), restored_text)
+
+    def test_tables_with_checklists(self):
+        """Ensure tables and checklists are correctly handled together."""
+        md_text = """# Task List
+                        
+Here are my tasks:
+
+- [ ] Buy groceries
+- [x] Finish project
+- [ ] Call John
+
+## Work Notes
+
+| Task    | Status  |
+|---------|---------|
+| Report  | Pending |
+| Meeting | Done    |
+
+End of document."""
+        text_without_checklists, checklists = MDChecklist.extract_checklists(md_text)
+        text_without_tables, tables = MDTable.extract_tables(text_without_checklists)
+        expected_text = """# Task List
+                        
+Here are my tasks:
+
+
+## Work Notes
+
+
+End of document."""
+        self.assertEqual(expected_text, text_without_tables)
+        restored_text_with_tables = MDTable.insert_tables(text_without_tables, tables)
+        final_md = MDChecklist.insert_checklists(restored_text_with_tables, checklists)
+        self.assertEqual(md_text, final_md)

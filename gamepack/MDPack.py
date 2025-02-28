@@ -1,7 +1,93 @@
 import logging
+import re
 from typing import List, Dict, Tuple, Callable, Self, Optional
 
 log = logging.Logger(__name__)
+
+
+class MDChecklist:
+    CHECKBOX_PATTERN = re.compile(r"-\s*\[(\s*x?\s*)] ?(.*)")
+
+    def __init__(self, checklist, position=None):
+        """
+        text: The modified text with checklists removed
+        checklist: List of tuples [(offset, item_text, checked)]
+        """
+        self.checklist = checklist or []
+        self.position = position
+
+    def to_md(self) -> str:
+        """Reinserts the checkboxes back into the original text at the correct offsets."""
+        lines = []
+        for item_text, checked in self.checklist:
+            lines.append(f"- [{'x' if checked else ' '}] {item_text}")
+        return "\n".join(lines)
+
+    def insert_into(self, text: str) -> str:
+        return (
+            text[: self.position] + "\n" + self.to_md() + "\n" + text[self.position :]
+        )
+
+    @classmethod
+    def from_md(cls, md_text: str, position=None):
+        """Expects to be given a valid checklist and throws an exception if not valid."""
+        lines = md_text.split("\n")
+        checklist = []
+
+        for i, line in enumerate(lines):
+            match = cls.CHECKBOX_PATTERN.match(line)
+            if match:
+                checked = match.group(1).strip() == "x"
+                item_text = match.group(2).strip()
+                checklist.append([item_text, checked])
+
+        return cls(checklist, position)
+
+    @classmethod
+    def extract_checklists(cls, plaintext: str) -> (str, ["MDChecklist"]):
+        """
+        consumes checklist from plaintext where possible.
+        checklists are saved abstractly and will be restored during to_md
+        :return: a List of Checklists
+        """
+        text = ""
+        linenr = 0
+        start_line = 0
+        checklists = []
+        run = ""
+        for line in plaintext.splitlines(True):
+            if MDChecklist.CHECKBOX_PATTERN.match(line):
+                start_line = start_line or linenr
+                run += line
+                continue
+            elif run:
+                checklists.append(cls.from_md(run, position=start_line))
+                start_line = 0
+                run = ""
+            text += line
+            linenr += 1
+        if run:
+            checklists.append(cls.from_md(run, position=linenr))
+        return text, checklists
+
+    @classmethod
+    def insert_checklists(cls, text: str, checklists: list["MDChecklist"]) -> str:
+        """
+        Reinsert extracted checklists back into the given text at their original positions.
+
+        :param text: The cleaned text without checklists.
+        :param checklists: List of MDChecklist objects with stored positions.
+        :return: The reconstructed Markdown text with checklists restored.
+        """
+        checklists = sorted(checklists, key=lambda c: c.position)
+        lines = text.splitlines(True)
+        for checklist in checklists:
+            if 0 <= checklist.position < len(lines):
+                lines.insert(checklist.position, checklist.to_md() + "\n")
+            else:
+                lines.append(checklist.to_md() + "\n")
+            text = "".join(lines)
+        return text
 
 
 class MDTable:
@@ -121,16 +207,16 @@ class MDTable:
             styleend = ":" if s in "rc" else ""
             lesser = len(stylebegin + styleend) - 1
             result += f"|{stylebegin}-{'-' * (column_widths[i] - lesser)}{styleend}"
-        result += "|\n"
+        result += "|"
         for row in self.rows:
             if len(row) < columns:  # pad empty cells
                 row.extend([""] * (columns - len(row)))
-            result += "| "
+            result += "\n| "
             result += " | ".join(
                 self.line_align(row[i], self.style[i], column_widths[i])
                 for i in range(columns)
             )
-            result += " |\n"
+            result += " |"
         return result
 
     def __repr__(self):
@@ -214,6 +300,53 @@ class MDTable:
                 return lowercase.index(candidate.lower())
         return default
 
+    @classmethod
+    def extract_tables(cls, plaintext) -> (str, List["MDTable"]):
+        """consumes table from plaintext where possible.
+        Tables are saved abstractly and will be restored during to_md
+        :return: a List of Checklists
+        """
+        text = ""
+        linenr = 0
+        start_line = 0
+        tables = []
+        run = ""
+        for line in plaintext.splitlines(True):
+
+            if "|" in line:
+                start_line = start_line or linenr
+                run += line
+                continue
+            elif run:
+                tables.append(MDTable.from_md(run))
+                tables[-1].prev_line_nr = linenr
+                run = ""
+                start_line = 0
+            text += line
+            linenr += 1
+        if run:
+            tables.append(MDTable.from_md(run))
+            tables[-1].prev_line_nr = linenr
+
+        return text, tables
+
+    @classmethod
+    def insert_tables(cls, text: str, tables: List["MDTable"]) -> str:
+        """
+        Reinserts the extracted tables back into the original text at their stored positions.
+        Preserves surrounding text structure.
+        """
+        if not tables:
+            return text
+
+        lines = text.splitlines(False)
+        for table in sorted(tables, key=lambda t: t.prev_line_nr):
+            md = table.to_md()
+            insert_pos = table.prev_line_nr
+            lines.insert(insert_pos, md)
+
+        return "\n".join(lines)
+
 
 class MDObj:
     def __init__(
@@ -225,14 +358,25 @@ class MDObj:
         level: int = 0,
         header: str = "",
         original=None,
+        checklists=None,
     ):
         self.originalMD = original or plaintext
         self.plaintext = plaintext
         self.children: Dict[str, "MDObj"] = children or {}
-        self.tables: List[MDTable] = tables or self.extract_tables()
+        if tables is None:
+            self.plaintext, self.tables = MDTable.extract_tables(self.plaintext)
+        else:
+            self.tables = tables
+
         self.level = level
         self.header = header
         self.errors = []
+        if checklists is None:
+            self.plaintext, self.checklists = MDChecklist.extract_checklists(
+                self.plaintext
+            )
+        else:
+            self.checklists = checklists
         self.flash = flash or self.add_to_error
 
     def add_to_error(self, error):
@@ -329,32 +473,6 @@ class MDObj:
                 if row[0].strip().startswith(searchterm):
                     results.append((row[0], "|".join(row[1:])))
         return results
-
-    def extract_tables(self) -> List[MDTable]:
-        """
-        traverses the output of split_md and consumes table text where possible.
-        Tables are appended to a List, at the end of each tuple
-        :return: a List of Tables
-        """
-        text = ""
-        linenr = 0
-        tables = []
-        run = ""
-        for line in self.plaintext.splitlines(True):
-            linenr += 1
-            if "|" in line:
-                run += line
-                continue
-            elif run:
-                tables.append(MDTable.from_md(run))
-                tables[-1].prev_line_nr = linenr
-                run = ""
-            text += line
-        if run:
-            tables.append(MDTable.from_md(run))
-            tables[-1].prev_line_nr = linenr
-        self.plaintext = text
-        return tables
 
     def confine_to_tables(self) -> Tuple[Dict[str, str | dict], List[str]]:
         """
@@ -474,18 +592,21 @@ class MDObj:
             self.set_levels(0)
         if self.header.strip():
             result += f"\n{'#' * self.level} {self.header}\n"
+        line_offset = result.count("\n")
         if self.plaintext.strip():
             result += self.plaintext.rstrip() + "\n"
+        result = MDChecklist.insert_checklists(result, self.checklists)
         if self.tables:
             result += "\n"
+
         for t in self.tables:
             if t.prev_line_nr:
                 lines = result.splitlines(True)
                 result = (
                     "".join(
-                        lines[: t.prev_line_nr]
+                        lines[: t.prev_line_nr + line_offset]
                         + t.to_md().splitlines(True)
-                        + lines[t.prev_line_nr :]
+                        + lines[t.prev_line_nr + line_offset :]
                     )
                     + "\n"
                 )
