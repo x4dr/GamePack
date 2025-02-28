@@ -221,7 +221,7 @@ class WikiPage:
         )
 
     def save_low_prio(self, message):
-        print(f"overwriting '{self.title}' at {self.file} ...")
+        print(f"queuing of overwriting '{self.title}' at {self.file} ...")
         if message and message not in self.save_msg_queue:
             self.save_msg_queue.append(message)
         self.cacheupdate()
@@ -375,10 +375,16 @@ def commit_and_push(repo, file, commit_message: str):
 
 
 def savequeue():
-    time.sleep(300)
-    for w in WikiPage.page_cache.values():
-        if w.save_msg_queue:
-            w.save_overwrite("system", "\n".join(w.save_msg_queue))
+    print("savequeue starting")
+    while True:
+        time.sleep(30)
+        for w in WikiPage.page_cache.values():
+            if w.save_msg_queue:
+                print(
+                    f"actually overwriting {w.file} with message: '{' '.join(w.save_msg_queue)}'"
+                )
+                w.save_overwrite("system", "\n".join(w.save_msg_queue))
+                w.save_msg_queue = []
 
 
 def start_savequeue():
