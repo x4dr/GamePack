@@ -13,7 +13,7 @@ class MDChecklist:
         text: The modified text with checklists removed
         checklist: List of tuples [(offset, item_text, checked)]
         """
-        self.checklist = checklist or []
+        self.checklist: List[tuple[str, bool]] = checklist or []
         self.position = position
 
     def to_md(self) -> str:
@@ -27,6 +27,12 @@ class MDChecklist:
         return (
             text[: self.position] + "\n" + self.to_md() + "\n" + text[self.position :]
         )
+
+    def get(self, name, default=None):
+        for c in self.checklist:
+            if c[0] == name:
+                return c[1]
+        return default
 
     @classmethod
     def from_md(cls, md_text: str, position=None):
@@ -44,7 +50,7 @@ class MDChecklist:
         return cls(checklist, position)
 
     @classmethod
-    def extract_checklists(cls, plaintext: str) -> (str, ["MDChecklist"]):
+    def extract_checklists(cls, plaintext: str) -> Tuple[str, List["MDChecklist"]]:
         """
         consumes checklist from plaintext where possible.
         checklists are saved abstractly and will be restored during to_md
@@ -82,8 +88,9 @@ class MDChecklist:
         checklists = sorted(checklists, key=lambda c: c.position)
         lines = text.splitlines(True)
         for checklist in checklists:
-            if 0 <= checklist.position < len(lines):
-                lines.insert(checklist.position, checklist.to_md() + "\n")
+            pos = checklist.position or -1
+            if 0 <= pos < len(lines):
+                lines.insert(pos, checklist.to_md() + "\n")
             else:
                 lines.append(checklist.to_md() + "\n")
             text = "".join(lines)
@@ -181,8 +188,8 @@ class MDTable:
 
     def to_md(self):
         """
-        converts the table back to markdown
-        :return: markdown
+
+        :return: table as Markdown
         """
         self.canonize()
         columns = len(self.headers)
@@ -358,7 +365,7 @@ class MDObj:
         level: int = 0,
         header: str = "",
         original=None,
-        checklists=None,
+        checklists: List[MDChecklist] = None,
     ):
         self.originalMD = original or plaintext
         self.plaintext = plaintext
@@ -381,6 +388,25 @@ class MDObj:
 
     def add_to_error(self, error):
         self.errors.append(error)
+
+    @property
+    def all_checklists(self) -> List[Tuple[str, bool]]:
+        return [item for checklist in self.checklists for item in checklist.checklist]
+
+    def search_checklist_with_path(self, name, path=None):
+        if path is None:
+            path = []
+        results = []
+
+        for mdchecklist in self.checklists:
+            for item, checked in mdchecklist.checklist:
+                if item == name:
+                    results.append(path[:])
+
+        for heading, child in self.children.items():
+            results.extend(child.search_checklist_with_path(name, path + [heading]))
+
+        return results
 
     def __repr__(self):
         return (
@@ -413,6 +439,8 @@ class MDObj:
         (top line on top of the stack)
         @param level: the level of heading this split started and therefore should end on
         @param flash: function to call with errors
+        @param header: the header of the MDObj
+        ""
 
         @return: a Tuple of the direct text and a dict containing recursive output
 
@@ -457,23 +485,6 @@ class MDObj:
             text += line + "\n"
         return cls(text, children, flash, header=header, level=level, original=original)
 
-    def search_all(self, searchterm: str) -> [(str, str)]:
-        """
-        searches all children and tables for a searchterm
-        :param searchterm: the term to search for
-        :return: a list of tuples of the form (heading, text)
-        """
-        results = []
-        for k, v in self.children.items():
-            if k.strip().startswith(searchterm):
-                results.append((k, v.originalMD))
-            results += [(k, r) for r in v.search_all(searchterm)]
-        for subtable in self.tables:
-            for row in subtable.headers + subtable.rows:
-                if row[0].strip().startswith(searchterm):
-                    results.append((row[0], "|".join(row[1:])))
-        return results
-
     def confine_to_tables(self) -> Tuple[Dict[str, str | dict], List[str]]:
         """
         simplifies a mdtree into just a dictionary of dictionaries.
@@ -512,28 +523,6 @@ class MDObj:
         if self.plaintext.strip():
             error(f"Extraneous Text: '{self.plaintext.strip()}'")
         return result, errors
-
-    @staticmethod
-    def from_dict(cls, inp: Dict[str, str | dict]) -> "MDObj":
-        """
-        inverse of confine_to_tables
-        """
-        children = {}
-        plaintext = ""
-        for k, v in inp.items():
-            if isinstance(v, str):
-                children[k] = cls(v, {}, "", lambda x: None)
-            elif isinstance(v, MDTable):
-                children[k] = v
-            elif isinstance(v, dict):
-                children[k] = cls.from_dict(v)
-        return cls(plaintext, children, "", lambda x: None)
-
-    @classmethod
-    def just_tables(cls, tables: [MDTable]) -> "MDObj":
-        tablesonly = cls("", {}, lambda x: None)
-        tablesonly.tables = tables
-        return tablesonly
 
     def search_children(self, name: str) -> Optional["MDObj"]:
         # search direct children first
@@ -583,16 +572,18 @@ class MDObj:
             self.add_child(child)
         return self
 
-    def to_md(self) -> str:
+    def to_md(self, do_header=True) -> str:
         """
         reconstructs the original markdown from the object
         """
         result = ""
-        if not self.level:
-            self.set_levels(0)
-        if self.header.strip():
-            result += f"\n{'#' * self.level} {self.header}\n"
-        line_offset = result.count("\n")
+        line_offset = 0
+        if do_header:
+            if not self.level:
+                self.set_levels(0)
+            if self.header.strip():
+                result += f"\n{'#' * self.level} {self.header}\n"
+            line_offset = result.count("\n")
         if self.plaintext.strip():
             result += self.plaintext.rstrip() + "\n"
         result = MDChecklist.insert_checklists(result, self.checklists)
@@ -670,7 +661,7 @@ def table_row_edit(md: str, key: str, value: str) -> str:
 
 def table_md(t: List[List[str]]) -> str:
     """
-    converts a table to markdown
+    converts a table to Markdown
     :param t: table
     :return: markdown
     """

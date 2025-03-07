@@ -40,7 +40,7 @@ class WikiPage:
         body: str,
         links: list[str],
         meta: dict | str,
-        modified: float = None,
+        modified: float | None = None,
         file: Path = None,
     ):
         self.save_msg_queue = []
@@ -221,7 +221,7 @@ class WikiPage:
         )
 
     def save_low_prio(self, message):
-        print(f"queuing of overwriting '{self.title}' at {self.file} ...")
+        # print(f"queuing of overwriting '{self.title}' at {self.file} ...")
         if message and message not in self.save_msg_queue:
             self.save_msg_queue.append(message)
         self.cacheupdate()
@@ -344,14 +344,20 @@ class WikiPage:
         except ValueError:
             current = 0
         current += delta
-        print("replacing", c, current)
+        # print("replacing", c, current)
         self.body = (
             self.body[: c.start()]
             + f"[clock|{c.group('name')}|{current}|{c.group('maximum')}]"
             + self.body[c.end() :]
         )
-        print(">>>", self.body)
+        # print(">>>", self.body)
         return self
+
+    def tagcheck(self, tag):
+        for t in self.tags:
+            if t.lower() == tag.lower():
+                return True
+        return False
 
 
 def commit_and_push(repo, file, commit_message: str):

@@ -1,5 +1,5 @@
 from gamepack.Item import tryfloatdefault
-from gamepack.MDPack import MDObj, MDTable
+from gamepack.MDPack import MDObj, MDTable, MDChecklist
 from gamepack.PBTAItem import PBTAItem
 
 
@@ -17,7 +17,7 @@ class PBTACharacter:
         errors=None,
     ):
         self.info: dict[str, str] = info
-        self.moves: list[str] = moves
+        self.moves: list[(str, bool)] = moves
         self.health: dict[str, (int, int)] = health
         self.stats: dict[str, dict] = stats
         self.inventory = inventory or []
@@ -50,6 +50,7 @@ class PBTACharacter:
         for k in list(self.meta.keys()):
             if k.lower() in self.inventory_headings:
                 self.process_inventory(self.meta[k], flash)
+                del self.meta[k]
             if k.lower() in self.note_headings:
                 self.notes = self.meta[k].plaintext
                 del self.meta[k]
@@ -70,7 +71,7 @@ class PBTACharacter:
 
         info = {}
         health = {}
-        moves = []
+        moves: [(str, bool)] = []
         stats = {}
         meta = {}
 
@@ -79,13 +80,12 @@ class PBTACharacter:
                 info, err = v.confine_to_tables()
                 handle_error(err)
             elif k.lower() in cls.moves_headings:
-                for move in v.tables[0].rows:
-                    moves.append(move[0])
+                moves = v.all_checklists
             elif k.lower() in cls.stats_headings:
                 stats, err = v.confine_to_tables()
                 handle_error(err)
             elif k.lower() in cls.health_headings:
-                health = {}
+                health: dict[str, dict | list] = {}
                 for t in v.tables:
                     name = t.header_pos(cls.type_headings, 0)
                     current = t.header_pos(cls.current_headings, 1)
@@ -102,10 +102,9 @@ class PBTACharacter:
                 for section, child in v.children.items():
                     if section.lower() not in cls.wound_headings:
                         continue
-                    for severity, descriptionobj in child.children.items():
-                        health[severity] = descriptionobj.plaintext.strip().splitlines(
-                            "False"
-                        )
+                    for severity, description_obj in child.children.items():
+                        text = description_obj.plaintext.strip()
+                        health[severity] = [w for w in text.splitlines(False) if w]
 
             else:
                 meta[k] = v
@@ -136,8 +135,8 @@ class PBTACharacter:
 
     @classmethod
     def from_md(cls, body: str, flash=None):
-        sheetparts = MDObj.from_md(body)
-        return cls.from_mdobj(sheetparts, flash)
+        sheet_parts = MDObj.from_md(body)
+        return cls.from_mdobj(sheet_parts, flash)
 
     def to_md(self):
         return self.to_mdobj().to_md()
@@ -166,25 +165,25 @@ class PBTACharacter:
         )
 
         harm = MDObj("", header=self.wound_headings[0])
-        for woundlevel, description in sorted(
+        for wound_level, description in sorted(
             self.health.items(), key=lambda x: tryfloatdefault(x[0], 0)
         ):
 
-            if woundlevel.isdigit():
+            if wound_level.isdigit():
                 harm.add_child(
-                    MDObj("\n".join(description), {}, error_handler, header=woundlevel)
+                    MDObj("\n".join(description), {}, error_handler, header=wound_level)
                 )
 
         health.add_child(harm)
         headers = ["Type", "Current", "Maximum"]
         rows = [
             [
-                statname,
+                stat_name,
                 stats[headers[1]],
                 stats[headers[2]],
             ]
-            for statname, stats in self.health.items()
-            if not str(statname).isdigit()
+            for stat_name, stats in self.health.items()
+            if not str(stat_name).isdigit()
         ]
 
         health_table = MDTable(rows, headers)
@@ -192,13 +191,12 @@ class PBTACharacter:
         sections.add_child(health)
 
         # Moves Section
-        moves_table = self._create_moves_table()
+
         sections.add_child(
             MDObj(
                 "",
                 {},
-                error_handler,
-                [moves_table],
+                checklists=[MDChecklist(self.moves)],
                 header=self.moves_headings[0].title(),
             )
         )
@@ -212,13 +210,6 @@ class PBTACharacter:
         sections.add_child(MDObj(self.notes, header="Notes"))
 
         return sections
-
-    def _create_moves_table(self):
-        if not self.moves:
-            return None
-        headers = ["Move"]
-        rows = [[move] for move in self.moves]
-        return MDTable(rows, headers)
 
     def _create_stats_section(self) -> MDObj:
         result = MDObj("", header=self.stats_headings[0].title())
@@ -247,6 +238,7 @@ class PBTACharacter:
         headers = [
             "Name",
             "Quantity",
+            "Maximum",
             "Description",
         ]
         headers.extend(self.inventory_bonus_headers)
@@ -254,6 +246,7 @@ class PBTACharacter:
             [
                 f"{item.name}",
                 f"{item.count:g}",
+                item.maximum,
                 item.description,
             ]
             + [item.additional_info.get(x) or "" for x in self.inventory_bonus_headers]
@@ -263,3 +256,9 @@ class PBTACharacter:
         rows.append(total_row)
         inventory_table = MDTable(rows, headers)
         return MDObj("", {}, error_handler, [inventory_table], header="Inventory")
+
+    def inventory_get(self, name):
+        for i in self.inventory:
+            if i.name == name:
+                return i
+        return None

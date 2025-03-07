@@ -16,10 +16,12 @@ class PBTAItem:
     table_description = ("details", "desc", "description", "beschreibung")
     table_load = ("load", "belastung", "last")
     table_amount = ("amount", "menge", "anzahl", "zahl", "stück", "count", "quantity")
+    table_maximum = ("maximum", "max", "maximal", "gesamt")
 
     table_all = (
         table_total,
         table_amount,
+        table_maximum,
         table_load,
         table_description,
         table_name,
@@ -31,12 +33,14 @@ class PBTAItem:
         load: int,
         description: str = "",
         count: float | str = 1.0,
+        maximum: int | str = 1,
         additional=None,
     ):
         self.name = name
         self.description = description
         self.load = load
         self.count = tryfloatdefault(count, 1)
+        self.maximum = int(tryfloatdefault(maximum or 1, 1))
         self.additional_info = additional or {}
 
     def __repr__(self):
@@ -58,6 +62,7 @@ class PBTAItem:
             load=tryfloatdefault(row[offsets[cls.table_load]], 1),
             description=row[offsets[cls.table_description]],
             count=row[offsets[cls.table_amount]],
+            maximum=row[offsets[cls.table_maximum]],
             additional={
                 k: row[v]
                 for k, v in offsets.items()
@@ -160,7 +165,7 @@ class PBTAItem:
         for name, child in mdobj.children.items():
             if child.plaintext.lstrip(" \t*-\n").lower().startswith("item"):
                 res.append(cls.from_mdobj(name, child))
-                bonus_headers.extend(res[-1].additional.keys())
+                bonus_headers.extend(res[-1].additional_info.keys())
             else:
                 tables.extend(child.tables)
             items, headers = cls.process_tree(child, flash)
