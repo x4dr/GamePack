@@ -198,7 +198,7 @@ class WikiPage:
         )
 
     def save_overwrite(self, author, message=None):
-        print(f"overwriting '{self.title}' at {self.file} ...")
+        log.info(f"overwriting '{self.title}' at {self.file} ...")
         self.meta["title"] = self.title
         self.meta["tags"] = self.tags
         self.meta["outgoing links"] = self.links
@@ -221,7 +221,6 @@ class WikiPage:
         )
 
     def save_low_prio(self, message):
-        # print(f"queuing of overwriting '{self.title}' at {self.file} ...")
         if message and message not in self.save_msg_queue:
             self.save_msg_queue.append(message)
         self.cacheupdate()
@@ -275,7 +274,7 @@ class WikiPage:
             message = "a while"
         else:
             message = f"{dt} seconds"
-        print(f"it has been {message} since the last wiki indexing")
+        log.info(f"it has been {message} since the last wiki indexing")
         cls.wikistamp = time.time()
         changed = cls.refresh_cache()
         for m in cls.wikindex():
@@ -286,7 +285,9 @@ class WikiPage:
                 cls.wikicache[canonical_name]["tags"] = p.tags
                 cls.wikicache[canonical_name]["links"] = p.links
 
-        print(f"index took: {str(1000 * (time.time() - cls.wikistamp))} milliseconds")
+        log.info(
+            f"index took: {str(1000 * (time.time() - cls.wikistamp))} milliseconds"
+        )
 
     @classmethod
     def refresh_cache(cls, page: Path = None) -> list[Path]:
@@ -384,13 +385,13 @@ def commit_and_push(repo, file, commit_message: str):
 
 
 def savequeue():
-    print("savequeue starting")
+    log.info("starting save queue thread")
     while True:
         time.sleep(30)
         for w in WikiPage.page_cache.values():
             if w.save_msg_queue:
-                print(
-                    f"actually overwriting {w.file} with message: '{' '.join(w.save_msg_queue)}'"
+                log.info(
+                    f"queued overwriting {w.file} with message: '{' '.join(w.save_msg_queue)}'"
                 )
                 w.save_overwrite("system", "\n".join(w.save_msg_queue))
                 w.save_msg_queue = []
