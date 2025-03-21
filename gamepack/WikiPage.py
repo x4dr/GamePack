@@ -17,6 +17,7 @@ from gamepack.MDPack import MDObj
 from gamepack.PBTAItem import PBTAItem
 
 log = logging.getLogger(__name__)
+SAVE_UPDATE_FIFO = "/tmp/save_update"
 
 
 class WikiPage:
@@ -386,10 +387,14 @@ def commit_and_push(repo, file, commit_message: str):
 
 def savequeue():
     log.info("starting save queue thread")
+    if not os.path.exists(SAVE_UPDATE_FIFO):
+        os.mkfifo(SAVE_UPDATE_FIFO)
     while True:
-        time.sleep(30)
+        time.sleep(5)
         for w in WikiPage.page_cache.values():
             if w.save_msg_queue:
+                with open(SAVE_UPDATE_FIFO, "w") as fifo:
+                    fifo.write(f"{w.file}\n")
                 log.info(
                     f"queued overwriting {w.file} with message: '{' '.join(w.save_msg_queue)}'"
                 )
