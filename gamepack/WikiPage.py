@@ -137,18 +137,20 @@ class WikiPage:
             with p.open() as f:
                 lines = lineloader(f)
                 for line in lines:
-                    if line.strip().startswith("---"):
+                    if line.strip():  # seek first line
                         break
-                    # consume everything until preamble start and discard
-                preamble = ""
-                for line in lines:
-                    if not line.strip():
-                        continue
-                    if line.strip().startswith("---"):
-                        break
-                    preamble += line
-
-                    # consume everything until preamble end into preamble
+                preamble = None
+                if line.strip().startswith("---"):
+                    preamble = ""
+                    for line in lines:
+                        if not line.strip():
+                            continue
+                        if line.strip().startswith("---"):
+                            break
+                        preamble += line
+                else:
+                    f.seek(0)
+                    lines = lineloader(f)
                 if not preamble:
                     preamble = ""
                 body = ""
@@ -158,7 +160,7 @@ class WikiPage:
                     body = f"???\n{preamble}\n???"
 
                 body += "".join(lines)
-
+                print(preamble)
                 loaded_page = cls(
                     title=preamble.get("title") or page.stem,
                     tags=preamble.get("tags") or [],
