@@ -139,6 +139,8 @@ class WikiPage:
                 for line in lines:
                     if line.strip():  # seek first line
                         break
+                else:
+                    line = ""
                 preamble = None
                 if line.strip().startswith("---"):
                     preamble = ""
