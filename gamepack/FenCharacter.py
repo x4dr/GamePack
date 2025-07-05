@@ -284,9 +284,9 @@ class FenCharacter:
         self.post_process(flash)
         return self
 
-    @staticmethod
+    @classmethod
     def construct_mdobj_from_category(
-        category_dict: dict, headings: dict | list[str], flash
+        cls, category_dict: dict, headings: dict | list[str], flash
     ) -> MDObj:
         """
         :param category_dict: dictionary of all stats in this category
@@ -300,7 +300,7 @@ class FenCharacter:
         for k, v in category_dict.items():
             if isinstance(v, dict):
                 categories.add_child(
-                    FenCharacter.construct_mdobj_from_category(
+                    cls.construct_mdobj_from_category(
                         v, headings[k], flash
                     ).with_header(k)
                 )

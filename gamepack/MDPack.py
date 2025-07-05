@@ -485,7 +485,9 @@ class MDObj:
             text += line + "\n"
         return cls(text, children, flash, header=header, level=level, original=original)
 
-    def confine_to_tables(self) -> Tuple[Dict[str, str | dict], List[str]]:
+    def confine_to_tables(
+        self, horizontal=False
+    ) -> Tuple[Dict[str, str | dict], List[str]]:
         """
         simplifies a mdtree into just a dictionary of dictionaries.
         Makes the assumption that either children or a table can be had, and that all leaves are key value in the end
@@ -498,18 +500,28 @@ class MDObj:
             errors.append(msg)
             log.info(msg)
 
-        for subtable in self.tables:
-            for row in subtable.rows:
-                if not row:
-                    continue
-                if len(row) != 2:
-                    error(f"Malformed KeyValue at row '{'|'.join(row)}' in {subtable} ")
-                    continue
-                result[row[0]] = row[1]
+        if horizontal:
+            for subtable in self.tables:
+                for row in subtable.rows:
+                    result[row[0]] = {}
+                    for i, heading in enumerate(subtable.headers[1:]):
+                        result[row[0]][heading] = row[i + 1]
+
+        else:
+            for subtable in self.tables:
+                for row in subtable.rows:
+                    if not row:
+                        continue
+                    if len(row) != 2:
+                        error(
+                            f"Malformed KeyValue at row '{'|'.join(row)}' in {subtable} "
+                        )
+                        continue
+                    result[row[0]] = row[1]
 
         for child, content in self.children.items():
             if content.children or content.tables:
-                result[child], newerrors = content.confine_to_tables()
+                result[child], newerrors = content.confine_to_tables(horizontal)
                 errors += newerrors
             else:
                 result[child] = content.plaintext.strip()
@@ -643,6 +655,10 @@ class MDObj:
         """
         self.header = header_text
         return self
+
+    @classmethod
+    def empty(cls):
+        return cls("")
 
 
 def table_row_edit(md: str, key: str, value: str) -> str:

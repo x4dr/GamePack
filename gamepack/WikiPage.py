@@ -83,7 +83,7 @@ class WikiPage:
         cls._wikipath = path
 
     @classmethod
-    def locate(cls, pagename: [str | Path]) -> Path:
+    def locate(cls, pagename: str | Path) -> Path:
         """
         finds page in wiki
         :param pagename: name of page
@@ -251,7 +251,7 @@ class WikiPage:
         self.page_cache[page] = self
 
     @classmethod
-    def wikindex(cls) -> [Path]:
+    def wikindex(cls) -> list[Path]:
         mds = []
         for p in cls.wikipath().glob("**/*.md"):
             if p.relative_to(cls.wikipath()).as_posix().startswith("."):
