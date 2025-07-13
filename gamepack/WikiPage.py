@@ -3,6 +3,7 @@ import os.path
 import re
 import threading
 import time
+from datetime import timedelta, datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Self
@@ -126,7 +127,14 @@ class WikiPage:
                 yield readline
 
         try:
-            p = page if page.is_absolute() else cls.wikipath() / page
+            if page.is_absolute():
+                try:
+                    rel = page.relative_to(cls.wikipath())
+                    p = cls.wikipath() / rel
+                except ValueError:
+                    raise ValueError(f"Absolute path {page} is outside of the wiki!")
+            else:
+                p = cls.wikipath() / page
             filetime = p.stat().st_mtime
             res = cls.page_cache.get(p, None) if cache else None
             if res is not None:
@@ -162,7 +170,6 @@ class WikiPage:
                     body = f"???\n{preamble}\n???"
 
                 body += "".join(lines)
-                print(preamble)
                 loaded_page = cls(
                     title=preamble.get("title") or page.stem,
                     tags=preamble.get("tags") or [],
@@ -366,18 +373,18 @@ class WikiPage:
         return False
 
 
-def commit_and_push(repo, file, commit_message: str):
-    if not WikiPage.live:
-        log.info("Not live, not pushing.")
-        return
-    repo = Repo(os.path.expanduser(repo))
-    # Check for changes
-    if not repo.is_dirty():
-        return
-    # Stage all changes
-    repo.git.add(file)
+def delayed_push(repo, pushtime: datetime):
+    pushtime_utc = pushtime.astimezone(timezone.utc)
+    now_utc = datetime.now(timezone.utc)
+    threading.Event().wait(max(0, int((pushtime_utc - now_utc).total_seconds())))
+    try:
+        commitfile = Path("commit_tmp")
+        with commitfile.open() as f:
+            commit_message = "\n".join(line.strip() for line in f if line.strip())
+        commitfile.unlink()
+    except FileNotFoundError:
+        commit_message = "general update"
 
-    # Commit changes
     repo.index.commit(commit_message)
 
     # Push changes
@@ -387,6 +394,31 @@ def commit_and_push(repo, file, commit_message: str):
         log.info(f"Committed and pushed changes with message: '{commit_message}'")
     except GitCommandError:
         log.error("Failed to push changes.")
+
+
+saveat = None
+
+
+def commit_and_push(repo, file, commit_message: str):
+    global saveat
+    if not WikiPage.live:
+        log.info("Not live, not pushing.")
+        return
+    repo = Repo(os.path.expanduser(repo))
+    # Check for changes
+    if not repo.is_dirty():
+        return
+    # Stage all changes
+    repo.git.add(file)
+    with Path("commit_tmp").open("a") as f:
+        f.write(commit_message + "\n")
+    if not saveat or not saveat.is_alive():
+        last_commit = next(repo.iter_commits(max_count=1)).committed_datetime
+        next_push_time = last_commit + timedelta(hours=1)
+        saveat = threading.Thread(
+            target=delayed_push, args=(repo, next_push_time), daemon=True
+        )
+        saveat.start()
 
 
 def savequeue():

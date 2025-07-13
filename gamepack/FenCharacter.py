@@ -6,7 +6,7 @@ __author__ = "maric"
 
 from collections import OrderedDict
 
-from typing import List, Tuple
+from typing import List, Tuple, Self
 
 from gamepack.Item import Item, total_table
 from gamepack.DiceParser import fullparenthesis, fast_fullparenthesis
@@ -248,7 +248,7 @@ class FenCharacter:
         return res, h
 
     @classmethod
-    def from_mdobj(cls, mdobj: MDObj, flash=None):
+    def from_mdobj(cls, mdobj: MDObj, flash=None) -> Self:
         self = cls()
         if not flash:
 
@@ -301,12 +301,16 @@ class FenCharacter:
             if isinstance(v, dict):
                 categories.add_child(
                     cls.construct_mdobj_from_category(
-                        v, headings[k], flash
+                        v, headings.get(k, ["name", "value"]), flash
                     ).with_header(k)
                 )
         if categories.children:
             return categories
-        table = [[k, v] for k, v in category_dict.items() if isinstance(v, str)]
+        table = [
+            [k, str(v)]
+            for k, v in category_dict.items()
+            if isinstance(v, str) or isinstance(v, int)
+        ]
         if not isinstance(headings, list):
             flash(str(headings) + " not valid table headings!")
             headings = [str(headings), str(headings)]
@@ -333,6 +337,8 @@ class FenCharacter:
         mdo.add_child(description)
         mdo.add_child(categories)
         for k, v in self.Meta.items():
+            if isinstance(v, str):
+                v = MDObj(v)
             mdo.add_child(v.with_header(k))
         mdo.add_child(self.Notes.with_header(self.headings_used.get("notes", "Notes")))
         return mdo

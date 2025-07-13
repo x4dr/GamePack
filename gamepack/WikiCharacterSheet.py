@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import Self
 
+from gamepack.EWCharacter import EWCharacter
 from gamepack.FenCharacter import FenCharacter
-from gamepack.Mecha import Mecha
 from gamepack.PBTACharacter import PBTACharacter
 from gamepack.WikiPage import WikiPage
 
@@ -20,8 +20,8 @@ class WikiCharacterSheet(WikiPage):
     ):
         super().__init__(title, tags, body, links, meta, modified, file)
         raw = self.md(True)
-        if "mech" in self.tags:
-            self.char = Mecha.from_mdobj(raw)
+        if {"mecha","mech","ew","endworld"} & set(x.lower() for x in self.tags):
+            self.char = EWCharacter.from_mdobj(raw)
         elif "pbta" in self.tags:
             self.char = PBTACharacter.from_mdobj(raw)
         else:

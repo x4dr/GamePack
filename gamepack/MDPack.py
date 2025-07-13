@@ -2,6 +2,7 @@ import logging
 import re
 from typing import List, Dict, Tuple, Callable, Self, Optional
 
+
 log = logging.Logger(__name__)
 
 
@@ -104,7 +105,9 @@ class MDTable:
         for row in rows:
             if len(row) != len(headers):
                 raise ValueError(
-                    f"Row length {len(row)} does not match headers' length {len(headers)} "
+                    f"Row length {len(row)} does not match headers' length {len(headers)} ",
+                    row,
+                    headers,
                 )
         self.rows = rows
         self.headers = headers
