@@ -49,7 +49,7 @@ class WikiPage:
         if Item.item_cache is None:
             WikiPage.cache_items()
         self.title = title
-        self.tags = tags
+        self.tags = set(tags)
         self.body = body
         self.links = links
         if isinstance(meta, str):
@@ -84,30 +84,22 @@ class WikiPage:
         cls._wikipath = path
 
     @classmethod
-    def locate(cls, pagename: str | Path) -> Path:
+    def locate(cls, pagename: str | Path) -> Path | None:
         """
-        finds page in wiki
-        :param pagename: name of page
-        :return: path to page
+        Finds a page in the wiki. Accepts full or stem name.
+        Returns path relative to wiki root if found, else None.
         """
-        if isinstance(pagename, Path):
-            pagename = pagename.stem
-        if pagename.endswith(".md"):
-            pagename = pagename[:-3]
-        matching_mds = (
-            path
-            for path in cls.wikipath().rglob(pagename + ".md")
-            if not any(part.startswith(".") for part in path.parts)  # no hidden files
-        )
-        p = (
-            next(matching_mds, None)
-            if "/" not in pagename
-            else cls.wikipath() / (pagename + ".md")
-        )
-        if not p:
-            p = cls.wikipath() / (pagename + ".md")
-        p = p.relative_to(cls.wikipath())
-        return p
+        root = cls.wikipath()
+        pagename = Path(pagename).with_suffix(".md")
+
+        if "/" in pagename.as_posix():
+            full = root / pagename
+            return full.relative_to(root) if full.exists() else None
+        else:
+            for path in root.rglob(pagename.name):
+                if not any(part.startswith(".") for part in path.parts):
+                    return path.relative_to(root)
+            return None
 
     @classmethod
     def load_locate(cls, page: str, cache=True) -> Self:
@@ -121,12 +113,16 @@ class WikiPage:
         :param cache: whether to retrieve from cache
         :return: title, tags, body
         """
+        if page is None:
+            return None
 
         def lineloader(file):
             for readline in file.readlines():
                 yield readline
 
         try:
+            if page is None:
+                raise FileNotFoundError
             if page.is_absolute():
                 try:
                     rel = page.relative_to(cls.wikipath())
@@ -250,7 +246,7 @@ class WikiPage:
         page = self.file
         canonical_name = page.as_posix().replace(page.name, page.stem)
         self.wikicache[canonical_name] = {}
-        self.wikicache[canonical_name]["tags"] = self.tags
+        self.wikicache[canonical_name]["tags"] = list(self.tags)
         self.wikicache[canonical_name]["links"] = self.links
         if not page.is_absolute():
             page = self.wikipath() / page
@@ -294,7 +290,7 @@ class WikiPage:
                 p = cls.load(m)
                 canonical_name = m.as_posix().replace(m.name, m.stem)
                 cls.wikicache[canonical_name] = {}
-                cls.wikicache[canonical_name]["tags"] = p.tags
+                cls.wikicache[canonical_name]["tags"] = list(p.tags)
                 cls.wikicache[canonical_name]["links"] = p.links
 
         log.info(

@@ -303,6 +303,16 @@ class MDTable:
                 return row[1]
         return default
 
+    def column(self, key, default=None) -> list:
+        try:
+            position = [x.lower() for x in self.headers].index(key.lower())
+            result = []
+            for row in self.rows:
+                result.append(row[position])
+            return result
+        except ValueError:
+            return default
+
     def header_pos(self, possible_headers: list[str], default: int) -> int:
         lowercase = [x.lower() for x in self.headers]
         for candidate in possible_headers:

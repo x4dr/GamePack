@@ -11,7 +11,7 @@ class EWCharacter(FenCharacter):
 
     def __init__(self):
         super().__init__()
-        self.mecha:Mecha|None = None
+        self.mecha: Mecha | None = None
 
     @classmethod
     def from_mdobj(cls, mdobj: MDObj, flash=None):
@@ -20,6 +20,7 @@ class EWCharacter(FenCharacter):
 
             def flash(err):
                 self.errors.append(err)
+
         for heading, section in mdobj.children.items():
             if heading.lower() in cls.mech_headings:
                 links = re.compile(r"\((.*?)\)")
@@ -29,7 +30,6 @@ class EWCharacter(FenCharacter):
                         self.mecha = Mecha.from_mdobj(WikiPage.load(p).md())
                         break
                 else:
-                    if any( x.lower()  == "systems" for x in section.children.keys()):
+                    if any(x.lower() == "systems" for x in section.children.keys()):
                         self.mecha = Mecha.from_mdobj(section)
-
-
+        return self

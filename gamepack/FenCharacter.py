@@ -301,7 +301,7 @@ class FenCharacter:
             if isinstance(v, dict):
                 categories.add_child(
                     cls.construct_mdobj_from_category(
-                        v, headings.get(k, ["name", "value"]), flash
+                        v, headings.get(k, {"name": "value"}), flash
                     ).with_header(k)
                 )
         if categories.children:
@@ -311,7 +311,11 @@ class FenCharacter:
             for k, v in category_dict.items()
             if isinstance(v, str) or isinstance(v, int)
         ]
-        if not isinstance(headings, list):
+        if isinstance(headings, dict):
+            if headings:
+                k = list(headings.keys())[0]
+                headings = [k, headings[k]]
+        elif not isinstance(headings, list):
             flash(str(headings) + " not valid table headings!")
             headings = [str(headings), str(headings)]
         return MDObj("", {}, flash, [MDTable(table, headings)])
