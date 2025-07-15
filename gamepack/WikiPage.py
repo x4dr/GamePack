@@ -89,7 +89,14 @@ class WikiPage:
         Finds a page in the wiki. Accepts full or stem name.
         Returns path relative to wiki root if found, else None.
         """
-        root = cls.wikipath()
+
+        if pagename is None:
+            return None
+        if isinstance(pagename, str):
+            pagename = Path(pagename)
+        if pagename.as_posix() == ".":
+            return None
+        root = WikiPage.wikipath()
         pagename = Path(pagename).with_suffix(".md")
 
         if "/" in pagename.as_posix():

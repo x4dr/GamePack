@@ -8,6 +8,8 @@ from gamepack.WikiPage import WikiPage
 
 
 class WikiCharacterSheet(WikiPage):
+    renderers = {}
+
     def __init__(
         self,
         title: str,
@@ -20,13 +22,28 @@ class WikiCharacterSheet(WikiPage):
     ):
         super().__init__(title, tags, body, links, meta, modified, file)
         raw = self.md(True)
-        if {"mecha","mech","ew","endworld"} & set(x.lower() for x in self.tags):
+        if {"mecha", "mech", "ew", "endworld"} & set(x.lower() for x in self.tags):
             self.char = EWCharacter.from_mdobj(raw)
         elif "pbta" in self.tags:
             self.char = PBTACharacter.from_mdobj(raw)
-        else:
+        elif (
+            "character" in self.tags
+            or "character" in self.file.relative_to(self.wikipath()).as_posix()
+        ):
             self.char = FenCharacter.from_mdobj(raw)
-        self.sheet = {}
+        else:
+            self.char = None
+
+    @classmethod
+    def renderer(cls, t: type):
+        def wrapper(func):
+            cls.renderers[t] = func
+            return func
+
+        return wrapper
+
+    def render(self):
+        return self.renderers[type(self.char)](self)
 
     @classmethod
     def from_wikipage(cls, page: WikiPage) -> Self:
