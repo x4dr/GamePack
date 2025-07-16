@@ -2,8 +2,8 @@ import re
 
 from gamepack.FenCharacter import FenCharacter
 from gamepack.MDPack import MDObj
-from gamepack.Mecha import Mecha
 from gamepack.WikiPage import WikiPage
+from gamepack.endworld.Mecha import Mecha
 
 
 class EWCharacter(FenCharacter):

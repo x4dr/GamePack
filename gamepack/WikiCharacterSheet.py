@@ -1,10 +1,10 @@
 from pathlib import Path
 from typing import Self
 
-from gamepack.EWCharacter import EWCharacter
 from gamepack.FenCharacter import FenCharacter
 from gamepack.PBTACharacter import PBTACharacter
 from gamepack.WikiPage import WikiPage
+from gamepack.endworld.EWCharacter import EWCharacter
 
 
 class WikiCharacterSheet(WikiPage):
