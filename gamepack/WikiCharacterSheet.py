@@ -4,6 +4,7 @@ from typing import Self
 from gamepack.FenCharacter import FenCharacter
 from gamepack.PBTACharacter import PBTACharacter
 from gamepack.WikiPage import WikiPage
+from gamepack.endworld import Mecha
 from gamepack.endworld.EWCharacter import EWCharacter
 
 
@@ -22,7 +23,9 @@ class WikiCharacterSheet(WikiPage):
     ):
         super().__init__(title, tags, body, links, meta, modified, file)
         raw = self.md(True)
-        if {"mecha", "mech", "ew", "endworld"} & set(x.lower() for x in self.tags):
+        if {"mecha", "mech"} & set(x.lower() for x in self.tags):
+            self.char = Mecha.from_mdobj(raw)
+        elif "endworld" in self.tags:
             self.char = EWCharacter.from_mdobj(raw)
         elif "pbta" in self.tags:
             self.char = PBTACharacter.from_mdobj(raw)
@@ -33,6 +36,7 @@ class WikiCharacterSheet(WikiPage):
             self.char = FenCharacter.from_mdobj(raw)
         else:
             self.char = None
+        self.increment = 0
 
     @classmethod
     def renderer(cls, t: type):
@@ -71,15 +75,23 @@ class WikiCharacterSheet(WikiPage):
 
     @classmethod
     def load_locate(cls, page: str, cache=True) -> Self:
-        p = WikiPage.load_locate(page, cache)
+        page = WikiPage.locate(page)
+        p = WikiPage.load(page)
         if isinstance(p, WikiCharacterSheet):
             return p
         elif p:
-            page = WikiPage.locate(page)
             WikiPage.page_cache[page] = cls.from_wikipage(p)
             return WikiPage.page_cache[page]
         return None
 
-    def save(self, page: Path, author: str, message: str = None):
+    def save(self, author: str, page: Path = None, message: str = None):
+        """
+        warning: blocks and requires some time
+        """
         self.body = self.char.to_md()
-        super().save(page, author, message)
+        super().save(author, page, message)
+
+    def save_low_prio(self, message):
+        self.increment += 1
+        self.body = self.char.to_md()
+        super().save_low_prio(message + " saving charactersheet")

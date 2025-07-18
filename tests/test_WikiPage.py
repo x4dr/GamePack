@@ -49,7 +49,7 @@ class TestWikiPage(unittest.TestCase):
     def test_save(self):
         page = WikiPage.load(self.test_file)
         page.title = "Updated Title"
-        page.save(self.test_file, "tester", "Updated content")
+        page.save("tester", self.test_file, "Updated content")
         saved_content = self.test_file.read_text()
         self.assertIn("Updated Title", saved_content)
 

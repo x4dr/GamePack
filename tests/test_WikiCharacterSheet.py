@@ -1,10 +1,11 @@
-import unittest
-import tempfile
 import shutil
+import tempfile
+import unittest
 from pathlib import Path
-from gamepack.WikiCharacterSheet import WikiCharacterSheet
+
 from gamepack.FenCharacter import FenCharacter
 from gamepack.PBTACharacter import PBTACharacter
+from gamepack.WikiCharacterSheet import WikiCharacterSheet
 from gamepack.WikiPage import WikiPage
 
 
@@ -60,6 +61,6 @@ class TestWikiCharacterSheet(unittest.TestCase):
     def test_save(self):
         sheet = WikiCharacterSheet.load(self.fen_file)
         sheet.title = "Updated Fen Character"
-        sheet.save(self.fen_file, "tester", "Updated content")
+        sheet.save("tester", self.fen_file, "Updated content")
         saved_content = self.fen_file.read_text()
         self.assertIn("Updated Fen Character", saved_content)

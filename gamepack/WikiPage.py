@@ -122,6 +122,9 @@ class WikiPage:
         """
         if page is None:
             return None
+        result = cls.page_cache.get(page)
+        if result:
+            return result
 
         def lineloader(file):
             for readline in file.readlines():
@@ -187,7 +190,9 @@ class WikiPage:
         except FileNotFoundError:
             raise DescriptiveError(str(page) + " not found in wiki.")
 
-    def save(self, page: Path, author: str, message=None):
+    def save(self, author: str, page: Path = None, message=None):
+        if not page:
+            page = self.file
         if page.suffix != ".md":
             raise DescriptiveError("page must be a .md file")
         print(f"saving '{self.title}' as {page} ...")
@@ -418,6 +423,7 @@ def commit_and_push(repo, file, commit_message: str):
     if not saveat or not saveat.is_alive():
         last_commit = next(repo.iter_commits(max_count=1)).committed_datetime
         next_push_time = last_commit + timedelta(hours=1)
+        print("next push", next_push_time)
         saveat = threading.Thread(
             target=delayed_push, args=(repo, next_push_time), daemon=True
         )

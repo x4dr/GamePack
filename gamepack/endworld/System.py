@@ -5,6 +5,8 @@ from gamepack.MDPack import MDTable
 
 class System:
     headers = ["Energy", "Mass", "Amount"]
+    enablers = ["x", "t", "y", "1"]
+    disablers = ["-", "disabled", "~"]
 
     registry: dict[str, Type["System"]] = {}
 
@@ -38,6 +40,7 @@ class System:
         self.amount: float = self.number(self.extract("amount"))
         self.energy: float = self.number(self.extract("energy"))
         self.heat = self.number(self.extract("heat", "0", False))
+        self.enabled = self.extract("enabled")
 
     def extract(self, key, default: str = "", req=True):
         if key in self._data:
@@ -94,3 +97,15 @@ class System:
             rows.append(row)
 
         return MDTable(rows, [""] + headers)
+
+    def use(self, parameter):
+        if not parameter:  # default is toggle
+            self.enabled = "[ ]" if self.is_active() else "[x]"
+        elif parameter in ("disable", "enable"):
+            self.enabled = "[ ]" if "-" in self.enabled else "-"
+
+    def is_active(self):
+        return any(x in self.enabled for x in self.enablers)
+
+    def is_disabled(self):
+        return any(x in self.enabled for x in self.disablers)

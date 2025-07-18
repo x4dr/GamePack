@@ -103,7 +103,10 @@ class Mecha:
     def post_process(self, flash):
         pass
 
-    def to_mdobj(self):
+    def to_md(self):
+        return self.to_mdobj().to_md()
+
+    def to_mdobj(self) -> MDObj:
 
         def flash(err):
             self.errors.append(err)
@@ -187,7 +190,20 @@ class Mecha:
         result.append(f"[{current_budget}]")
         return result
 
-    def energy_allocation(self, loadout: str) -> int:
+    def energy_budget(self):
+        budget = 0
+        for e in self.Energy.values():
+            energy = e.provide()
+            budget += energy
+        return budget
+
+    def energy_total(self):
+        budget = 0
+        for e in self.Energy.values():
+            budget += 0 if e.is_disabled() else e.energy
+        return budget
+
+    def energy_allocation(self, loadout: str = None) -> (list, int):
         """
         Calculate how many systems can be activated in the given loadout
         based on available energy and energy priorities.
@@ -197,16 +213,19 @@ class Mecha:
         Returns:
             int: The number of systems successfully activated
         """
-        budget = 0
-        for e in self.Energy.values():
-            energy = e.provide()
-            budget += energy
-
+        budget = self.energy_budget()
+        if loadout is None:
+            loadout = self.description.get("Loadout", list(self.loadouts.keys())[0])
         activated = 0
-        for s in self.loadouts[loadout]:
+        l = [
+            x
+            for x in self.loadouts[loadout]
+            if not isinstance(x, str) and x.is_active()
+        ]
+        for s in l:
             budget -= s.energy
             if budget < 0:
                 break
             activated += 1
 
-        return activated
+        return l, activated
