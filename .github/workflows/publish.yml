@@ -22,7 +22,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pytest
-        pip install -e .
     - name: set up the wiki environment
       run: |
         git clone https://github.com/x4dr/Fen.git ~/wiki
@@ -45,8 +44,7 @@ jobs:
 
     - name: Install build tools
       run: |
-        python -m pip install --upgrade pip
-        pip install setuptools wheel build
+        pip install --upgrade pip setuptools wheel build packaging
 
     - name: Install package (editable)
       run: pip install -e .
