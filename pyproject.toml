@@ -32,3 +32,6 @@ tag = true
 
 [[tool.bumpversion.files]]
 filename = "pyproject.toml"
+
+[tool.setuptools]
+packages = ["gamepack"]

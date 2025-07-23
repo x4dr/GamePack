@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List
 from unittest import TestCase
 
-from data import dicecache_db
+from gamepack import dicecache_db, handle
 
 ROOT = Path(__file__).parent.parent.resolve()
 
@@ -52,8 +52,6 @@ class TestIndependency(TestCase):
         self.assertTrue(True)
 
     def test_data(self):
-        from data import handle
-
         with dicecache_db() as sut:
             self.assertEqual(sut.total_changes, 0)
         with dicecache_db() as sut:
