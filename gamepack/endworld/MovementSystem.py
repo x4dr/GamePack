@@ -3,7 +3,16 @@ from gamepack.endworld.System import System
 
 @System.register("Movement")
 class MovementSystem(System):
-    headers = ["Energy", "Heat", "Thrust", "Anchor", "Dynamics", "Mass", "Amount"]
+    headers = [
+        "Energy",
+        "Heat",
+        "Thrust",
+        "Anchor",
+        "Dynamics",
+        "Mass",
+        "Amount",
+        "Enabled",
+    ]
 
     def __init__(self, name, data):
         super().__init__(name, data)
@@ -32,4 +41,5 @@ class MovementSystem(System):
             "Thrust": self.thrust,
             "Anchor": self.anchor,
             "Dynamics": self.dynamics,
+            "Enabled": self.enabled,
         }

@@ -93,5 +93,6 @@ class WikiCharacterSheet(WikiPage):
 
     def save_low_prio(self, message):
         self.increment += 1
-        self.body = self.char.to_md()
+        if self.char:
+            self.body = self.char.to_md()
         super().save_low_prio(message + " saving charactersheet")

@@ -3,7 +3,17 @@ from gamepack.endworld.System import System
 
 @System.register("Heat")
 class HeatSystem(System):
-    headers = ["Capacity", "Passive", "Active", "Flux", "Current"]
+    headers = [
+        "Energy",
+        "Mass",
+        "Amount",
+        "Capacity",
+        "Passive",
+        "Active",
+        "Flux",
+        "Current",
+        "Enabled",
+    ]
 
     def __init__(self, name, data):
         super().__init__(name, data)

@@ -4,7 +4,7 @@ from gamepack.MDPack import MDTable
 
 
 class System:
-    headers = ["Energy", "Mass", "Amount"]
+    headers = ["Energy", "Mass", "Amount", "Enabled"]
     enablers = ["x", "t", "y", "1"]
     disablers = ["-", "disabled", "~"]
 
@@ -71,6 +71,7 @@ class System:
             "Mass": self.mass,
             "Amount": self.amount,
             "Energy": self.energy,
+            "Enabled": self.enabled,
         }
 
     def get_headers(self):
