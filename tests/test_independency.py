@@ -15,13 +15,12 @@ class TestIndependency(TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        fileblacklist = ["setup.py"]
         patternblacklist = [r".*/\.?venv/.*"]
         cls.modules = []
         candidates = list(Path(__file__).parent.glob("../Parser/**/*.py"))
         candidates += list(Path(__file__).parent.glob("../gamepack/**/*.py"))
         candidates += list(Path(__file__).parent.glob("../tests/**/*.py"))
-        candidates = [x.absolute() for x in candidates if x.name not in fileblacklist]
+        candidates = [x.absolute() for x in candidates]
         for pattern in patternblacklist:
             for m in candidates:
                 if not re.match(pattern, m.as_posix()):

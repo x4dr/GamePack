@@ -1,11 +1,34 @@
+[project]
+dependencies = [
+  "numpy ~= 2.3.1",
+  "matplotlib ~= 3.10.3",
+  "requests ~= 2.32.3",
+  "bleach ~= 6.2.0",
+  "PyYAML ~= 6.0.2",
+  "GitPython ~= 3.1.44",
+]
+license = "GPL-3.0-or-later"
+name = "gamepack"
+version = "0.2.1"
+description = "factored out game related stuff from NossiNet"
+authors = [{ name = "Maric", email = "x4dr@hotmail.com" }]
+readme = "README.md"
+keywords = ["game", "package"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Internal",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3.12",
+]
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.bumpversion]
-current_version = "0.2.5"
+current_version = "0.2.1"
 commit = true
 tag = true
 
 [[tool.bumpversion.files]]
-filename = "setup.py"
+filename = "pyproject.toml"
