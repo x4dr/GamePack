@@ -9,7 +9,7 @@ dependencies = [
 ]
 license = "GPL-3.0-or-later"
 name = "gamepack"
-version = "0.2.1"
+version = "0.2.2"
 description = "factored out game related stuff from NossiNet"
 authors = [{ name = "Maric", email = "x4dr@hotmail.com" }]
 readme = "README.md"
@@ -26,7 +26,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.bumpversion]
-current_version = "0.2.1"
+current_version = "0.2.2"
 commit = true
 tag = true
 
