@@ -6,7 +6,7 @@ with open("requirements.txt", "r") as f:
 
 setup(
     name="gamepack",
-    version="0.2.1",
+    version="0.2.2",
     description="factored out game related stuff from NossiNet",
     url="https://github.com/x4dr/gamepack",
     author="Maric",
