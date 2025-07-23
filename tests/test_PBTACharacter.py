@@ -8,7 +8,7 @@ class TestPBTACharacter(unittest.TestCase):
         # Create an example character
         self.example_character = PBTACharacter(
             info={"Name": "Alice", "Player Name": "Bob"},
-            moves=["Move 1", "Move 2"],
+            moves=[["Move 1", False], ["Move 2", True]],
             health={
                 "Healing": {"Current": 3, "Maximum": 4},
                 "3": ["level 3 wound", "somehow, another"],
@@ -25,8 +25,8 @@ class TestPBTACharacter(unittest.TestCase):
         # Ensure the character is created with correct attributes
         self.assertEqual(self.example_character.info["Name"], "Alice")
         self.assertEqual(self.example_character.info["Player Name"], "Bob")
-        self.assertIn("Move 1", self.example_character.moves)
-        self.assertIn("Move 2", self.example_character.moves)
+        self.assertIn("Move 1", (x[0] for x in self.example_character.moves))
+        self.assertIn("Move 2", (x[0] for x in self.example_character.moves))
         self.assertEqual(self.example_character.stats["Insight"]["Hunt"], "3")
         self.assertEqual(self.example_character.stats["Resolve"]["Attune"], "4")
         self.assertEqual(len(self.example_character.inventory), 2)

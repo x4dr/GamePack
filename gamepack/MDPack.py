@@ -20,7 +20,10 @@ class MDChecklist:
     def to_md(self) -> str:
         """Reinserts the checkboxes back into the original text at the correct offsets."""
         lines = []
-        for item_text, checked in self.checklist:
+        for item in self.checklist:
+            if isinstance(item, str):
+                item = (item, False)
+            item_text, checked = item
             lines.append(f"- [{'x' if checked else ' '}] {item_text}")
         return "\n".join(lines)
 
@@ -332,7 +335,6 @@ class MDTable:
         tables = []
         run = ""
         for line in plaintext.splitlines(True):
-
             if "|" in line:
                 start_line = start_line or linenr
                 run += line
