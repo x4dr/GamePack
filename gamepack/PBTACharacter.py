@@ -168,7 +168,6 @@ class PBTACharacter:
         for wound_level, description in sorted(
             self.health.items(), key=lambda x: tryfloatdefault(x[0], 0)
         ):
-
             if wound_level.isdigit():
                 harm.add_child(
                     MDObj("\n".join(description), {}, error_handler, header=wound_level)

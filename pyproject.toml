@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.bumpversion]
+current_version = "0.2.1"
+commit = true
+tag = true
+
+[[tool.bumpversion.files]]
+filename = "setup.py"
