@@ -107,7 +107,6 @@ class Mecha:
         return self.to_mdobj().to_md()
 
     def to_mdobj(self) -> MDObj:
-
         def flash(err):
             self.errors.append(err)
 
@@ -217,15 +216,15 @@ class Mecha:
         if loadout is None:
             loadout = self.description.get("Loadout", list(self.loadouts.keys())[0])
         activated = 0
-        l = [
+        load = [
             x
             for x in self.loadouts[loadout]
             if not isinstance(x, str) and x.is_active()
         ]
-        for s in l:
+        for s in load:
             budget -= s.energy
             if budget < 0:
                 break
             activated += 1
 
-        return l, activated
+        return load, activated

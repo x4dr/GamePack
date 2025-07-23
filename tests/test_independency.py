@@ -1,5 +1,6 @@
 import importlib.util
 import re
+import warnings
 from pathlib import Path
 from typing import List
 from unittest import TestCase
@@ -28,6 +29,7 @@ class TestIndependency(TestCase):
 
     def test_loadability(self):
         """establish that each module is loadable and has no circular reference issues"""
+        warnings.filterwarnings("ignore", category=ImportWarning)
         for module_full_path in TestIndependency.modules:
             with self.subTest(msg=f"Loading {module_full_path.as_posix()[3:-3]} "):
                 spec = importlib.util.spec_from_file_location(

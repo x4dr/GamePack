@@ -1,3 +1,4 @@
+# flake8: noqa: F401
 from .EWCharacter import EWCharacter
 from .EnergySystem import EnergySystem
 from .HeatSystem import HeatSystem
