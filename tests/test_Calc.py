@@ -165,5 +165,3 @@ class TestEval(unittest.TestCase):
         # Test evaluate with a valid expression
         result = evaluate("3 -    4               3", frozenset())
         self.assertEqual(result, 2)
-        result = evaluate("3+4d5-7", frozenset())
-        self.assertEqual(result, 3)

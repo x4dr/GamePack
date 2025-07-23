@@ -48,7 +48,7 @@ class TestWikiCharacterSheet(unittest.TestCase):
         page = WikiPage.load(self.fen_file)
         sheet = WikiCharacterSheet.from_wikipage(page)
         self.assertEqual(sheet.title, "Fen Character")
-        self.assertEqual(sheet.tags, ["fen"])
+        self.assertEqual(sheet.tags, {"fen"})
 
     def test_load_fen(self):
         sheet = WikiCharacterSheet.load(self.fen_file)

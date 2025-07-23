@@ -39,7 +39,7 @@ class TestWikiPage(unittest.TestCase):
     def test_load(self):
         page = WikiPage.load(self.test_file)
         self.assertEqual(page.title, "Test Page")
-        self.assertEqual(page.tags, ["tag1", "tag2"])
+        self.assertEqual(page.tags, {"tag1", "tag2"})
         self.assertEqual(page.body, "Body content.")
 
     def test_load_not_found(self):

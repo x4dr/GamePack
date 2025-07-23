@@ -6,6 +6,8 @@ from unittest import TestCase
 
 from data import dicecache_db
 
+ROOT = Path(__file__).parent.parent.resolve()
+
 
 class TestIndependency(TestCase):
     modules: List[Path] = []
@@ -26,13 +28,24 @@ class TestIndependency(TestCase):
 
     def test_loadability(self):
         """establish that each module is loadable and has no circular reference issues"""
-        for module in TestIndependency.modules:
-            with self.subTest(msg=f"Loading {module.as_posix()[3:-3]} "):
+        for module_full_path in TestIndependency.modules:
+            with self.subTest(msg=f"Loading {module_full_path.as_posix()[3:-3]} "):
                 spec = importlib.util.spec_from_file_location(
-                    module.parent.stem + "." + module.stem, module
+                    module_full_path.parent.stem + "." + module_full_path.stem,
+                    module_full_path,
                 )
-                foo = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(foo)
+                actual_module = importlib.util.module_from_spec(spec)
+
+                path = module_full_path.resolve().parent.relative_to(ROOT).parts
+                depth = len(path)
+                if depth > 1:
+                    # submodule: set __package__ to full dotted parent path relative to ROOT
+                    actual_module.__package__ = ".".join(path)
+                else:
+                    # top-level module
+                    actual_module.__package__ = ""
+
+                spec.loader.exec_module(actual_module)
 
     def test_dummy(self):
         self.assertTrue(True)
