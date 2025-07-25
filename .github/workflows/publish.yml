@@ -31,6 +31,7 @@ jobs:
         python -m unittest discover --verbose tests
 
   bump-and-publish:
+    if: github.event_name == 'workflow_dispatch'
     needs: build-and-test
     runs-on: ubuntu-latest
 
