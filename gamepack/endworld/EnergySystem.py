@@ -4,6 +4,7 @@ from gamepack.endworld.System import System
 @System.register("Energy")
 class EnergySystem(System):
     headers = ["Energy", "Mass", "Amount", "Enabled"]
+    systype = "energy"
 
     def __init__(self, name, data):
         super().__init__(name, data)

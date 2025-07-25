@@ -228,3 +228,8 @@ class Mecha:
             activated += 1
 
         return load, activated
+
+    def get_syscat(self, name):
+        if name == "Generic":
+            return {**self.Offensive, **self.Defensive, **self.Support}
+        return self.systems[name]

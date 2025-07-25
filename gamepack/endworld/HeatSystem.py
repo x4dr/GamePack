@@ -14,6 +14,7 @@ class HeatSystem(System):
         "Current",
         "Enabled",
     ]
+    systype = "heat"
 
     def __init__(self, name, data):
         super().__init__(name, data)

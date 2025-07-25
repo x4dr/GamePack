@@ -10,6 +10,8 @@ class System:
 
     registry: dict[str, Type["System"]] = {}
 
+    systype = "generic"
+
     @classmethod
     def register(cls, name: str) -> Callable[[Type["System"]], Type["System"]]:
         cls.registry.setdefault("Energy", System)
