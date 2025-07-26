@@ -1,10 +1,21 @@
+import re
 from typing import Type, Callable, Iterable
 
 from gamepack.MDPack import MDTable
 
 
+def to_heatformat(data):
+    parts = []
+    for k, v in data.items():
+        if k.startswith("heat"):
+            parts.append(str(v))
+        else:
+            parts.append(f"{k} {v}")
+    return ";".join(parts)
+
+
 class System:
-    headers = ["Energy", "Mass", "Amount", "Enabled"]
+    headers = ["Energy", "Mass", "Heast", "Amount", "Enabled"]
     enablers = ["x", "t", "y", "1"]
     disablers = ["-", "disabled", "~"]
 
@@ -41,7 +52,7 @@ class System:
         self.mass: float = self.number(self.extract("mass"))
         self.amount: float = self.number(self.extract("amount"))
         self.energy: float = self.number(self.extract("energy"))
-        self.heat = self.number(self.extract("heat", "0", False))
+        self.heats = self.from_heatformat(self.extract("heat", "0", False))
         self.enabled = self.extract("enabled")
 
     def extract(self, key, default: str = "", req=True):
@@ -73,6 +84,7 @@ class System:
             "Mass": self.mass,
             "Amount": self.amount,
             "Energy": self.energy,
+            "Heat": to_heatformat(self.heats),
             "Enabled": self.enabled,
         }
 
@@ -112,3 +124,19 @@ class System:
 
     def is_disabled(self):
         return any(x in self.enabled for x in self.disablers)
+
+    def from_heatformat(self, inp):
+        try:
+            result = {}
+            parts = [p.strip() for p in str(inp).strip().split(";") if p.strip()]
+            for i, part in enumerate(parts):
+                m = re.match(r"(.*?)(\d+)$", part)
+                name, val = (
+                    (m.group(1).strip().lower(), m.group(2))
+                    if m
+                    else (f"heat{i}", part)
+                )
+                result[name or f"heat{i}"] = self.number(val)
+            return result
+        except (AttributeError, ValueError, TypeError):
+            return {}

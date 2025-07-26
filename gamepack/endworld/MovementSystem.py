@@ -44,3 +44,9 @@ class MovementSystem(System):
             "Dynamics": self.dynamics,
             "Enabled": self.enabled,
         }
+
+    def use(self, parameter):
+        if not parameter:  # default is toggle
+            self.enabled = "[ ]" if self.is_active() else "[x]"
+        elif parameter in ("disable", "enable"):
+            self.enabled = "[ ]" if "-" in self.enabled else "-"

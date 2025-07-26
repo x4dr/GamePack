@@ -7,6 +7,7 @@ class HeatSystem(System):
         "Energy",
         "Mass",
         "Amount",
+        "Heat",
         "Capacity",
         "Passive",
         "Active",
@@ -29,6 +30,12 @@ class HeatSystem(System):
             self.current += heat
             return True
         return False
+
+    def use(self, parameter):
+        if not parameter:  # default is toggle
+            self.enabled = "[ ]" if self.is_active() else "[x]"
+        elif parameter in ("disable", "enable"):
+            self.enabled = "[ ]" if "-" in self.enabled else "-"
 
     def cool(self, powered=False):
         def unpack(inp: str):
@@ -59,3 +66,14 @@ class HeatSystem(System):
             "Flux": self.flux,
             "Current": self.current,
         }
+
+    def spare_capacity(self):
+        return self.capacity - self.current
+
+    def add_heat(self, amt):
+        self.current += amt
+        if self.current > self.capacity:
+            overage = self.current - self.capacity
+            self.current = self.capacity
+            return overage
+        return 0

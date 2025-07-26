@@ -189,6 +189,24 @@ class Mecha:
         result.append(f"[{current_budget}]")
         return result
 
+    def fluxmax(self):
+        flux = 0
+        for h in self.Heat.values():
+            if h.enabled:
+                flux += h.flux
+        return flux
+
+    def add_heat(self, amt):
+        systems = list(self.Heat.values())
+        for i in range(len(systems)):
+            sys = systems[i]
+            if not sys.enabled:
+                continue
+            amt = sys.add_heat(amt)  # heat overage is returned
+            if amt == 0:
+                break
+        return amt
+
     def energy_budget(self):
         budget = 0
         for e in self.Energy.values():

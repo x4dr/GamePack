@@ -47,6 +47,10 @@ class WikiCharacterSheet(WikiPage):
         return wrapper
 
     def render(self):
+        if not type(self.char) in self.renderers:
+            raise NotImplementedError(
+                f"no sheet renderer registered for {type(self.char)}"
+            )
         return self.renderers[type(self.char)](self)
 
     @classmethod
