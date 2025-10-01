@@ -344,7 +344,10 @@ class FenCharacter:
             if isinstance(v, str):
                 v = MDObj(v)
             mdo.add_child(v.with_header(k))
-        mdo.add_child(self.Notes.with_header(self.headings_used.get("notes", "Notes")))
+        if mdo.children.get(self.headings_used.get("notes", "Notes")):
+            mdo.add_child(
+                self.Notes.with_header(self.headings_used.get("notes", "Notes"))
+            )
         return mdo
 
     @classmethod
@@ -363,7 +366,7 @@ class FenCharacter:
         return self.to_mdobj(flash).to_md()
 
     def post_process(self, flash):
-        # tally inventory
+        notes = None
         for k in self.Meta.keys():
             if k.lower() in self.inventory_headings:
                 self.process_inventory(self.Meta[k], flash)
@@ -373,7 +376,9 @@ class FenCharacter:
                     self.xp_cache = {}
                     self.process_xp(self.Meta[k])
             if k.lower() in self.note_headings:
-                self.Notes = self.Meta[k]
+                notes = k
+        if notes:
+            self.Notes = self.Meta.pop(notes)
 
     def process_inventory(self, node: MDObj, flash):
         for table in node.tables:

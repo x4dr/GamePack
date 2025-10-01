@@ -4,7 +4,6 @@ import re
 import threading
 import time
 from datetime import timedelta, datetime, timezone
-from functools import lru_cache
 from pathlib import Path
 from typing import Self
 
@@ -57,7 +56,6 @@ class WikiPage:
         self.last_modified = modified
         self.file = file
 
-    @lru_cache(maxsize=2)
     def md(self, sanitize: bool = False) -> MDObj:
         """
         :param sanitize: whether to sanitize the markdown
@@ -121,8 +119,8 @@ class WikiPage:
         """
         if page is None:
             return None
-        result = cls.page_cache.get(page)
-        if result:
+        result = cls.page_cache.get(page) if cache else None
+        if result and result.file.stat().st_mtime == result.last_modified:
             return result
 
         def lineloader(file):
@@ -141,12 +139,6 @@ class WikiPage:
             else:
                 p = cls.wikipath() / page
             filetime = p.stat().st_mtime
-            res = cls.page_cache.get(p, None) if cache else None
-            if res is not None:
-                if res.last_modified < filetime:
-                    cls.refresh_cache(p)
-                    res = cls.page_cache.get(p, None)
-                return res
             with p.open() as f:
                 lines = lineloader(f)
                 for line in lines:
@@ -256,9 +248,7 @@ class WikiPage:
     def cacheupdate(self):
         page = self.file
         canonical_name = page.as_posix().replace(page.name, page.stem)
-        self.wikicache[canonical_name] = {}
-        self.wikicache[canonical_name]["tags"] = list(self.tags)
-        self.wikicache[canonical_name]["links"] = self.links
+        self.wikicache[canonical_name] = {"tags": list(self.tags), "links": self.links}
         if not page.is_absolute():
             page = self.wikipath() / page
         self.last_modified = time.time()
@@ -295,40 +285,15 @@ class WikiPage:
             message = f"{dt} seconds"
         log.info(f"it has been {message} since the last wiki indexing")
         cls.wikistamp = time.time()
-        changed = cls.refresh_cache()
         for m in cls.wikindex():
-            if m in changed or m not in cls.wikicache:
+            if m not in cls.wikicache:
                 p = cls.load(m)
                 canonical_name = m.as_posix().replace(m.name, m.stem)
-                cls.wikicache[canonical_name] = {}
-                cls.wikicache[canonical_name]["tags"] = list(p.tags)
-                cls.wikicache[canonical_name]["links"] = p.links
+                cls.wikicache[canonical_name] = {"tags": list(p.tags), "links": p.links}
 
         log.info(
             f"index took: {str(1000 * (time.time() - cls.wikistamp))} milliseconds"
         )
-
-    @classmethod
-    def refresh_cache(cls, page: Path = None) -> list[Path]:
-        changed = []
-        if page is None:
-            for key in list(cls.page_cache.keys()):
-                p = cls.page_cache.get(key, None)
-                if p is None:
-                    continue
-                n = cls.wikipath() / key
-                if not n.exists() or p.last_modified != n.stat().st_mtime:
-                    del cls.page_cache[key]
-                    if n.exists():
-                        cls.load(key)
-                    changed.append(key)
-        else:
-            if page in cls.page_cache:
-                del cls.page_cache[page]
-                cls.load(page)
-                changed.append(page)
-        cls.cache_items()
-        return changed
 
     @classmethod
     def cache_items(cls):
