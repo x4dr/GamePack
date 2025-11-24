@@ -15,7 +15,7 @@ def to_heatformat(data):
 
 
 class System:
-    headers = ["Energy", "Mass", "Heast", "Amount", "Enabled"]
+    headers = ["Energy", "Mass", "Heat", "Amount", "Enabled"]
     enablers = ["x", "t", "y", "1"]
     disablers = ["-", "disabled", "~"]
 
