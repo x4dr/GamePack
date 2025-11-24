@@ -21,15 +21,23 @@ class MovementSystem(System):
         self.anchor = self.number(self.extract("anchor"))
         self.dynamics = self.number(self.extract("dynamics"))
 
+    def __repr__(self):
+        return f"Movement System {self.name}: Thrust={self.thrust}, Anchor={self.anchor}, Dynamics={self.dynamics}, Amount={self.amount}, Mass={self.mass}"
+
     def speeds(self, mech_total_mass):
         speed = 0
         friction = self.anchor * mech_total_mass / 100
-        accel = self.thrust / mech_total_mass
+        print("Friction", friction)
+        accel = self.thrust * self.amount / mech_total_mass
+        accel -= friction
+        print("Acceleration", accel)
         speeds = []
-        for i in range(10000):
+        for i in range(1000):
             speed += accel
-            speed -= friction
-            air = speed * speed / (10 * self.dynamics)
+            if self.dynamics == 0:
+                air = speed * speed * speed
+            else:
+                air = speed * speed / (10 * self.dynamics)
             speed -= air
             if speed <= 0:
                 speed = 0

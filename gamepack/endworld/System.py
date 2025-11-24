@@ -118,6 +118,9 @@ class System:
             self.enabled = "[ ]" if self.is_active() else "[x]"
         elif parameter in ("disable", "enable"):
             self.enabled = "[ ]" if "-" in self.enabled else "-"
+        elif parameter in self.heats:
+            return self.heats[parameter]
+        return 0
 
     def is_active(self):
         return any(x in self.enabled for x in self.enablers)
@@ -126,9 +129,9 @@ class System:
         return any(x in self.enabled for x in self.disablers)
 
     def from_heatformat(self, inp):
+        result = {}
+        parts = [p.strip() for p in str(inp).strip().split(";") if p.strip()]
         try:
-            result = {}
-            parts = [p.strip() for p in str(inp).strip().split(";") if p.strip()]
             for i, part in enumerate(parts):
                 m = re.match(r"(.*?)(\d+)$", part)
                 name, val = (
@@ -139,4 +142,4 @@ class System:
                 result[name or f"heat{i}"] = self.number(val)
             return result
         except (AttributeError, ValueError, TypeError):
-            return {}
+            return result

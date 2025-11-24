@@ -196,7 +196,7 @@ class Mecha:
                 flux += h.flux
         return flux
 
-    def add_heat(self, amt):
+    def add_heat(self, amt: int) -> int:
         systems = list(self.Heat.values())
         for i in range(len(systems)):
             sys = systems[i]
@@ -206,6 +206,22 @@ class Mecha:
             if amt == 0:
                 break
         return amt
+
+    def tick_heat(self):
+        thermals = {}
+        for h in self.Heat.values():
+            thermals[h.name] = h.tick()
+        return thermals
+
+    def move_heat(self, source, target, amount):
+        if source in self.Heat and target in self.Heat:
+            source = self.Heat[source]
+            target = self.Heat[target]
+            amount = source.withdraw_heat(amount)
+            amount = target.add_heat(amount)
+            amount = self.add_heat(amount)
+            return amount
+        raise KeyError(f"Transfer from {source} to {target} failed: Unknown System")
 
     def energy_budget(self):
         budget = 0
@@ -251,3 +267,14 @@ class Mecha:
         if name == "Generic":
             return {**self.Offensive, **self.Defensive, **self.Support}
         return self.systems[name]
+
+    def use_system(self, systemtype, name, parameter):
+        syscat = self.get_syscat(systemtype.capitalize())
+        sys = syscat.get(name, parameter)
+        self.heatflux += self.add_heat(sys.use(parameter))
+
+    def flux_baseload(self):
+        for syscat in self.systems.values():
+            for sys in syscat.values():
+                if sys.is_active():
+                    self.heatflux += sys.heats.get("base", 0)

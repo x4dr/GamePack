@@ -138,6 +138,9 @@ class MDTable:
             rows = [""] + rows
         return (rows + [""] * (length - len(rows)))[:length]
 
+    def row_as_dict(self, row: int) -> dict:
+        return {header: self.rows[row][i] for i, header in enumerate(self.headers)}
+
     @staticmethod
     def extract_styles(row: List[str]) -> List[str]:
         """

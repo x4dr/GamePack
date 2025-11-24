@@ -19,43 +19,28 @@ class HeatSystem(System):
 
     def __init__(self, name, data):
         super().__init__(name, data)
+        self.thermal = 0
         self.capacity = self.number(self.extract("capacity"))
         self.passive = self.extract("passive")
         self.active = self.extract("active")
         self.flux = self.number(self.extract("flux"))
         self.current = self.number(self.extract("current"))
 
-    def accept(self, heat):
-        if self.current + heat <= self.capacity:
-            self.current += heat
-            return True
-        return False
+    def unpack(self, inp: str):
+        r, a = 0, 0
+        for part in inp.split("+"):
+            if part := part.strip():
+                if part.endswith("%"):
+                    r += self.number(part)
+                else:
+                    a += self.number(part)
+        return r, a
 
     def use(self, parameter):
         if not parameter:  # default is toggle
             self.enabled = "[ ]" if self.is_active() else "[x]"
         elif parameter in ("disable", "enable"):
             self.enabled = "[ ]" if "-" in self.enabled else "-"
-
-    def cool(self, powered=False):
-        def unpack(inp: str):
-            r, a = 0, 0
-            for part in inp.split("+"):
-                if part := part.strip():
-                    if part.endswith("%"):
-                        r += self.number(part)
-                    else:
-                        a += self.number(part)
-            return r, a
-
-        relative, absolute = unpack(self.passive)
-        if powered:
-            active_r, active_a = unpack(self.active)
-            relative += active_r
-            absolute += active_a
-        self.current -= self.current * relative
-        self.current -= absolute
-        self.current = int(max(self.current, 0))  # round down and clamp to 0
 
     def to_dict(self) -> dict:
         return {
@@ -70,10 +55,31 @@ class HeatSystem(System):
     def spare_capacity(self):
         return self.capacity - self.current
 
-    def add_heat(self, amt):
+    def add_heat(self, amt) -> int:
         self.current += amt
         if self.current > self.capacity:
             overage = self.current - self.capacity
             self.current = self.capacity
             return overage
         return 0
+
+    def withdraw_heat(self, amount):
+        if amount <= self.current():
+            self.current -= amount
+            return amount
+        amount = self.current
+        return amount
+
+    def tick(self):
+        amount = 0
+        if self.is_active():
+            relative, absolute = self.unpack(self.active)
+            amount += self.withdraw_heat(absolute)
+            relative_active_cooling = int(relative * self.current)
+            amount += self.withdraw_heat(relative_active_cooling)
+        if not self.is_disabled():
+            relative, absolute = self.unpack(self.passive)
+            amount += self.withdraw_heat(absolute)
+            relative_passive_cooling = int(relative * self.current)
+            amount += self.withdraw_heat(relative_passive_cooling)
+        return amount
