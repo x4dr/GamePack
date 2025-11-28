@@ -16,14 +16,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Install uv and Python 3.14
+        uses: astral-sh/setup-uv@v7
         with:
+          version: "0.9.13"
           python-version: "3.14"
 
-      - name: Install dependencies and run tests via uv
+      - name: Install project dependencies
+        run: uv sync
+
+      - name: Run tests with coverage
         run: |
-          uv install
-          uv test
+          export PYTHONPATH=$(pwd)
+          uv run python -m pytest --cov=gamepack --cov-report xml --cov-fail-under=80
 
       - name: Set up wiki environment
         run: git clone https://github.com/x4dr/Fen.git ~/wiki
@@ -37,14 +42,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - name: Install uv and Python 3.14
+        uses: astral-sh/setup-uv@v7
         with:
+          version: "0.9.13"
           python-version: "3.14"
 
-      - name: Bump version and publish with uv
+      - name: Bump version, build and publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          uv bump patch
+          uv version --bump patch
           uv build
           uv publish

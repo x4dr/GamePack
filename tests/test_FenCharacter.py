@@ -175,7 +175,7 @@ class TestDiceParser(TestCase):
             },
             "category2": {"section3": {"stat4": "4"}},
         }
-        self.c.Notes = MDObj.from_md("Some notes here.")
+        self.c.Meta["Notes"] = MDObj.from_md("Some notes here.")
         # Convert to Markdown
         md_output = self.c.to_md()
 

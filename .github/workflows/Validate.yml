@@ -7,21 +7,25 @@ on:
 
 jobs:
   test:
-    name: Test-Suite
+    name: Test Suite
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Install uv and set Python 3.14
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.14"
 
-      - name: Install dependencies and run tests via uv
-        run: |
-          uv install
-          uv test --coverage --min-coverage 80
+      - name: Install project dependencies via uv
+        run: uv sync --all-extras --dev
 
-      - name: Set up wiki environment
+      - name: Run tests with coverage
+        run: |
+          export PYTHONPATH=$(pwd)
+          uv run python -m pytest --cov=gamepack --cov-report xml --cov-fail-under=80
+
+      - name: Clone wiki environment
         run: git clone https://github.com/x4dr/Fen.git ~/wiki
 
       - name: Upload Coverage Report
@@ -38,7 +42,6 @@ jobs:
 
   finish:
     needs: test
-    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Coveralls Finished
@@ -51,16 +54,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
-
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pre-commit
           key: pre-commit|${{ runner.os }}|${{ hashFiles('.pre-commit-config.yaml') }}
-
       - uses: pre-commit/action@v3.0.0
 
   validation_check:
@@ -69,5 +69,4 @@ jobs:
       - lint
     runs-on: ubuntu-latest
     steps:
-      - name: Output validation success
-        run: echo "success=true" >> $GITHUB_OUTPUT
+      - run: echo "success=true" >> $GITHUB_OUTPUT

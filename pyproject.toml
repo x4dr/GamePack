@@ -1,14 +1,16 @@
 [project]
 dependencies = [
-  "numpy~=2.2.3",
-  "matplotlib~=3.10.0",
-  "requests~=2.32.3",
-  "bleach~=6.2.0",
-  "gitpython~=3.1.44",
+  "pyyaml>=6.0.3",
+  "numpy>=2.2.6",
+  "matplotlib>=3.10.7",
+  "requests>=2.32.5",
+  "bleach>=6.3.0",
+  "gitpython>=3.1.45",
 ]
 license = "GPL-3.0-or-later"
 name = "gamepack"
 version = "0.2.3"
+requires-python = ">=3.14"
 description = "factored out game related stuff from NossiNet"
 authors = [{ name = "Maric", email = "x4dr@hotmail.com" }]
 readme = "README.md"
@@ -30,3 +32,8 @@ filename = "pyproject.toml"
 
 [tool.setuptools]
 packages = ["gamepack"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+]
