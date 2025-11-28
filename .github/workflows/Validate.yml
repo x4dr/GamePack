@@ -1,9 +1,9 @@
 name: Validation
 
 on:
-  - push
-  - pull_request
-  - workflow_call
+  push:
+  pull_request:
+  workflow_call:
 
 jobs:
   test:
@@ -11,39 +11,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python environment
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install Local Package
-        run: |
-          pip install -e .
 
-      - name: set up the wiki environment
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies and run tests via uv
         run: |
-          git clone https://github.com/x4dr/Fen.git ~/wiki
-      - name: Run unittests/coverage
-        run: |
-          pip install coverage
-          coverage run --source . --omit "*venv/*" -m unittest discover --verbose tests && \
-          coverage report -m -i --fail-under=80 --skip-covered --skip-empty | tee report.txt
-          test $? -eq 0
+          uv install
+          uv test --coverage --min-coverage 80
+
+      - name: Set up wiki environment
+        run: git clone https://github.com/x4dr/Fen.git ~/wiki
+
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
         with:
           name: coverage_report
-          path: report.txt
+          path: coverage.xml
+
       - name: Coveralls Parallel
         uses: coverallsapp/github-action@v2
         with:
-          flag-name: run-linux-py311
+          flag-name: run-linux-py314
           parallel: true
-      - name: Require 80% Coverage
-        run: |
-          if grep -q "Coverage failure:" report.txt; then
-            echo "Coverage check failed!"
-            exit 1
-          fi
 
   finish:
     needs: test
@@ -56,20 +47,21 @@ jobs:
           parallel-finished: true
 
   lint:
-    name: Pre-Commit Hooks that should have been run by committer
+    name: Pre-Commit Hooks
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-    - name: set PY
-      run: echo "PY=$(python --version --version | sha256sum | cut -d' ' -f1)" >> $GITHUB_ENV
-    - uses: actions/cache@v3
-      with:
-        path: ~/.cache/pre-commit
-        key: pre-commit|${{ env.PY }}|${{ hashFiles('.pre-commit-config.yaml') }}
-    - uses: pre-commit/action@v3.0.0
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit|${{ runner.os }}|${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - uses: pre-commit/action@v3.0.0
 
   validation_check:
     needs:
@@ -77,5 +69,5 @@ jobs:
       - lint
     runs-on: ubuntu-latest
     steps:
-      - name: output validation success
+      - name: Output validation success
         run: echo "success=true" >> $GITHUB_OUTPUT
