@@ -114,6 +114,7 @@ class System:
         return MDTable(rows, [""] + headers)
 
     def use(self, parameter):
+        parameter = parameter.lower() if parameter else ""
         if not parameter:  # default is toggle
             self.enabled = "[ ]" if self.is_active() else "[x]"
         elif parameter in ("disable", "enable"):

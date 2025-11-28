@@ -64,7 +64,7 @@ class HeatSystem(System):
         return 0
 
     def withdraw_heat(self, amount):
-        if amount <= self.current():
+        if amount <= self.current:
             self.current -= amount
             return amount
         amount = self.current

@@ -181,6 +181,8 @@ class Mecha:
 
         for sys, cost in prio:
             if used + cost > current_budget:
+                # Insert budget marker: indicates how much energy has been used up to this point
+                # Anything before this marker consumes 'current_budget' energy; helps visualize loadout thresholds
                 result.append(f"[{current_budget}]")
                 used = 0
                 current_budget = next(budget_iter)
@@ -192,7 +194,7 @@ class Mecha:
     def fluxmax(self):
         flux = 0
         for h in self.Heat.values():
-            if h.enabled:
+            if h.is_active():
                 flux += h.flux
         return flux
 
@@ -200,7 +202,7 @@ class Mecha:
         systems = list(self.Heat.values())
         for i in range(len(systems)):
             sys = systems[i]
-            if not sys.enabled:
+            if not sys.is_active():
                 continue
             amt = sys.add_heat(amt)  # heat overage is returned
             if amt == 0:
@@ -237,18 +239,22 @@ class Mecha:
         return budget
 
     def energy_allocation(self, loadout: str = None) -> (list, int):
-        """
-        Calculate how many systems can be activated in the given loadout
-        based on available energy and energy priorities.
-        Args:
-            loadout (str): The name of the loadout
-
-        Returns:
-            int: The number of systems successfully activated
-        """
         budget = self.energy_budget()
+
+        if not self.loadouts:
+            # No loadouts defined → include all systems alphabetically
+            all_systems = [
+                s
+                for cat in self.systems.values()
+                for s in cat.values()
+                if isinstance(s, System)
+            ]
+            all_systems.sort(key=lambda s: s.name)  # alphabetical
+            self.loadouts["Default"] = all_systems
+
         if loadout is None:
             loadout = self.description.get("Loadout", list(self.loadouts.keys())[0])
+
         activated = 0
         load = [
             x
@@ -271,10 +277,11 @@ class Mecha:
     def use_system(self, systemtype, name, parameter):
         syscat = self.get_syscat(systemtype.capitalize())
         sys = syscat.get(name, parameter)
-        self.heatflux += self.add_heat(sys.use(parameter))
+        heat = sys.use(parameter)
+        self.heatflux += self.add_heat(heat)
 
     def flux_baseload(self):
         for syscat in self.systems.values():
             for sys in syscat.values():
                 if sys.is_active():
-                    self.heatflux += sys.heats.get("base", 0)
+                    self.heatflux += sys.heats.get("heat0", 0)
