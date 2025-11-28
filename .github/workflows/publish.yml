@@ -16,6 +16,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+
       - name: Install uv and Python 3.14
         uses: astral-sh/setup-uv@v7
         with:
@@ -24,6 +30,9 @@ jobs:
 
       - name: Install project dependencies
         run: uv sync
+
+      - name: Set up wiki environment
+        run: git clone https://github.com/x4dr/Fen.git ~/wiki
 
       - name: Run tests with coverage
         run: |
