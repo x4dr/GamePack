@@ -12,6 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Clone wiki environment
+        run: git clone https://github.com/x4dr/Fen.git ~/wiki
+
       - name: Install uv and set Python 3.14
         uses: astral-sh/setup-uv@v7
         with:
@@ -25,8 +28,7 @@ jobs:
           export PYTHONPATH=$(pwd)
           uv run python -m pytest --cov=gamepack --cov-report xml --cov-fail-under=80
 
-      - name: Clone wiki environment
-        run: git clone https://github.com/x4dr/Fen.git ~/wiki
+
 
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
