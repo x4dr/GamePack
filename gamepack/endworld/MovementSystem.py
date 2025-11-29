@@ -22,7 +22,14 @@ class MovementSystem(System):
         self.dynamics = self.number(self.extract("dynamics"))
 
     def __repr__(self):
-        return f"Movement System {self.name}: Thrust={self.thrust}, Anchor={self.anchor}, Dynamics={self.dynamics}, Amount={self.amount}, Mass={self.mass}"
+        return (
+            f"Movement System {self.name}: "
+            f"Thrust={self.thrust}, "
+            f"Anchor={self.anchor}, "
+            f"Dynamics={self.dynamics}, "
+            f"Amount={self.amount}, "
+            f"Mass={self.mass}"
+        )
 
     def speeds(self, mech_total_mass):
         speed = 0

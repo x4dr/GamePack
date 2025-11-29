@@ -49,7 +49,7 @@ def plot(
         result += (
             f"Of the {total} rolls, {success} were successes, {zeros} were failures and {botches} were botches, "
             f"averaging {sum(k * v for k, v in data.items()) / total:.2f}\n"
-            f"The percentages are:\n+ : {success/total:.3%}\n0 : {zeros/total:.3%}\n- : {botches/total:.3%}\n"
+            f"The percentages are:\n+ : {success / total:.3%}\n0 : {zeros / total:.3%}\n- : {botches / total:.3%}\n"
         )
         bar_portion_success = int((success / percent_total) / width)
         bar_portion_botch = int((botches / percent_total) / width)
