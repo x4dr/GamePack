@@ -1,11 +1,12 @@
 [project]
 dependencies = [
-  "pyyaml>=6.0.3",
-  "numpy>=2.2.6",
-  "matplotlib>=3.10.7",
-  "requests>=2.32.5",
-  "bleach>=6.3.0",
-  "gitpython>=3.1.45",
+    "pyyaml>=6.0.3",
+    "numpy>=2.2.6",
+    "matplotlib>=3.10.7",
+    "requests>=2.32.5",
+    "bleach>=6.3.0",
+    "gitpython>=3.1.45",
+    "beautifulsoup4>=4.14.2",
 ]
 license = "GPL-3.0-or-later"
 name = "gamepack"
@@ -16,10 +17,10 @@ authors = [{ name = "Maric", email = "x4dr@hotmail.com" }]
 readme = "README.md"
 keywords = ["game", "package"]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
-  "Intended Audience :: Internal",
-  "Operating System :: POSIX :: Linux",
-  "Programming Language :: Python :: 3.12",
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Internal",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.14",
 ]
 
 [tool.bumpversion]
