@@ -86,18 +86,21 @@ class Mecha:
     def speeds(self):
         result = {}
         for mname, msys in self.Movement.items():
+            if not msys.is_active():
+                continue
             speeds = msys.speeds(self.total_mass)
-            final = speeds[-1]
-            threshold = final * 0.9
-            for idx, val in enumerate(speeds):
-                if val >= threshold:
-                    s = {
-                        str(x): speeds[x]
-                        for x in self.speeds_at_seconds
-                        if 0 < x < len(speeds)
-                    }
-                    result[mname] = {"speeds": s, "topspeed": val, "duration": idx}
-                    break
+            final = speeds[-1]  # keep your naming
+            s = {str(x): speeds[x] for x in range(min(121, len(speeds)))}
+            # {
+            # str(x): speeds[x] for x in self.speeds_at_seconds if 0 < x < len(speeds)
+            # }
+
+            result[mname] = {
+                "speeds": s,
+                "topspeed": final,
+                "acceleration_time": len(speeds),
+                "g": speeds[1] / 9.81,
+            }
         return result
 
     def post_process(self, flash):
@@ -278,6 +281,10 @@ class Mecha:
         syscat = self.get_syscat(systemtype.capitalize())
         sys = syscat.get(name, parameter)
         heat = sys.use(parameter)
+        if heat is None:
+            raise Exception(
+                f"System usage failed for {systemtype.capitalize()}: {name}"
+            )
         self.heatflux += self.add_heat(heat)
 
     def flux_baseload(self):

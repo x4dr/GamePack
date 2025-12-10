@@ -188,7 +188,7 @@ class WikiPage:
             raise DescriptiveError("page must be a .md file")
         print(f"saving '{self.title}' as {page} ...")
         self.meta["title"] = self.title
-        self.meta["tags"] = self.tags
+        self.meta["tags"] = list(self.tags)
         self.meta["outgoing links"] = self.links
         with (self.wikipath() / page).open("w+") as f:
             f.write("---\n")
@@ -211,7 +211,7 @@ class WikiPage:
     def save_overwrite(self, author, message=None):
         log.info(f"overwriting '{self.title}' at {self.file} ...")
         self.meta["title"] = self.title
-        self.meta["tags"] = self.tags
+        self.meta["tags"] = list(self.tags)
         self.meta["outgoing links"] = self.links
         with self.file.open("w+") as f:
             f.write("---\n")

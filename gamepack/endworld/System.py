@@ -6,12 +6,15 @@ from gamepack.MDPack import MDTable
 
 def to_heatformat(data):
     parts = []
+    heat_keys = sorted(
+        (k for k in data if k.startswith("heat")), key=lambda x: int(x[4:])
+    )
+    for k in heat_keys:
+        parts.append(str(data[k]))
     for k, v in data.items():
-        if k.startswith("heat"):
-            parts.append(str(v))
-        else:
+        if not k.startswith("heat"):
             parts.append(f"{k} {v}")
-    return ";".join(parts)
+    return "; ".join(parts)
 
 
 class System:
@@ -113,12 +116,14 @@ class System:
 
         return MDTable(rows, [""] + headers)
 
-    def use(self, parameter):
+    def use(self, parameter) -> float:
         parameter = parameter.lower() if parameter else ""
         if not parameter:  # default is toggle
             self.enabled = "[ ]" if self.is_active() else "[x]"
-        elif parameter in ("disable", "enable"):
-            self.enabled = "[ ]" if "-" in self.enabled else "-"
+        elif parameter == "disable":
+            self.enabled = "[-]"
+        elif parameter == "enable":
+            self.enabled = "[ ]"
         elif parameter in self.heats:
             return self.heats[parameter]
         return 0
