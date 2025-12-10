@@ -89,7 +89,7 @@ class Mecha:
             if not msys.is_active():
                 continue
             speeds = msys.speeds(self.total_mass)
-            final = speeds[-1]  # keep your naming
+            final = speeds[-1]
             s = {str(x): speeds[x] for x in range(min(121, len(speeds)))}
             # {
             # str(x): speeds[x] for x in self.speeds_at_seconds if 0 < x < len(speeds)
@@ -99,7 +99,7 @@ class Mecha:
                 "speeds": s,
                 "topspeed": final,
                 "acceleration_time": len(speeds),
-                "g": speeds[1] / 9.81,
+                "g": (speeds[1] if len(speeds) > 1 else 0) / 9.81,
             }
         return result
 

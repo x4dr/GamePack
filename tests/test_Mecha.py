@@ -308,7 +308,6 @@ def test_process_loadout_bracket_skipping(mecha_with_systems):
 def test_calculate_speeds(mecha_with_systems):
     m = mecha_with_systems
     speeds = m.speeds()
-    # should include M1
     assert "M1" in speeds
     info = speeds["M1"]
-    assert "topspeed" in info and "speeds" in info and "duration" in info
+    assert "topspeed" in info and "speeds" in info and "acceleration_time" in info
