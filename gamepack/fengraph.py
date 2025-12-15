@@ -134,7 +134,7 @@ def rawload(page) -> str:
         with pathlib.Path.expanduser(pathlib.Path(f"~/wiki/{page}.md")).open() as f:
             return f.read()
     except Exception as e:
-        r = requests.get(f"https://nosferatu.vampir.es/wiki/{page}/raw")
+        r = requests.get(f"https://nossinet.cc/wiki/{page}/raw")
         logging.exception(f"loaded {page}.md via web, because", e)
         return r.content.decode()
 

@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
+import pathlib
 from gamepack.Item import total_table
 from gamepack.MDPack import (
     search_tables,
@@ -12,7 +13,6 @@ from gamepack.MDPack import (
     MDTable,
     MDChecklist,
 )
-from gamepack.fengraph import rawload
 
 
 class TestMDObj(unittest.TestCase):
@@ -214,23 +214,14 @@ class TestMDObj(unittest.TestCase):
 
     def test_to_md(self):
         # iterate over all files in ~/wiki/character
-        import pathlib
+        test_file = pathlib.Path(__file__).parent / "test_chr.md"
+        with test_file.open() as f:
+            md_content = f.read()
 
-        sut = MDObj.from_md(rawload("character/ragin"))
+        sut = MDObj.from_md(md_content)
         self.maxDiff = None
-        self.assertEqual(rawload("character/ragin"), sut.originalMD)
-
-        with open("test_chr.md", "w") as f:
-            f.write(sut.to_md())
-
-        self.assertMultiLineEqual(sut.originalMD, sut.to_md())
-        for file in pathlib.Path.expanduser(pathlib.Path("~/wiki/character")).iterdir():
-            if file.is_file():
-                with file.open() as f:
-                    md = f.read()
-                    mdobj = MDObj.from_md(md)
-                with file.open("w") as f:
-                    f.write(mdobj.to_md())
+        self.assertEqual(md_content, sut.originalMD)
+        self.assertEqual(md_content, sut.to_md())
 
     def test_extract_and_insert_tables(self):
         """Ensure tables are correctly extracted and restored."""

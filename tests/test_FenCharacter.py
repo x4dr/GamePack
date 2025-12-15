@@ -4,7 +4,6 @@ from unittest import TestCase
 from gamepack.FenCharacter import FenCharacter
 from gamepack.Item import Item
 from gamepack.MDPack import MDObj
-from gamepack.fengraph import rawload
 
 
 class TestDiceParser(TestCase):
@@ -155,9 +154,17 @@ class TestDiceParser(TestCase):
         self.assertEqual(fc.get_xp_for("test3"), 3)
 
     def test_from_md(self):
-        x = rawload("character/npc/alec")
-        fc = FenCharacter.from_md(x[x.index("#") :])
-        self.assertEqual(fc.Categories["Mystisch"]["Fähigkeiten"]["Durchhalten"], "2")
+        import pathlib
+
+        test_file = pathlib.Path(__file__).parent / "test_chr.md"
+        with test_file.open() as f:
+            md_content = f.read()
+
+        fc = FenCharacter.from_md(md_content)
+        # Check standard skill
+        self.assertEqual(fc.Categories["Physical"]["Skills"]["Skill 1"], "2")
+        # Check attribute
+        self.assertEqual(fc.Categories["Mental"]["Attributes"]["Wits"], "2")
 
     def test_round_trip(self):
         self.c = FenCharacter()

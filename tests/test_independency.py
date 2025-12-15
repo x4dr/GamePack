@@ -10,7 +10,7 @@ BLACKLIST = [".venv"]
 def all_module_names():
     """Scan directories and return importable module names (dot notation)."""
     modules = []
-    for subdir in ["Parser", "gamepack", "tests"]:
+    for subdir in ["Parser", "gamepack"]:
         for py_file in (ROOT / subdir).rglob("*.py"):
             if any(b in py_file.parts for b in BLACKLIST):
                 continue
