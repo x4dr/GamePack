@@ -1,7 +1,6 @@
 import logging
 import re
-from typing import List, Dict, Tuple, Callable, Self, Optional
-
+from typing import List, Dict, Tuple, Callable, Optional, Union, Any
 
 log = logging.Logger(__name__)
 
@@ -9,122 +8,137 @@ log = logging.Logger(__name__)
 class MDChecklist:
     CHECKBOX_PATTERN = re.compile(r"-\s*\[(\s*x?\s*)] ?(.*)")
 
-    def __init__(self, checklist, position=None):
+    def __init__(
+        self, checklist: List[Tuple[str, bool]], position: Optional[int] = None
+    ):
         """
-        text: The modified text with checklists removed
-        checklist: List of tuples [(offset, item_text, checked)]
+        :param checklist: List of tuples [(item_text, checked)]
+        :param position: The line number where this checklist starts/belongs
         """
-        self.checklist: List[tuple[str, bool]] = checklist or []
+        self.checklist: List[Tuple[str, bool]] = checklist or []
         self.position = position
 
     def to_md(self) -> str:
-        """Reinserts the checkboxes back into the original text at the correct offsets."""
+        """Reinserts the checkboxes back into the original text format."""
         lines = []
         for item in self.checklist:
             if isinstance(item, str):
-                item = (item, False)
-            item_text, checked = item
+                item_text, checked = item, False
+            else:
+                item_text, checked = item
             lines.append(f"- [{'x' if checked else ' '}] {item_text}")
         return "\n".join(lines)
 
     def insert_into(self, text: str) -> str:
+        """Inserts this checklist into the given text at self.position."""
+        if self.position is None:
+            return text + "\n" + self.to_md()
         return (
             text[: self.position] + "\n" + self.to_md() + "\n" + text[self.position :]
         )
 
-    def get(self, name, default=None):
-        for c in self.checklist:
-            if c[0] == name:
-                return c[1]
+    def get(self, name: str, default: Any = None) -> Union[bool, Any]:
+        for item_text, checked in self.checklist:
+            if item_text == name:
+                return checked
         return default
 
     @classmethod
-    def from_md(cls, md_text: str, position=None):
-        """Expects to be given a valid checklist and throws an exception if not valid."""
+    def from_md(cls, md_text: str, position: Optional[int] = None) -> "MDChecklist":
+        """Parses a markdown string containing a checklist."""
         lines = md_text.split("\n")
         checklist = []
 
-        for i, line in enumerate(lines):
+        for line in lines:
             match = cls.CHECKBOX_PATTERN.match(line)
             if match:
                 checked = match.group(1).strip() == "x"
                 item_text = match.group(2).strip()
-                checklist.append([item_text, checked])
+                checklist.append((item_text, checked))
 
         return cls(checklist, position)
 
     @classmethod
     def extract_checklists(cls, plaintext: str) -> Tuple[str, List["MDChecklist"]]:
         """
-        consumes checklist from plaintext where possible.
-        checklists are saved abstractly and will be restored during to_md
-        :return: a List of Checklists
+        Consumes checklists from plaintext where possible.
+        Checklists are extracted and removed from the text, to be restored later.
+        :return: (cleaned_text, list_of_checklists)
         """
-        text = ""
+        text_lines = []
         linenr = 0
-        start_line = 0
-        checklists = []
+        start_line: Optional[int] = None
+        checklists: List[MDChecklist] = []
         run = ""
+
         for line in plaintext.splitlines(True):
             if MDChecklist.CHECKBOX_PATTERN.match(line):
-                start_line = start_line or linenr
+                if start_line is None:
+                    start_line = linenr
                 run += line
-                continue
-            elif run:
-                checklists.append(cls.from_md(run, position=start_line))
-                start_line = 0
-                run = ""
-            text += line
-            linenr += 1
+            else:
+                if run:
+                    checklists.append(cls.from_md(run, position=start_line))
+                    start_line = None
+                    run = ""
+                text_lines.append(line)
+                linenr += 1
+
         if run:
-            checklists.append(cls.from_md(run, position=linenr))
-        return text, checklists
+            checklists.append(cls.from_md(run, position=start_line))
+            # No need to append to text_lines as it's extracted
+
+        return "".join(text_lines), checklists
 
     @classmethod
-    def insert_checklists(cls, text: str, checklists: list["MDChecklist"]) -> str:
+    def insert_checklists(cls, text: str, checklists: List["MDChecklist"]) -> str:
         """
         Reinsert extracted checklists back into the given text at their original positions.
-
-        :param text: The cleaned text without checklists.
-        :param checklists: List of MDChecklist objects with stored positions.
-        :return: The reconstructed Markdown text with checklists restored.
         """
-        checklists = sorted(checklists, key=lambda c: c.position)
+        if not checklists:
+            return text
+
+        checklists = sorted(
+            checklists, key=lambda c: c.position if c.position is not None else -1
+        )
         lines = text.splitlines(True)
+
+        offset = 0
         for checklist in checklists:
-            pos = checklist.position or -1
-            if 0 <= pos < len(lines):
-                lines.insert(pos, checklist.to_md() + "\n")
+            pos = checklist.position if checklist.position is not None else -1
+            if 0 <= pos <= len(lines):
+                # Offset is added because previous insertions shifted indices
+                effective_pos = pos + offset
+                lines.insert(effective_pos, checklist.to_md() + "\n")
+                offset += 1
             else:
                 lines.append(checklist.to_md() + "\n")
-            text = "".join(lines)
-        return text
+                offset += 1
+
+        return "".join(lines)
 
 
 class MDTable:
     def __init__(
-        self, rows: List[List[str]], headers: List[str], style: List[str] | None = None
+        self,
+        rows: List[List[str]],
+        headers: List[str],
+        style: Optional[List[Optional[str]]] = None,
     ):
         for row in rows:
             if len(row) != len(headers):
                 raise ValueError(
-                    f"Row length {len(row)} does not match headers' length {len(headers)} ",
-                    row,
-                    headers,
+                    f"Row length {len(row)} does not match headers' length {len(headers)}: {row}"
                 )
-        self.rows = rows
-        self.headers = headers
-        self.style = style or [None] * len(headers)
-        self.prev_line_nr = None  # To help with placing the table back into context
+        self.rows: List[List[str]] = rows
+        self.headers: List[str] = headers
+        self.style: List[Optional[str]] = style or [None] * len(headers)
+        self.prev_line_nr: Optional[int] = None  # For reconstruction
 
     @staticmethod
     def split_row(row: str, length: int) -> List[str]:
         """
-        splits a md table row into a list of cells, using the length to decide if the row was missing
-        the initial
-        :param row: md table row string
-        :param length: exact number of columns
-        :return: List of the first length table cells
+        Splits a markdown table row into cells.
         """
         row = row.strip()
         first_cell_potentially_missing = False
@@ -133,21 +147,27 @@ class MDTable:
             row = row[1:]
         if row.endswith("|"):
             row = row[:-1]
-        rows = [x.strip() for x in row.split("|")]
-        if len(rows) < length and first_cell_potentially_missing:
-            rows = [""] + rows
-        return (rows + [""] * (length - len(rows)))[:length]
 
-    def row_as_dict(self, row: int) -> dict:
-        return {header: self.rows[row][i] for i, header in enumerate(self.headers)}
+        cells = [x.strip() for x in row.split("|")]
+
+        if len(cells) < length and first_cell_potentially_missing:
+            # Handle cases where the first empty cell before | is omitted in split
+            cells = [""] + cells
+
+        # Pad or truncate to exact length
+        if len(cells) < length:
+            cells += [""] * (length - len(cells))
+        return cells[:length]
+
+    def row_as_dict(self, row_idx: int) -> Dict[str, str]:
+        if 0 <= row_idx < len(self.rows):
+            return {
+                header: self.rows[row_idx][i] for i, header in enumerate(self.headers)
+            }
+        raise IndexError("Row index out of range")
 
     @staticmethod
-    def extract_styles(row: List[str]) -> List[str]:
-        """
-        extracts the styles from a md table row
-        :param row: md table row string
-        :return: List of the styles
-        """
+    def extract_styles(row: List[str]) -> List[Optional[str]]:
         styles = []
         for cell in row:
             if cell.startswith(":") and cell.endswith(":"):
@@ -162,117 +182,120 @@ class MDTable:
 
     @classmethod
     def from_md(cls, md: str) -> "MDTable":
-        """
-        gets table from md text.
-        Assumes all text is part of table and will enforce the tablewidth given in
-        format row. This means non-table text will be assumed to be just the first
-        column and the rest will be filled with "". Every column past the ones
-        alignment was defined for will be cut.
-        :param md: md text from the first to the last line of the table
-        :return: list of table rows, all having uniform length
-        """
         lines = md.splitlines()
-        headers = lines.pop(0).split("|")
-        # remove first and last cell if they are empty
-        if not headers[0].strip():
-            headers = headers[1:]
-        if not headers[-1].strip():
-            headers = headers[:-1]
-        headers = [x.strip() for x in headers]
+        if not lines:
+            return cls([], [])
 
-        rows = [cls.split_row(row, len(headers)) for row in lines]
-        if not rows:
+        # Header processing
+        headers_raw = lines.pop(0)
+        # Handle outer pipes for header
+        if headers_raw.strip().startswith("|"):
+            headers_raw = headers_raw.strip()[1:]
+        if headers_raw.strip().endswith("|"):
+            headers_raw = headers_raw.strip()[:-1]
+
+        headers = [x.strip() for x in headers_raw.split("|")]
+
+        if not lines:
             return cls([], headers)
-        # remove the separator
-        if all(x in "- |:" for x in "".join(rows[0])):
-            styles = cls.extract_styles(rows.pop(0))
-        else:
-            styles = [None] * len(headers)
-        # ensure all rows have the same length
-        for row in rows:
-            row += [""] * (len(headers) - len(row))
-        # ensure no row is longer than headers
-        rows = [row[: len(headers)] for row in rows]
+
+        # Style row detection
+        # Check if the next row is a separator row (---)
+        rows_raw = lines
+        styles = [None] * len(headers)
+
+        if rows_raw and all(c in "- |:" for c in rows_raw[0].strip()):
+            style_row = cls.split_row(rows_raw.pop(0), len(headers))
+            styles = cls.extract_styles(style_row)
+
+        rows = [cls.split_row(row, len(headers)) for row in rows_raw]
+
         return cls(rows, headers, styles)
 
-    def to_md(self):
-        """
-
-        :return: table as Markdown
-        """
+    def to_md(self) -> str:
         self.canonize()
         columns = len(self.headers)
-        if not self.rows:
-            self.rows = [[""] * columns]
+        if not self.rows and not self.headers:
+            return ""  # empty table
 
-        column_widths = [len(self.headers[i]) for i in range(columns)]
-        for row in self.rows:
+        display_rows = self.rows if self.rows else [[""] * columns]
+
+        # Calculate column widths
+        column_widths = [len(h) for h in self.headers]
+        for row in display_rows:
             for i in range(columns):
-                if len(row) > i:
+                if i < len(row):
                     column_widths[i] = max(column_widths[i], len(row[i]))
 
-        result = "| "
-        result += " | ".join(
-            self.line_align(self.headers[h], self.style[h], column_widths[h])
-            for h in range(columns)
-        )
-        result += " |\n"
-        for i in range(len(self.headers)):
-            s = self.style[i] or "x"
-            stylebegin = ":" if s in "lc" else ""
-            styleend = ":" if s in "rc" else ""
-            lesser = len(stylebegin + styleend) - 1
-            result += f"|{stylebegin}-{'-' * (column_widths[i] - lesser)}{styleend}"
-        result += "|"
-        for row in self.rows:
-            if len(row) < columns:  # pad empty cells
-                row.extend([""] * (columns - len(row)))
-            result += "\n| "
-            result += " | ".join(
-                self.line_align(row[i], self.style[i], column_widths[i])
-                for i in range(columns)
+        # Ensure min width for separator
+        column_widths = [max(w, 3) for w in column_widths]
+
+        def format_row(r):
+            return (
+                "| "
+                + " | ".join(
+                    self.line_align(r[i], self.style[i], column_widths[i])
+                    for i in range(columns)
+                )
+                + " |"
             )
-            result += " |"
+
+        result = format_row(self.headers) + "\n"
+
+        # Separator line
+        sep_parts = []
+        for i in range(columns):
+            s = self.style[i]
+            width = column_widths[i]
+            # Compact style
+            if s == "c":
+                sep = ":" + "-" * (width - 2) + ":"
+            elif s == "r":
+                sep = "-" * (width - 1) + ":"
+            elif s == "l":
+                sep = ":" + "-" * (width - 1)
+            else:
+                sep = "-" * width
+            sep_parts.append(sep)
+
+        result += "|" + "|".join(sep_parts) + "|"
+
+        if self.rows:
+            for row in self.rows:
+                result += "\n" + format_row(row)
+
         return result
 
     def __repr__(self):
-        return f"MDTable{self.to_md()}"
+        return f"MDTable({len(self.rows)} rows)"
 
     @staticmethod
-    def line_align(line: str, align: str, length: int) -> str:
-        """
-        aligns a line according to the table's alignment
-        :param line: the line to align
-        :param align: the alignment of the line
-        :param length: the length to align to
-        :return: the aligned line
-        """
+    def line_align(line: str, align: Optional[str], length: int) -> str:
+        line = line if line is not None else ""
         if align == "l":
             return line.ljust(length)
-        elif align == "r":
+        if align == "r":
             return line.rjust(length)
-        elif align == "c":
+        if align == "c":
             return line.center(length)
         return line.ljust(length)
 
-    def search(self, searchterm) -> List[str] | None:
-        """
-        searches the table for a searchterm
-        :param searchterm: the term to search for
-        :return: True if the searchterm is found
-        """
-        for row in self.rows + self.headers:
-            for cell in row:
-                if searchterm in cell:
-                    return row
+    def search(self, searchterm: str) -> Optional[List[str]]:
+        """Returns the first row containing the searchterm."""
+        if any(searchterm in h for h in self.headers):
+            return self.headers
+
+        for row in self.rows:
+            if any(searchterm in cell for cell in row):
+                return row
         return None
 
-    def to_simple(self):
+    def to_simple(self) -> Dict[str, Any]:
         return {"styles": self.style, "headers": self.headers, "rows": self.rows}
 
     def update_cell(self, row: int, col: int, data: str):
         while row >= len(self.rows):
-            self.rows.append([])
+            self.rows.append([""] * len(self.headers))
         while col >= len(self.rows[row]):
             self.rows[row].append("")
         self.rows[row][col] = data
@@ -286,40 +309,35 @@ class MDTable:
         self.rows = []
 
     def canonize(self):
-        # make all cells str
+        """Ensures all cells are strings and cleans up empty rows."""
         self.rows = [[str(x) for x in row] for row in self.rows]
         self.headers = [str(x) for x in self.headers]
-        self.style += [None] * (len(self.headers) - len(self.style))
+        # Pad styles if missing
+        if len(self.style) < len(self.headers):
+            self.style += [None] * (len(self.headers) - len(self.style))
 
-        # delete empty rows at the end
-        while self.rows and not any(x for x in self.rows[-1] if x.strip()):
+        # Delete empty rows at the end
+        while self.rows and not any(x.strip() for x in self.rows[-1]):
             self.rows.pop()
 
-    def __getitem__(self, key):
-        value = self.get(key)
-        if value is None:
-            raise KeyError(f"Key '{key}' not found in table")
-        return value
+    def __getitem__(self, key: str) -> Optional[str]:
+        return self.get(key)
 
-    def get(
-        self, key, default=None
-    ):  # treat as dictionary, with rows past 1 being optional data (see search)
+    def get(self, key: str, default: Any = None) -> Any:
+        """Treat table as dictionary where first col is key, second col is value."""
         for row in self.rows:
             if len(row) > 1 and row[0] == key:
                 return row[1]
         return default
 
-    def column(self, key, default=None) -> list:
+    def column(self, key: str, default: List[str] = None) -> List[str]:
         try:
             position = [x.lower() for x in self.headers].index(key.lower())
-            result = []
-            for row in self.rows:
-                result.append(row[position])
-            return result
+            return [row[position] for row in self.rows if len(row) > position]
         except ValueError:
-            return default
+            return default or []
 
-    def header_pos(self, possible_headers: list[str], default: int) -> int:
+    def header_pos(self, possible_headers: List[str], default: int = -1) -> int:
         lowercase = [x.lower() for x in self.headers]
         for candidate in possible_headers:
             if candidate.lower() in lowercase:
@@ -327,48 +345,60 @@ class MDTable:
         return default
 
     @classmethod
-    def extract_tables(cls, plaintext) -> (str, List["MDTable"]):
-        """consumes table from plaintext where possible.
-        Tables are saved abstractly and will be restored during to_md
-        :return: a List of Checklists
+    def extract_tables(cls, plaintext: str) -> Tuple[str, List["MDTable"]]:
         """
-        text = ""
+        Consumes tables from plaintext where possible.
+        :return: (cleaned_text, list_of_tables)
+        """
+        text_lines = []
         linenr = 0
-        start_line = 0
-        tables = []
+        start_line: Optional[int] = None
+        tables: List[MDTable] = []
         run = ""
+
         for line in plaintext.splitlines(True):
             if "|" in line:
-                start_line = start_line or linenr
+                if start_line is None:
+                    start_line = linenr
                 run += line
-                continue
-            elif run:
-                tables.append(MDTable.from_md(run))
-                tables[-1].prev_line_nr = linenr
-                run = ""
-                start_line = 0
-            text += line
-            linenr += 1
-        if run:
-            tables.append(MDTable.from_md(run))
-            tables[-1].prev_line_nr = linenr
+            else:
+                if run:
+                    t = MDTable.from_md(run)
+                    t.prev_line_nr = start_line
+                    tables.append(t)
+                    run = ""
+                    start_line = None
+                text_lines.append(line)
+                linenr += 1
 
-        return text, tables
+        if run:
+            t = MDTable.from_md(run)
+            t.prev_line_nr = start_line
+            tables.append(t)
+
+        return "".join(text_lines), tables
 
     @classmethod
     def insert_tables(cls, text: str, tables: List["MDTable"]) -> str:
-        """
-        Reinserts the extracted tables back into the original text at their stored positions.
-        Preserves surrounding text structure.
-        """
         if not tables:
             return text
 
         lines = text.splitlines(False)
-        for table in sorted(tables, key=lambda t: t.prev_line_nr):
+
+        # We must insert from bottom up to preserve indices
+        tables.sort(key=lambda t: t.prev_line_nr if t.prev_line_nr is not None else -1)
+
+        # Offset logic similar to checklists
+        offset = 0
+        for table in tables:
+            pos = table.prev_line_nr if table.prev_line_nr is not None else 0
             md = table.to_md()
-            insert_pos = table.prev_line_nr
-            lines.insert(insert_pos, md)
+            if 0 <= pos + offset <= len(lines):
+                lines.insert(pos + offset, md)
+                offset += 1
+            else:
+                lines.append(md)
+                offset += 1
 
         return "\n".join(lines)
 
@@ -377,17 +407,21 @@ class MDObj:
     def __init__(
         self,
         plaintext: str,
-        children: Dict[str, "MDObj"] = None,
-        flash: Callable[[str], None] = None,
-        tables: List[MDTable] = None,
+        children: Optional[Dict[str, "MDObj"]] = None,
+        flash: Optional[Callable[[str], None]] = None,
+        tables: Optional[List[MDTable]] = None,
         level: int = 0,
         header: str = "",
-        original=None,
-        checklists: List[MDChecklist] = None,
+        original: Optional[str] = None,
+        checklists: Optional[List[MDChecklist]] = None,
     ):
-        self.originalMD = original or plaintext
-        self.plaintext = plaintext
+        self.originalMD: str = original or plaintext
+
+        # Self.plaintext will hold the text content of *this* node
+        # (excluding children headers content, extracting tables and checklists)
+        self.plaintext: str = plaintext
         self.children: Dict[str, "MDObj"] = children or {}
+
         if tables is None:
             self.plaintext, self.tables = MDTable.extract_tables(self.plaintext)
         else:
@@ -395,23 +429,27 @@ class MDObj:
 
         self.level = level
         self.header = header
-        self.errors = []
+        self.errors: List[str] = []
+
         if checklists is None:
             self.plaintext, self.checklists = MDChecklist.extract_checklists(
                 self.plaintext
             )
         else:
             self.checklists = checklists
+
         self.flash = flash or self.add_to_error
 
-    def add_to_error(self, error):
+    def add_to_error(self, error: str):
         self.errors.append(error)
 
     @property
     def all_checklists(self) -> List[Tuple[str, bool]]:
         return [item for checklist in self.checklists for item in checklist.checklist]
 
-    def search_checklist_with_path(self, name, path=None):
+    def search_checklist_with_path(
+        self, name: str, path: Optional[List[str]] = None
+    ) -> List[List[str]]:
         if path is None:
             path = []
         results = []
@@ -428,10 +466,11 @@ class MDObj:
 
     def __repr__(self):
         return (
-            f"{self.header or 'MDObj'}({self.plaintext}, {self.tables} {self.children})"
+            f"{self.header or 'MDObj'}(len={len(self.plaintext)}, "
+            f"tables={len(self.tables)}, children={list(self.children.keys())})"
         )
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> Any:
         # Search through children
         if key in self.children:
             return self.children[key]
@@ -439,77 +478,78 @@ class MDObj:
             value = t.get(key)
             if value:
                 return value
-        raise KeyError(f"{key} not found in {self.header or 'MDObj'}")
+        raise KeyError(f"'{key}' not found in {self.header or 'MDObj'}")
 
     @classmethod
     def from_md(
         cls,
-        lines: str | list[str],
-        level=0,
-        header="",
-        flash=None,
+        lines: Union[str, List[str]],
+        level: int = 0,
+        header: str = "",
+        flash: Optional[Callable[[str], None]] = None,
     ) -> "MDObj":
         """
-        breaks down the structure of a md text into nested tuples of a string
-        of the text directly after the heading and a dictionary of all the subheadings
-
-        @param lines: \n separated string, or a stack of lines
-        (top line on top of the stack)
-        @param level: the level of heading this split started and therefore should end on
-        @param flash: function to call with errors
-        @param header: the header of the MDObj
-        ""
-
-        @return: a Tuple of the direct text and a dict containing recursive output
-
+        Recursively parses markdown into a tree of MDObjects based on headers.
         """
         if isinstance(lines, str):
             original = lines[:]
-            lines = list(reversed(lines.split("\n")))  # build stack of lines
+            lines = list(reversed(lines.split("\n")))
         else:
-            original = "\n".join(
-                reversed(lines)
-            )  # saving the original was an idea introduced later
-        text = ""
+            original = "\n".join(reversed(lines))
+
+        text_accumulated = ""
         children = {}
-        while len(lines):
-            line = lines.pop()
+
+        while lines:
+            line = lines[-1]  # Peek
+
+            # Check for header
             if line.strip().startswith("#"):
-                current_level = len(line.strip()) - len(line.strip().lstrip("#"))
-                # easy way to only count # on the left
-                if current_level and level >= current_level:
-                    # we moved out of our subtree
-                    lines.append(line)  # push the current line back
-                    # and remove them from the OriginalMD which represents the parsed MD of the subtree
-                    return cls(
-                        text,
-                        children,
-                        flash,
-                        level=level,
-                        header=header,
-                        original=original,
-                    )
-                else:
-                    k = line.lstrip("# ").strip()
-                    while k in children:
-                        k += "_"  # duplicate keys would have been inaccessible anyway
-                    children[k] = cls.from_md(
-                        lines=lines,  # by reference
-                        level=current_level,
-                        header=k,
-                        flash=flash,
-                    )
-                    continue
-            text += line + "\n"
-        return cls(text, children, flash, header=header, level=level, original=original)
+                current_header_level = len(line.strip()) - len(line.strip().lstrip("#"))
+
+                # Check for "Empty headers" or accidental #?
+                if current_header_level > 0:
+                    if level >= current_header_level and level != 0:
+                        # Sibling or parent header found, stop recursion for this level.
+                        break
+
+                    if current_header_level > level:
+                        # Found a child (or deeper descendant).
+                        # Consume the line
+                        header_line = lines.pop()
+                        header_title = header_line.lstrip("# ").strip()
+
+                        # Handle duplicates
+                        k = header_title
+                        while k in children:
+                            k += "_"
+
+                        # Parse child
+                        children[k] = cls.from_md(
+                            lines=lines,  # Pass reference to stack
+                            level=current_header_level,
+                            header=header_title,
+                            flash=flash,
+                        )
+                        continue
+
+            # If not a relevant header, consume line as text
+            text_accumulated += lines.pop() + "\n"
+
+        return cls(
+            text_accumulated,
+            children,
+            flash,
+            level=level,
+            header=header,
+            original=original,
+        )
 
     def confine_to_tables(
-        self, horizontal=False
-    ) -> Tuple[Dict[str, str | dict], List[str]]:
+        self, horizontal: bool = False
+    ) -> Tuple[Dict[str, Any], List[str]]:
         """
-        simplifies a mdtree into just a dictionary of dictionaries.
-        Makes the assumption that either children or a table can be had, and that all leaves are key value in the end
-        :return: A Tuple of adictionary that recursively always ends in values, and a list of errors
+        Simplifies a MDTree into a dictionary of dictionaries/values.
         """
         result = {}
         errors = []
@@ -521,10 +561,14 @@ class MDObj:
         if horizontal:
             for subtable in self.tables:
                 for row in subtable.rows:
-                    result[row[0]] = {}
+                    if not row:
+                        continue
+                    key = row[0]
+                    result[key] = {}
+                    # Headers skip the first one (key col)
                     for i, heading in enumerate(subtable.headers[1:]):
-                        result[row[0]][heading] = row[i + 1]
-
+                        if i + 1 < len(row):
+                            result[key][heading] = row[i + 1]
         else:
             for subtable in self.tables:
                 for row in subtable.rows:
@@ -537,156 +581,153 @@ class MDObj:
                         continue
                     result[row[0]] = row[1]
 
-        for child, content in self.children.items():
-            if content.children or content.tables:
-                result[child], newerrors = content.confine_to_tables(horizontal)
+        for child_name, child_obj in self.children.items():
+            if child_obj.children or child_obj.tables:
+                child_data, newerrors = child_obj.confine_to_tables(horizontal)
+                result[child_name] = child_data
                 errors += newerrors
             else:
-                result[child] = content.plaintext.strip()
+                result[child_name] = child_obj.plaintext.strip()
                 if (
-                    not content.children
-                    and not content.plaintext.strip()
-                    and not content.tables
+                    not child_obj.children
+                    and not child_obj.plaintext.strip()
+                    and not child_obj.tables
                 ):
-                    error(f"Extraneous Subheading: '{', '.join(self.children.keys())}'")
+                    error(f"Extraneous Subheading: '{child_name}'")
 
         if self.plaintext.strip():
+            # Are we the root or a leaf that shouldn't have text?
+            # confine_to_tables assumes structure is data. Loose text is "error".
             error(f"Extraneous Text: '{self.plaintext.strip()}'")
+
         return result, errors
 
     def search_children(self, name: str) -> Optional["MDObj"]:
-        # search direct children first
+        # Search direct children first
         for child_name in self.children:
             if name.lower().strip() == child_name.lower().strip():
                 return self.children[child_name]
+
+        # Search tables
         for t in self.tables:
+            # t.search returns a row. But this function returns MDObj?
+            # Original code: `if t.search(name): return self`
+            # Meaning "I contain the term in my table, so return Me".
             if t.search(name):
                 return self
-        # then do a depth first search for the first matching entry
-        for _, child in self.children.items():
+
+        # Depth first search
+        for child in self.children.values():
             if result := child.search_children(name):
                 return result
         return None
 
-    def set_levels(self, newlevel=None):
-        """
-        sets all children's levels if unset
-        """
+    def set_levels(self, newlevel: Optional[int] = None):
         if newlevel is not None:
             self.level = newlevel
         for child in self.children.values():
             if not child.level:
                 child.set_levels(self.level + 1)
 
-    def add_child(self, child: "MDObj") -> Self:
-        """
-        adds a child to the object
-        :param child: child MDObj to add
-        """
+    def add_child(self, child: "MDObj") -> "MDObj":
         if self.is_ancestor(child):
             raise Exception(
-                "cannot add child, it is already a descendant of this object"
+                "Cannot add child, it is already a descendant of this object"
             )
         name = child.header.strip()
         self.children[name] = child
         return self
 
-    def is_ancestor(self, child):
+    def is_ancestor(self, child: "MDObj") -> bool:
         for candidate in self.children.values():
             if candidate == child or candidate.is_ancestor(child):
                 return True
         return False
 
-    def add_children(self, children: List["MDObj"]) -> Self:
+    def add_children(self, children: List["MDObj"]) -> "MDObj":
         for child in children:
             self.add_child(child)
         return self
 
-    def to_md(self, do_header=True) -> str:
-        """
-        reconstructs the original markdown from the object
-        """
-        result = ""
-        line_offset = 0
-        if do_header:
-            if not self.level:
-                self.set_levels(0)
-            if self.header.strip():
-                result += f"\n{'#' * self.level} {self.header}\n"
-            line_offset = result.count("\n")
+    def to_md(self, do_header: bool = True) -> str:
+
         if self.plaintext.strip():
-            result += self.plaintext.rstrip() + "\n"
-        result = MDChecklist.insert_checklists(result, self.checklists)
+            body = self.plaintext.rstrip() + "\n"
+        else:
+            body = ""
+
+        body = MDChecklist.insert_checklists(body, self.checklists)
+
         if self.tables:
-            result += "\n"
+            body += "\n"
 
-        for t in self.tables:
-            if t.prev_line_nr:
-                lines = result.splitlines(True)
-                result = (
-                    "".join(
-                        lines[: t.prev_line_nr + line_offset]
-                        + t.to_md().splitlines(True)
-                        + lines[t.prev_line_nr + line_offset :]
-                    )
-                    + "\n"
-                )
-            else:
-                result += t.to_md() + "\n"
-        for v in self.children.values():
-            result += v.to_md()
+        body = MDTable.insert_tables(body, self.tables)
 
-        return result
+        children_md = ""
+        for child in self.children.values():
+            children_md += child.to_md()
 
-    def search_tables(self, searchterm: str) -> MDTable | None:
-        """
-        searches all tables in the MD and its children, returning the first matching table
-        """
+        # Ensure separation between body and children
+        if body and children_md and not body.endswith("\n"):
+            body += "\n"
+
+        full_body = body + children_md
+
+        if full_body and not full_body.endswith("\n"):
+            full_body += "\n"
+
+        if do_header and self.header.strip() and self.level > 0:
+            return f"\n{'#' * self.level} {self.header}\n" + full_body
+
+        return full_body
+
+    def search_tables(self, searchterm: str) -> Optional[MDTable]:
         for t in self.tables:
             if t.search(searchterm):
                 return t
-        for n, c in self.children.items():
-            if searchterm.strip().lower() == n.strip().lower() and len(c.tables) == 1:
-                return c.tables[0]
-            r = c.search_tables(searchterm)
+        for child in self.children.values():
+            if (
+                child.header.strip().lower() == searchterm.strip().lower()
+                and len(child.tables) == 1
+            ):
+                return child.tables[0]
+            r = child.search_tables(searchterm)
             if r:
                 return r
         return None
 
-    def replace_content_by_path(self, path: [str], new: str):
+    def replace_content_by_path(self, path: List[str], new_content: str):
         focus = self
         for p in path[:-1]:
             focus = focus.children[p]
-        focus.children[path[-1]] = MDObj.from_md(new)
+        focus.children[path[-1]] = MDObj.from_md(new_content)
 
-    def get_content_by_path(self, path: [str]):
+    def get_content_by_path(self, path: List[str]) -> "MDObj":
         focus = self
         for p in path:
             focus = focus.children[p]
         return focus
 
-    def with_header(self, header_text: str) -> Self:
-        """
-        adds a header to the object
-        :param header_text: text of header
-        :return: self
-        """
+    def with_header(self, header_text: str) -> "MDObj":
         self.header = header_text
         return self
 
     @classmethod
-    def empty(cls):
+    def empty(cls) -> "MDObj":
         return cls("")
+
+
+# Utilities
 
 
 def table_row_edit(md: str, key: str, value: str) -> str:
     """
-    changes everything but the leftmost column in a table the first time key is encountered
-    :param md: markdown to operate on
-    :param key: first column value
-    :param value: all subsequent values to change to, | delimited
+    Changes everything but the leftmost column in a table the first time key is encountered.
     """
     old = search_tables(md, key, 0).strip()
+    if not old:
+        return md
+
     start = "|" if old.startswith("|") else ""
     end = "|" if old.endswith("|") else ""
     new = f"{start} {key} | {value} {end}"
@@ -694,57 +735,65 @@ def table_row_edit(md: str, key: str, value: str) -> str:
 
 
 def table_md(t: List[List[str]]) -> str:
-    """
-    converts a table to Markdown
-    :param t: table
-    :return: markdown
-    """
     return "\n".join(["|".join([x for x in row if x is not None]) for row in t if row])
 
 
-def table_add(md: str, key: str, new: str) -> str:
+def table_add(md: str, key: str, new_val: str) -> str:
+    """Inserts a row into a markdown table manually."""
     intable = False
     sofar = ""
-    for line in md.splitlines(True):
-        if intable and "|" not in line and new:
-            sofar += (
-                " "
-                * (len(sofar.splitlines()[-2]) - len(sofar.splitlines()[-2].lstrip()))
-                + f"| {key} | {new} |\n"
-            )
-            new = None
+    lines = md.splitlines(True)
+    new_inserted = False
+
+    for line in lines:
+        if intable and "|" not in line and not new_inserted:
+            # End of table
+            prev_line = sofar.splitlines()[-1] if sofar else ""
+            indent = len(prev_line) - len(prev_line.lstrip())
+
+            sofar += " " * indent + f"| {key} | {new_val} |\n"
+            new_inserted = True
+
         if "|" in line:
             intable = True
+        else:
+            intable = False
+
         sofar += line
-    if new:
-        if sofar and not sofar.endswith("\n"):
-            sofar += "\n"
-        sofar += " " * (
-            len(sofar.splitlines()[-2]) - len(sofar.splitlines()[-2].lstrip())
-        )
-        sofar += f"| {key} | {new} |\n"
+
+    if not new_inserted:
+        # Check if we ended inside table
+        if intable:
+            prev_line = sofar.splitlines()[-1] if sofar else ""
+            indent = len(prev_line) - len(prev_line.lstrip())
+            sofar += " " * indent + f"| {key} | {new_val} |\n"
+
     return sofar
 
 
 def table_remove(md: str, key: str) -> str:
     old = search_tables(md, key, 0).strip()
+    if not old:
+        return md
+    # We replace old row + newline with empty
     return md.replace(old + "\n", "", 1)
 
 
-def search_tables(md: str, seek: str, surround=None) -> str:
+def search_tables(md: str, seek: str, surround: Optional[int] = None) -> str:
     found = False
     curtable = []
     end = -1
+
     for line in md.splitlines(True):
         if "|" in line:
             curtable.append(line)
-            if not found and line.strip(" |").lower().startswith(
-                seek.strip(" |").lower()
-            ):
-                if surround is not None:
-                    end = surround * 2 + 1
-                    curtable = curtable[-surround - 1 :]
-                found = True
+            if not found and seek.lower() in line.lower():
+                if line.strip(" |").lower().startswith(seek.strip(" |").lower()):
+                    if surround is not None:
+                        end = surround * 2 + 1
+                        curtable = curtable[-surround - 1 :]
+                    found = True
+
             if end != -1 and len(curtable) >= end:
                 curtable = curtable[:end]
                 break
@@ -753,6 +802,7 @@ def search_tables(md: str, seek: str, surround=None) -> str:
                 break
             else:
                 curtable = []
+
     if found:
         return "".join(curtable)
     else:
@@ -760,25 +810,27 @@ def search_tables(md: str, seek: str, surround=None) -> str:
 
 
 def traverse_md(md: str, seek: str) -> str:
-    """
-    returns all lines under a heading
-    :param md: markdown to operate on, expects no trailing newline
-    :param seek: heading to search for
-    """
     result = ""
     level = 0
+    seek = seek.strip(": ").upper()
+
     for line in md.split("\n"):
         if line.strip().startswith("#") or level:
-            current_level = len(line.strip()) - len(line.strip().lstrip("#"))
-            if current_level and level >= current_level:
+            # Determine level of current line
+            current_level = 0
+            if line.strip().startswith("#"):
+                current_level = len(line.strip()) - len(line.strip().lstrip("#"))
+
+            if current_level and level >= current_level and level != 0:
+                # Close section
                 level = 0
                 continue
-            if (
-                level
-                or line.strip().lstrip("#").strip(": ").upper()
-                == seek.strip(": ").upper()
-            ):
+
+            # Check if this is the start
+            header_content = line.strip().lstrip("#").strip(": ").upper()
+            if level or header_content == seek:
                 if not level:
                     level = current_level
+
                 result += line + "\n"
     return result
