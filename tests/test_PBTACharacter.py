@@ -8,7 +8,7 @@ class TestPBTACharacter(unittest.TestCase):
         # Create an example character
         self.example_character = PBTACharacter(
             info={"Name": "Alice", "Player Name": "Bob"},
-            moves=[["Move 1", False], ["Move 2", True]],
+            moves=[("Move 1", False), ("Move 2", True)],
             health={
                 "Healing": {"Current": 3, "Maximum": 4},
                 "3": ["level 3 wound", "somehow, another"],

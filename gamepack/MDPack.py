@@ -650,6 +650,8 @@ class MDObj:
         return self
 
     def to_md(self, do_header: bool = True) -> str:
+        if not self.level:
+            self.set_levels(0)
 
         if self.plaintext.strip():
             body = self.plaintext.rstrip() + "\n"
