@@ -260,8 +260,25 @@ class TestDiceParser(TestCase):
     def test_project(self):
         self.assertLess(int(self.p.project("1 10")), 10)
 
-    def test_regexroute(self):
-        self.p.regexrouter.run("3 ,4 @5 R2", True)
+    def test_dice_parsing(self):
+        self.p.extract_diceparams("3 ,4 @5 R2")
+
+    def test_legacy_regex_router(self):
+        from gamepack.RegexRouter import DiceRegexRouter
+
+        router = DiceRegexRouter.get_dice_router()
+        params = router.run("3 ,4 @5 R2", True)
+        self.assertEqual(params["amount"], 5)
+        self.assertEqual(params["rerolls"], 2)
+        self.assertEqual(params["returnfun"], "3,4@")
+
+        params = router.run("10d10s!!e6", True)
+        self.assertEqual(params["amount"], 10)
+        self.assertEqual(params["sides"], 10)
+        self.assertEqual(params["sort"], True)
+        self.assertEqual(params["explosion"], 2)
+        self.assertEqual(params["returnfun"], "threshhold")
+        self.assertEqual(params["difficulty"], 6)
 
     def test_resonances(self):
         # create a DiceParser object

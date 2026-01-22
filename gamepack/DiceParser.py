@@ -4,20 +4,13 @@ from collections import deque
 from typing import List, Union, Dict
 
 from gamepack.Calc import evaluate
-from gamepack.Dice import DescriptiveError, Dice
-from gamepack.RegexRouter import (
-    RegexRouter,
-    DuplicateKeyException,
-    PartialMatchException,
-)
+from gamepack.Dice import DescriptiveError, Dice, DiceCodeError
+from gamepack.DiceExpressionParser import DiceExpressionParser
+
 
 logger = logging.getLogger(__name__)
 math_formula_regex = re.compile(r"(\b\d[\d\s+/*-]+\d\b)")
 numbers_and_commas = re.compile(r"\s*\d[\d,\s]*$")
-
-
-class DiceCodeError(Exception):
-    pass
 
 
 class MessageReturn(Exception):
@@ -98,7 +91,7 @@ class Node:
 class DiceParser:
     last_parse: "DiceParser"
     rolllogs: deque[Dice]
-    regexrouter = RegexRouter()
+    dice_expression_parser = DiceExpressionParser()
 
     def __init__(self, defines=None, lastroll=None, lastparse=None):
         self.dbg = ""
@@ -122,70 +115,6 @@ class DiceParser:
         )
         return self.define_regex
 
-    @staticmethod
-    @regexrouter.register(re.compile(r"^(?P<returnfun>(-?\d+(\s*,\s*)?)+\s*@)"))
-    def extract_selectors(matches):
-        return {"returnfun": matches["returnfun"].replace(" ", "")}
-
-    @staticmethod
-    @regexrouter.register(re.compile(r"(?<=[\d -])d\s*(?P<sides>\d{1,5})"))
-    def extract_sides(matches):
-        if matches.get("sides", ""):
-            return {"sides": int(matches["sides"])}
-
-    @staticmethod
-    @regexrouter.register(re.compile(r"(?<=[\d-])\s*[rR]\s*(?P<rerolls>-?\s*\d+)"))
-    def extract_reroll(matches):
-        if matches.get("rerolls", ""):
-            return {"rerolls": int(matches["rerolls"].replace(" ", ""))}
-        else:
-            return {}
-
-    @staticmethod
-    @regexrouter.register(re.compile(r"(?<=[\d-])(?P<sort>s)"))
-    def extract_sort(matches):
-        return {"sort": bool(matches.get("sort", ""))}
-
-    @staticmethod
-    @regexrouter.register(re.compile(r"^(.*@)?(?P<amount>\s*-?\s*(\d+))(?!.*@)"))
-    def extract_core(matches):
-        return {"amount": int(matches["amount"].replace(" ", ""))}
-
-    @staticmethod
-    @regexrouter.register(
-        re.compile(
-            r"^([-\d,\s]*@)?(?P<literal>(\[(\s*-?\s*\d+\s*,?)+\s*])|-+)(?!\s*\d)"
-        )
-    )
-    def extract_literal(matches):
-        literal = matches["literal"].strip()
-        return {
-            "amount": (
-                literal
-                if literal and all(x == "-" for x in literal)
-                else [int(x) for x in literal[1:-1].split(",")]
-            )
-        }
-
-    @staticmethod
-    @regexrouter.register(re.compile(r"(?P<end>[g=~hl])!*$"))
-    def extract_base_functions(matches):
-        functions = {"g": "sum", "h": "max", "l": "min", "~": "none", "=": "id"}
-        return {"returnfun": functions[matches["end"]]}
-
-    @staticmethod
-    @regexrouter.register(re.compile(r"(?P<one>[ef])\s*(?P<difficulty>(\d+))!*$"))
-    def extract_threshhold(matches):
-        r = {"returnfun": "threshhold", "onebehaviour": "f" in matches["one"]}
-        if matches["difficulty"]:
-            r["difficulty"] = int(matches["difficulty"])
-        return r
-
-    @staticmethod
-    @regexrouter.register(re.compile(r"(?P<explosion>!+)$"))
-    def extract_explosion(matches):
-        return {"explosion": len(matches["explosion"])}
-
     usage = "[<Selectors>@]<dice>[d<sides>[R<rerolls>][s][ef<difficulty>ghl][!!!]]"
 
     @classmethod
@@ -196,13 +125,15 @@ class DiceParser:
         :return: dictionary of paramaters
         """
         try:
-            params = cls.regexrouter.run(message, True)
-        except DuplicateKeyException as e:
-            raise DescriptiveError(
-                f"Interpretation Conflict: {e.args[3]} vs {e.args[4]}"
-            )
-        except PartialMatchException:
+            params = cls.dice_expression_parser.parse(message)
+        except (DiceCodeError, DescriptiveError):
+            raise
+        except Exception as e:
+            raise DiceCodeError(message + " is not valid. \n" + cls.usage) from e
+
+        if params is None:
             raise DiceCodeError(message + " is not valid. \n" + cls.usage)
+
         # sanitychecks:
         if "@" in message and "@" not in params.get("returnfun", ""):
             raise DiceCodeError(f"Invalid Selectors in: {message}")
@@ -286,7 +217,7 @@ class DiceParser:
             if roll.code[pos[0] : pos[1]] != key:
                 raise Exception(
                     f"Offset Calculation Failed! {roll.code}@{pos} \n"
-                    f"{key}:{roll.code[pos[0]:pos[1]]}"
+                    f"{key}:{roll.code[pos[0] : pos[1]]}"
                 )
 
             roll.code = roll.code[: pos[0]] + toreplace + roll.code[pos[1] :]

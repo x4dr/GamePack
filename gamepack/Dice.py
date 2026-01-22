@@ -6,6 +6,10 @@ class DescriptiveError(Exception):
     pass
 
 
+class DiceCodeError(Exception):
+    pass
+
+
 logger = logging.getLogger(__name__)
 
 

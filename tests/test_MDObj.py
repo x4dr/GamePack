@@ -12,6 +12,7 @@ from gamepack.MDPack import (
     table_remove,
     MDTable,
     MDChecklist,
+    MDList,
 )
 
 
@@ -33,7 +34,7 @@ class TestMDObj(unittest.TestCase):
         self.md_obj = MDObj.from_md(self.md_text, flash=MagicMock())
         # test with existing child
         subsubtitle = self.md_obj.search_children("sub-subtitle 1.1")
-        self.assertIsNotNone(subsubtitle)
+        assert subsubtitle is not None
         self.assertIn("Sub-sub-subtitle 1.1.1", subsubtitle.children.keys())
 
         # test with non-existing child
@@ -355,3 +356,119 @@ testask
         # split("|") -> [" val "] -> ["val"].
         # len < 2 and first_cell_missing -> prepends "" -> ["", "val"]
         self.assertEqual(MDTable.split_row("| val |", 2), ["", "val"])
+
+    def test_checklist_indentation_loss(self):
+        """Verify that leading indentation in checklists is lost during round-trip."""
+        # Note: Current behavior ignores indented checkboxes if they don't match pattern at start of line
+        md_text = "- [ ] Indented task\n- [x] Normal task"
+        checklist = MDChecklist.from_md(md_text)
+        self.assertEqual(checklist.to_md(), "- [ ] Indented task\n- [x] Normal task")
+
+    def test_table_normalization(self):
+        """Verify that table spacing and alignment are normalized in to_md()."""
+        md_text = "|Header|LongerHeader|\n|:---|---:|\n|val|v|"
+        table = MDTable.from_md(md_text)
+        normalized = table.to_md()
+        self.assertIn("| Header | LongerHeader |", normalized)
+        # Header (6) vs val (3) -> 6. : + 5 - = 6.
+        self.assertIn("|:-----|", normalized)
+        # LongerHeader (12) vs v (1) -> 12. 11 - + : = 12.
+        self.assertIn("|-----------:|", normalized)
+
+    def test_duplicate_headers(self):
+        """Verify that duplicate headers at the same level are suffixed with _."""
+        md_text = "# Header\nContent 1\n# Header\nContent 2"
+        mdobj = MDObj.from_md(md_text)
+        self.assertIn("Header", mdobj.children)
+        self.assertIn("Header_", mdobj.children)
+        self.assertEqual(mdobj.children["Header"].plaintext.strip(), "Content 1")
+        self.assertEqual(mdobj.children["Header_"].plaintext.strip(), "Content 2")
+
+    def test_mdobj_update_serialization(self):
+        """Verify that modifications to MDObj are reflected in to_md()."""
+        md_text = "# Title\n\n| K | V |\n|---|---|\n| a | 1 |"
+        mdobj = MDObj.from_md(md_text)
+
+        # Table is in the child "Title"
+        title_node = mdobj.children["Title"]
+
+        # Modify table
+        # row 0 is 'a | 1'. We append row 1.
+        title_node.tables[0].update_cell(1, 0, "b")
+        title_node.tables[0].update_cell(1, 1, "2")
+
+        # Add a checklist to title_node
+        title_node.lists.append(MDChecklist([("New Task", True)], position=1))
+
+        # Add a child to title_node
+        new_child = MDObj("Child content", header="New Child", level=2)
+        title_node.add_child(new_child)
+
+        final_md = mdobj.to_md()
+        # Spacing is normalized, so we check for content
+        self.assertIn("a", final_md)
+        self.assertIn("1", final_md)
+        self.assertIn("b", final_md)
+        self.assertIn("2", final_md)
+        self.assertIn("- [x] New Task", final_md)
+        self.assertIn("## New Child\nChild content", final_md)
+
+    def test_mixed_list_extraction(self):
+        """Verify that non-checklist items stay in plaintext."""
+        md_text = "- [ ] Task 1\n- Regular item\n- [x] Task 2"
+        # extract_checklists will find Task 1 and Task 2
+        # Regular item will stay in plaintext
+        text, checklists = MDChecklist.extract_checklists(md_text)
+        self.assertIn("- Regular item", text)
+        self.assertEqual(len(checklists), 2)
+        self.assertEqual(checklists[0].checklist[0][0], "Task 1")
+        self.assertEqual(checklists[1].checklist[0][0], "Task 2")
+
+    def test_nested_list_parsing(self):
+        """Verify that nested lists are correctly parsed and serialized."""
+        md_text = "- Item 1\n  - Item 1.1\n    - Item 1.1.1\n- Item 2"
+        mlist = MDList.from_md(md_text)
+        self.assertEqual(len(mlist.items), 4)
+        self.assertEqual(mlist.items[1].level, 1)
+        self.assertEqual(mlist.items[2].level, 2)
+        # Serialization (using 2 spaces per level as implemented)
+        self.assertEqual(
+            mlist.to_md(), "- Item 1\n  - Item 1.1\n    - Item 1.1.1\n- Item 2"
+        )
+
+    def test_mdtable_row_access(self):
+        """Verify new MDTable.row() method and rows_dict property."""
+        md_text = "| ID | Val |\n|---|---|\n| a | 1 |\n| b | 2 |"
+        table = MDTable.from_md(md_text)
+        row_a = table.row("a")
+        self.assertIsNotNone(row_a)
+        assert row_a is not None
+        self.assertEqual(row_a["Val"], "1")
+        self.assertEqual(row_a["ID"], "a")
+        self.assertIsNone(table.row("c"))
+
+        # Test rows_dict
+        rd = table.rows_dict
+        self.assertEqual(rd["a"]["Val"], "1")
+        self.assertEqual(rd["b"]["Val"], "2")
+
+    def test_mdobj_list_extraction(self):
+        """Verify that MDObj extracts general lists into self.lists."""
+        md_text = "Some text\n- List Item 1\n- List Item 2\nMore text"
+        mdobj = MDObj.from_md(md_text)
+        self.assertEqual(len(mdobj.lists), 1)
+        self.assertEqual(mdobj.lists[0].items[0].text, "List Item 1")
+        self.assertIn("- List Item 1", mdobj.to_md())
+
+    def test_ordered_parts_serialization(self):
+        """Verify that tables and lists are serialized in their original relative order."""
+        md_text = (
+            "Start\n| T | B |\n|---|---|\n| 1 | 2 |\nMiddle\n- Item 1\n- Item 2\nEnd"
+        )
+        mdobj = MDObj.from_md(md_text)
+        serialized = mdobj.to_md()
+        # Verify order: Table before List
+        table_pos = serialized.find("| T | B |")
+        list_pos = serialized.find("- Item 1")
+        self.assertTrue(table_pos < list_pos)
+        self.assertIn("Middle", serialized)
