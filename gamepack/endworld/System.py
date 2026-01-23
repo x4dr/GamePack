@@ -7,13 +7,15 @@ from gamepack.MDPack import MDTable
 def to_heatformat(data: Dict[str, Any]) -> str:
     parts = []
     heat_keys = sorted(
-        (k for k in data if k.startswith("heat")), key=lambda x: int(x[4:])
+        (k for k in data if k.startswith("heat") and k[4:].isdigit()),
+        key=lambda x: int(x[4:]),
     )
     for k in heat_keys:
-        parts.append(str(data[k]))
+        val = data[k]
+        parts.append(f"{val:g}")
     for k, v in data.items():
-        if not k.startswith("heat"):
-            parts.append(f"{k} {v}")
+        if not (k.startswith("heat") and k[4:].isdigit()):
+            parts.append(f"{k} {v:g}")
     return "; ".join(parts)
 
 
@@ -68,14 +70,22 @@ class System:
         return self.mass * self.amount
 
     def to_dict(self) -> dict:
-        return {
-            **{k.title(): v for k, v in self._data.items()},
-            "Mass": self.mass,
-            "Amount": self.amount,
-            "Energy": self.energy,
-            "Heat": to_heatformat(self.heats),
-            "Enabled": self.enabled,
-        }
+        def format_val(v):
+            if isinstance(v, (int, float)):
+                return f"{v:g}"
+            return str(v)
+
+        res = {k.title(): format_val(v) for k, v in self._data.items()}
+        res.update(
+            {
+                "Mass": f"{self.mass:g}",
+                "Amount": f"{self.amount:g}",
+                "Energy": f"{self.energy:g}",
+                "Heat": to_heatformat(self.heats),
+                "Enabled": self.enabled,
+            }
+        )
+        return res
 
     def get_headers(self) -> List[str]:
         bonusheaders = []
@@ -128,13 +138,18 @@ class System:
         parts = [p.strip() for p in str(inp).strip().split(";") if p.strip()]
         try:
             for i, part in enumerate(parts):
-                m = re.match(r"(.*?)(\d+)$", part)
-                name, val = (
-                    (m.group(1).strip().lower(), m.group(2))
-                    if m
-                    else (f"heat{i}", part)
+                match = re.match(
+                    r"^\s*(?:(?P<name>.*?)\s+)?(?P<val>-?\d+(?:\.\d+)?)\s*$", part
                 )
-                result[name or f"heat{i}"] = self.number(val)
+                if match:
+                    name = match.group("name")
+                    val = match.group("val")
+                    if name:
+                        result[name.lower()] = float(val)
+                    else:
+                        result[f"heat{i}"] = float(val)
+                else:
+                    result[f"heat{i}"] = self.number(part)
             return result
         except (AttributeError, ValueError, TypeError):
             return result

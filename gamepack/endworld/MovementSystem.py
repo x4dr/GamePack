@@ -73,8 +73,8 @@ class MovementSystem(System):
     def to_dict(self) -> dict:
         return {
             **super().to_dict(),
-            "Thrust": self.thrust,
-            "Anchor": self.anchor,
-            "Dynamics": self.dynamics,
+            "Thrust": f"{self.thrust:g}",
+            "Anchor": f"{self.anchor:g}",
+            "Dynamics": f"{self.dynamics:g}",
             "Enabled": self.enabled,
         }

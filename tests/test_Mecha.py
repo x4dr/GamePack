@@ -43,7 +43,7 @@ def basic_seal():
 def test_sealsystem_to_dict_and_headers(basic_seal):
     s = basic_seal
     d = s.to_dict()
-    assert d["Level"] == 2
+    assert d["Level"] == "2"
     assert "Test" in basic_seal.get_headers()
 
 
@@ -61,7 +61,7 @@ def test_heat_add_and_withdraw(basic_heat):
     assert h.current == 2
     # withdraw more than current → returns remaining
     assert h.withdraw_heat(5) == 2
-    assert h.current == 2
+    assert h.current == 0
 
 
 def test_heat_spare_capacity(basic_heat):
@@ -302,7 +302,7 @@ def test_process_loadout_bracket_skipping(mecha_with_systems):
     # include brackets in plaintext
     result = m.process_loadout("[5], A, [10], M1")
     # brackets should be ignored, result should include non-bracket entries
-    assert result == ["A???", "[0]", mecha_with_systems.Movement["M1"], "[2.0]"]
+    assert result == ["A???", "[0]", mecha_with_systems.Movement["M1"], "[2]"]
 
 
 def test_calculate_speeds(mecha_with_systems):

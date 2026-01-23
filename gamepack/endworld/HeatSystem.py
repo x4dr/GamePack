@@ -55,11 +55,11 @@ class HeatSystem(System):
     def to_dict(self) -> dict:
         return {
             **super().to_dict(),
-            "Capacity": self.capacity,
+            "Capacity": f"{self.capacity:g}",
             "Passive": self.passive,
             "Active": self.active,
-            "Flux": self.flux,
-            "Current": self.current,
+            "Flux": f"{self.flux:g}",
+            "Current": f"{self.current:g}",
         }
 
     def spare_capacity(self) -> float:

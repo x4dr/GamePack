@@ -14,7 +14,7 @@ class SealSystem(System):
         self.level = self.number(self.extract("level"))
 
     def to_dict(self) -> dict:
-        return {"Level": self.level}
+        return {"Level": f"{self.level:g}"}
 
     def get_headers(self) -> List[str]:
         bonusheaders = []

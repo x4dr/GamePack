@@ -135,6 +135,18 @@ class Mecha(BaseCharacter):
             mass_sum += sl.total_mass
         return mass_sum
 
+    @property
+    def systems(self) -> Dict[str, Dict[str, System]]:
+        return {
+            "Movement": self.Movement,  # type: ignore
+            "Energy": self.Energy,  # type: ignore
+            "Heat": self.Heat,  # type: ignore
+            "Offensive": self.Offensive,
+            "Defensive": self.Defensive,
+            "Support": self.Support,
+            "Seal": self.Seal,  # type: ignore
+        }
+
     def get_system(self, name: str) -> Optional[System]:
         if name in self.Movement:
             return self.Movement[name]
@@ -263,7 +275,7 @@ class Mecha(BaseCharacter):
 
         for item, cost in prio:
             if used + cost > current_budget:
-                result.append(f"[{current_budget}]")
+                result.append(f"[{current_budget:g}]")
                 used = 0.0
                 try:
                     current_budget = next(budget_iter)
@@ -271,7 +283,7 @@ class Mecha(BaseCharacter):
                     pass
             result.append(item)
             used += cost
-        result.append(f"[{current_budget}]")
+        result.append(f"[{current_budget:g}]")
         return result
 
     def fluxmax(self) -> float:
