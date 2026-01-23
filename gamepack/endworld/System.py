@@ -117,10 +117,14 @@ class System:
 
         return MDTable(rows, [""] + headers)
 
-    def use(self, parameter: Optional[str]) -> float:
-        param = parameter.lower() if parameter else ""
+    def use(self, parameter: Optional[Any]) -> float:
+        if isinstance(parameter, int):
+            parameter = ""
+        param = str(parameter).lower() if parameter else ""
         if not param:  # default is toggle
             self.enabled = "[ ]" if self.is_active() else "[x]"
+        elif param == "cycle":
+            self.enabled = "[-]" if not self.is_disabled() else "[ ]"
         elif param == "disable":
             self.enabled = "[-]"
         elif param == "enable":
