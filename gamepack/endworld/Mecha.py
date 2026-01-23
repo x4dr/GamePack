@@ -1,18 +1,33 @@
 from itertools import product
-from typing import Dict, List, Optional, Any, Union, Tuple, Iterable
+from typing import Dict, List, Optional, Any, Union, Tuple, Iterable, Callable
 
+from gamepack.BaseCharacter import BaseCharacter
 from gamepack.MDPack import MDObj
-from gamepack.endworld.HeatSystem import HeatSystem
-from gamepack.endworld.EnergySystem import EnergySystem
-from gamepack.endworld.MovementSystem import MovementSystem
-from gamepack.endworld.SealSystem import SealSystem
-from gamepack.endworld.System import System
+from .EnergySystem import EnergySystem
+from .HeatSystem import HeatSystem
+from .MovementSystem import MovementSystem
+from .SealSystem import SealSystem
+from .System import System
 
 
-class Mecha:
+class Mecha(BaseCharacter):
+    description: Dict[str, Any]
+    speeds_at_seconds: List[int]
+    _totalmass: float
+    Movement: Dict[str, MovementSystem]
+    Energy: Dict[str, EnergySystem]
+    Heat: Dict[str, HeatSystem]
+    Offensive: Dict[str, System]
+    Defensive: Dict[str, System]
+    Support: Dict[str, System]
+    Seal: Dict[str, SealSystem]
+    _categories: List[str]
+    heatflux: float
+    loadouts: Dict[str, List[Union[System, str]]]
+
     def __init__(self):
+        super().__init__()
         self.description: Dict[str, Any] = {}
-        self.errors: List[str] = []
         self.speeds_at_seconds = list(range(16)) + [20, 30, 50, 100]
         self._totalmass = 0.0
         self.Movement: Dict[str, MovementSystem] = {}
@@ -23,7 +38,6 @@ class Mecha:
         self.Support: Dict[str, System] = {}
         self.Seal: Dict[str, SealSystem] = {}
 
-        # Helper for iteration
         self._categories: List[str] = [
             "Movement",
             "Energy",
@@ -37,28 +51,15 @@ class Mecha:
         self.heatflux = 0.0
         self.loadouts: Dict[str, List[Union[System, str]]] = {}
 
-    def get_systems_by_category(self, category: str) -> Dict[str, Any]:
-        if category == "Movement":
-            return self.Movement
-        if category == "Energy":
-            return self.Energy
-        if category == "Heat":
-            return self.Heat
-        if category == "Offensive":
-            return self.Offensive
-        if category == "Defensive":
-            return self.Defensive
-        if category == "Support":
-            return self.Support
-        if category == "Seal":
-            return self.Seal
-        return {}
-
     @classmethod
-    def from_mdobj(cls, mdobj: MDObj) -> "Mecha":
+    def from_mdobj(
+        cls, mdobj: MDObj, flash_func: Optional[Callable[[str], None]] = None
+    ) -> "Mecha":
         instance = cls()
 
         def flash(err: str):
+            if flash_func:
+                flash_func(err)
             instance.errors.append(err)
 
         if mdobj.plaintext.strip():
@@ -75,16 +76,29 @@ class Mecha:
             flash(e)
 
         systems_node = mdobj.children.get("Systems", MDObj.empty())
+
         for key in instance._categories:
             sys_node: MDObj = systems_node.children.get(key, MDObj.empty())
             tables, errs = sys_node.confine_to_tables(True)
             for e in errs:
                 flash(e)
 
-            target_dict = instance.get_systems_by_category(key)
             for k, v in tables.items():
                 if isinstance(v, dict):
-                    target_dict[k] = System.create(key, k, v)
+                    if key == "Movement":
+                        instance.Movement[k] = MovementSystem(k, v)
+                    elif key == "Energy":
+                        instance.Energy[k] = EnergySystem(k, v)
+                    elif key == "Heat":
+                        instance.Heat[k] = HeatSystem(k, v)
+                    elif key == "Seal":
+                        instance.Seal[k] = SealSystem(k, v)
+                    elif key == "Offensive":
+                        instance.Offensive[k] = System(k, v)
+                    elif key == "Defensive":
+                        instance.Defensive[k] = System(k, v)
+                    elif key == "Support":
+                        instance.Support[k] = System(k, v)
 
         loadouts_node: MDObj = mdobj.children.get("Loadouts", MDObj.empty())
         for loadout_name, loadout_node in loadouts_node.children.items():
@@ -93,11 +107,11 @@ class Mecha:
             )
         if "Default" not in instance.loadouts:
             default_loadout: List[Union[System, str]] = []
-            default_loadout.extend(instance.Movement.values())
-            default_loadout.extend(instance.Heat.values())
-            default_loadout.extend(instance.Defensive.values())
-            default_loadout.extend(instance.Offensive.values())
-            default_loadout.extend(instance.Support.values())
+            default_loadout.extend(list(instance.Movement.values()))
+            default_loadout.extend(list(instance.Heat.values()))
+            default_loadout.extend(list(instance.Defensive.values()))
+            default_loadout.extend(list(instance.Offensive.values()))
+            default_loadout.extend(list(instance.Support.values()))
             instance.loadouts["Default"] = default_loadout
 
         return instance
@@ -105,38 +119,54 @@ class Mecha:
     @property
     def total_mass(self) -> float:
         mass_sum = 0.0
-        for key in self._categories:
-            for s in self.get_systems_by_category(key).values():
-                if isinstance(s, System):
-                    mass_sum += s.total_mass
+        for m in self.Movement.values():
+            mass_sum += m.total_mass
+        for e in self.Energy.values():
+            mass_sum += e.total_mass
+        for h in self.Heat.values():
+            mass_sum += h.total_mass
+        for o in self.Offensive.values():
+            mass_sum += o.total_mass
+        for d in self.Defensive.values():
+            mass_sum += d.total_mass
+        for s in self.Support.values():
+            mass_sum += s.total_mass
+        for sl in self.Seal.values():
+            mass_sum += sl.total_mass
         return mass_sum
 
     def get_system(self, name: str) -> Optional[System]:
-        for key in self._categories:
-            cat = self.get_systems_by_category(key)
-            if name in cat:
-                return cat[name]
+        if name in self.Movement:
+            return self.Movement[name]
+        if name in self.Energy:
+            return self.Energy[name]
+        if name in self.Heat:
+            return self.Heat[name]
+        if name in self.Offensive:
+            return self.Offensive[name]
+        if name in self.Defensive:
+            return self.Defensive[name]
+        if name in self.Support:
+            return self.Support[name]
+        if name in self.Seal:
+            return self.Seal[name]
         return None
 
     def speeds(self) -> Dict[str, Any]:
         result = {}
         for mname, msys in self.Movement.items():
-            if not msys.is_active():
-                continue
-            speeds_list = msys.speeds(self.total_mass)
-            final = speeds_list[-1]
-            s = {str(x): speeds_list[x] for x in range(min(121, len(speeds_list)))}
+            if msys.is_active():
+                speeds_list = msys.speeds(self.total_mass)
+                final = speeds_list[-1]
+                s = {str(x): speeds_list[x] for x in range(min(121, len(speeds_list)))}
 
-            result[mname] = {
-                "speeds": s,
-                "topspeed": final,
-                "acceleration_time": len(speeds_list),
-                "g": (speeds_list[1] if len(speeds_list) > 1 else 0.0) / 9.81,
-            }
+                result[mname] = {
+                    "speeds": s,
+                    "topspeed": final,
+                    "acceleration_time": len(speeds_list),
+                    "g": (speeds_list[1] if len(speeds_list) > 1 else 0.0) / 9.81,
+                }
         return result
-
-    def to_md(self) -> str:
-        return self.to_mdobj().to_md()
 
     def to_mdobj(self) -> MDObj:
         def flash(err: str):
@@ -168,19 +198,28 @@ class Mecha:
 
     def systems_mdobj(self) -> MDObj:
         systems_mdo = MDObj.empty()
-        for key in self._categories:
-            sys_dict = self.get_systems_by_category(key)
-            if key in System.registry:
-                table = System.registry[key].as_table(sys_dict.values())
-                systems_mdo.add_child(MDObj("", tables=[table], header=key))
+        cat_data: List[Tuple[str, Iterable[System], type[System]]] = [
+            ("Movement", self.Movement.values(), MovementSystem),
+            ("Energy", self.Energy.values(), EnergySystem),
+            ("Heat", self.Heat.values(), HeatSystem),
+            ("Offensive", self.Offensive.values(), System),
+            ("Defensive", self.Defensive.values(), System),
+            ("Support", self.Support.values(), System),
+            ("Seal", self.Seal.values(), SealSystem),
+        ]
+        for key, vals, cls in cat_data:
+            table = cls.as_table(vals)
+            systems_mdo.add_child(MDObj("", tables=[table], header=key))
         return systems_mdo
 
     def process_loadout(self, plaintext: str) -> List[Union[System, str]]:
         available_systems: Dict[str, System] = {}
-        for key in self._categories:
-            if key == "Energy":
-                continue
-            available_systems.update(self.get_systems_by_category(key))
+        available_systems.update(self.Movement)
+        available_systems.update(self.Heat)
+        available_systems.update(self.Offensive)
+        available_systems.update(self.Defensive)
+        available_systems.update(self.Support)
+        available_systems.update(self.Seal)
 
         energies = list(self.Energy.values())
         n = len(energies)
@@ -243,13 +282,11 @@ class Mecha:
         return flux
 
     def add_heat(self, amt: float) -> float:
-        systems = list(self.Heat.values())
-        for sys in systems:
-            if not sys.is_active():
-                continue
-            amt = sys.add_heat(amt)
-            if amt == 0:
-                break
+        for sys in self.Heat.values():
+            if sys.is_active():
+                amt = sys.add_heat(amt)
+                if amt == 0:
+                    break
         return amt
 
     def tick_heat(self) -> Dict[str, float]:
@@ -289,10 +326,12 @@ class Mecha:
 
         if not self.loadouts:
             all_systems: List[Union[System, str]] = []
-            for key in self._categories:
-                for s in self.get_systems_by_category(key).values():
-                    if isinstance(s, System):
-                        all_systems.append(s)
+            all_systems.extend(self.Movement.values())
+            all_systems.extend(self.Heat.values())
+            all_systems.extend(self.Offensive.values())
+            all_systems.extend(self.Defensive.values())
+            all_systems.extend(self.Support.values())
+            all_systems.extend(self.Seal.values())
             all_systems.sort(key=lambda s: s.name if isinstance(s, System) else str(s))
             self.loadouts["Default"] = all_systems
 
@@ -325,7 +364,21 @@ class Mecha:
             res.update(self.Support)
             return res
 
-        return self.get_systems_by_category(name)
+        if name == "Movement":
+            return self.Movement  # type: ignore
+        if name == "Energy":
+            return self.Energy  # type: ignore
+        if name == "Heat":
+            return self.Heat  # type: ignore
+        if name == "Offensive":
+            return self.Offensive
+        if name == "Defensive":
+            return self.Defensive
+        if name == "Support":
+            return self.Support
+        if name == "Seal":
+            return self.Seal  # type: ignore
+        return {}
 
     def use_system(self, systemtype: str, name: str, parameter: Optional[Any]):
         syscat = self.get_syscat(systemtype.capitalize())
@@ -336,10 +389,27 @@ class Mecha:
         self.heatflux += self.add_heat(heat)
 
     def flux_baseload(self):
-        for key in self._categories:
-            for sys in self.get_systems_by_category(key).values():
-                if isinstance(sys, System) and sys.is_active():
-                    self.heatflux += sys.heats.get("heat0", 0.0)
+        for m in self.Movement.values():
+            if m.is_active():
+                self.heatflux += m.heats.get("heat0", 0.0)
+        for e in self.Energy.values():
+            if e.is_active():
+                self.heatflux += e.heats.get("heat0", 0.0)
+        for h in self.Heat.values():
+            if h.is_active():
+                self.heatflux += h.heats.get("heat0", 0.0)
+        for o in self.Offensive.values():
+            if o.is_active():
+                self.heatflux += o.heats.get("heat0", 0.0)
+        for d in self.Defensive.values():
+            if d.is_active():
+                self.heatflux += d.heats.get("heat0", 0.0)
+        for s in self.Support.values():
+            if s.is_active():
+                self.heatflux += s.heats.get("heat0", 0.0)
+        for sl in self.Seal.values():
+            if sl.is_active():
+                self.heatflux += sl.heats.get("heat0", 0.0)
 
     # Dashboard Helpers
     def current_top_speed(self) -> float:
@@ -351,6 +421,7 @@ class Mecha:
         return max_s
 
     def current_flux(self) -> float:
+        """current flux"""
         return self.heatflux
 
     def energy_output(self) -> float:

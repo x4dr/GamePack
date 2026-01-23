@@ -2,10 +2,11 @@ from typing import Dict, Any, List
 from gamepack.endworld.System import System
 
 
-@System.register("Seal")
 class SealSystem(System):
     headers = ["Level"]
     systype = "seal"
+
+    level: float
 
     def __init__(self, name: str, data: Dict[str, Any]):
         defaults = {"mass": 0, "amount": 1, "energy": 0}

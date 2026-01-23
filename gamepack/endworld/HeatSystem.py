@@ -2,7 +2,6 @@ from typing import Dict, Any, Tuple, Optional
 from gamepack.endworld.System import System
 
 
-@System.register("Heat")
 class HeatSystem(System):
     headers = [
         "Energy",
@@ -17,6 +16,13 @@ class HeatSystem(System):
         "Enabled",
     ]
     systype = "heat"
+
+    thermal: float
+    capacity: float
+    passive: str
+    active: str
+    flux: float
+    current: float
 
     def __init__(self, name: str, data: Dict[str, Any]):
         super().__init__(name, data)
@@ -67,11 +73,13 @@ class HeatSystem(System):
             return overage
         return 0.0
 
-    def withdraw_heat(self, amount: float) -> float:
-        if amount <= self.current:
-            self.current -= amount
-            return amount
-        return self.current
+    def withdraw_heat(self, amt: float) -> float:
+        if amt <= self.current:
+            self.current -= amt
+            return amt
+        res = self.current
+        self.current = 0.0
+        return res
 
     def tick(self) -> float:
         amount = 0.0

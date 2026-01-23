@@ -8,12 +8,13 @@ from collections import OrderedDict
 
 from typing import List, Tuple, Self, Union, Callable, Optional
 
+from gamepack.BaseCharacter import BaseCharacter
 from gamepack.Item import Item, total_table
 from gamepack.DiceParser import fullparenthesis, fast_fullparenthesis
 from gamepack.MDPack import MDObj, MDTable
 
 
-class FenCharacter:
+class FenCharacter(BaseCharacter):
     Inventory: List[Item]
     description_headings = [
         "charakter",
@@ -47,6 +48,7 @@ class FenCharacter:
     concept_headings = ["konzept", "konzepte", "concepts"]
 
     def __init__(self):
+        super().__init__()
         self.Inventory_Bonus_Headers: set[str] = set()
         self.definitions = None
         self.Tags = ""
@@ -58,7 +60,6 @@ class FenCharacter:
         self.Storage = ""
         self.Timestamp = time.strftime("%Y/%m/%d-%H:%M:%S")
         self.xp_cache = {}
-        self.errors = []
         self.headings_used = {}
 
     def stat_definitions(self) -> dict:

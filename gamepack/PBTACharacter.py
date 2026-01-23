@@ -1,10 +1,11 @@
 from typing import List, Dict, Tuple, Optional, Self, Union, Callable
+from gamepack.BaseCharacter import BaseCharacter
 from gamepack.Item import tryfloatdefault
 from gamepack.MDPack import MDObj, MDTable, MDChecklist
 from gamepack.PBTAItem import PBTAItem
 
 
-class PBTACharacter:
+class PBTACharacter(BaseCharacter):
     def __init__(
         self,
         info: Dict[str, str],
@@ -17,6 +18,7 @@ class PBTACharacter:
         meta: Optional[Dict[str, MDObj]] = None,
         errors: Optional[List[str]] = None,
     ):
+        super().__init__()
         self.info = info
         self.moves = moves
         self.health = health
@@ -25,7 +27,8 @@ class PBTACharacter:
         self.inventory_bonus_headers = inventory_bonus_headers or set()
         self.notes = notes
         self.meta = meta or {}
-        self.errors = errors or []
+        if errors:
+            self.errors.extend(errors)
 
     info_headings = ["info"]
     health_headings = ["health", "damage"]
@@ -64,11 +67,11 @@ class PBTACharacter:
 
     @classmethod
     def from_mdobj(
-        cls, body: MDObj, handle_error: Optional[Callable[[str], None]] = None
+        cls, mdobj: MDObj, flash_func: Optional[Callable[[str], None]] = None
     ) -> Self:
         errors = []
-        if not handle_error:
-            handle_error = errors.append
+        if not flash_func:
+            flash_func = errors.append
 
         info = {}
         health = {}
@@ -76,18 +79,18 @@ class PBTACharacter:
         stats = {}
         meta = {}
 
-        for k, v in body.children.items():
+        for k, v in mdobj.children.items():
             k_lower = k.lower().strip()
             if k_lower in cls.info_headings:  # processing basic info
                 info, err = v.confine_to_tables()
                 for e in err:
-                    handle_error(e)
+                    flash_func(e)
             elif k_lower in cls.moves_headings:
                 moves = v.all_checklists
             elif k_lower in cls.stats_headings:
                 stats, err = v.confine_to_tables()
                 for e in err:
-                    handle_error(e)
+                    flash_func(e)
             elif k_lower in cls.health_headings:
                 health = {}
                 for t in v.tables:
@@ -116,7 +119,7 @@ class PBTACharacter:
             meta=meta,
             errors=errors,
         )
-        character.post_process(handle_error)
+        character.post_process(flash_func)
         return character
 
     def health_get(self, key: str) -> tuple[int, int]:

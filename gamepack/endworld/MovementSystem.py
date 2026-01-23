@@ -2,7 +2,6 @@ from typing import List, Dict, Any
 from gamepack.endworld.System import System
 
 
-@System.register("Movement")
 class MovementSystem(System):
     headers = [
         "Energy",
@@ -15,6 +14,10 @@ class MovementSystem(System):
         "Enabled",
     ]
     systype = "movement"
+
+    thrust: float
+    anchor: float
+    dynamics: float
 
     def __init__(self, name: str, data: Dict[str, Any]):
         super().__init__(name, data)

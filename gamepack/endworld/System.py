@@ -22,31 +22,15 @@ class System:
     enablers = ["x", "t", "y", "1"]
     disablers = ["-", "disabled", "~"]
 
-    registry: Dict[str, Type["System"]] = {}
-
     systype = "generic"
 
-    @classmethod
-    def register(cls, name: str) -> Callable[[Type["System"]], Type["System"]]:
-        cls.registry.setdefault("Energy", System)
-        cls.registry.setdefault("Offensive", System)
-        cls.registry.setdefault("Defensive", System)
-        cls.registry.setdefault("Support", System)
-
-        def wrapper(subclass: Type["System"]) -> Type["System"]:
-            cls.registry[name] = subclass
-            return subclass
-
-        return wrapper
-
-    @classmethod
-    def create(cls, type_name: str, name: str, data: Dict[str, Any]) -> "System":
-        subclass = cls.registry.get(type_name)
-        if not subclass:
-            instance = cls(name, data)
-            instance.errors.append(f"Unknown system type: {type_name}")
-            return instance
-        return subclass(name, data)
+    name: str
+    errors: List[str]
+    mass: float
+    amount: float
+    energy: float
+    heats: Dict[str, float]
+    enabled: str
 
     def __init__(self, name: str, data: Dict[str, Any]):
         self._data = {k.lower(): v for k, v in data.items()}

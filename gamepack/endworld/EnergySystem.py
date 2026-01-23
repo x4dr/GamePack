@@ -2,7 +2,6 @@ from typing import Dict, Any
 from gamepack.endworld.System import System
 
 
-@System.register("Energy")
 class EnergySystem(System):
     headers = ["Energy", "Mass", "Amount", "Enabled"]
     systype = "energy"

@@ -5,7 +5,7 @@ import threading
 import time
 from datetime import timedelta, datetime, timezone
 from pathlib import Path
-from typing import Self, List, Optional, Union
+from typing import Self, List, Optional, Union, Any
 
 import bleach
 import yaml
@@ -356,6 +356,9 @@ class WikiPage:
             if t.lower() == tag.lower():
                 return True
         return False
+
+    def render(self) -> Any:
+        return None
 
 
 def delayed_push(repo, pushtime: datetime):

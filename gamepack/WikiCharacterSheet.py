@@ -1,16 +1,17 @@
 from pathlib import Path
-from typing import Self, Optional, Union, Dict, Callable, cast
+from typing import Self, Optional, Union, Dict, Callable, Any, cast, Generic, TypeVar
 
+from gamepack.BaseCharacter import BaseCharacter
 from gamepack.FenCharacter import FenCharacter
 from gamepack.PBTACharacter import PBTACharacter
 from gamepack.WikiPage import WikiPage
-from gamepack.endworld import Mecha
+from gamepack.endworld.Mecha import Mecha
 from gamepack.endworld.EWCharacter import EWCharacter
 
+T = TypeVar("T", bound=BaseCharacter)
 
-class WikiCharacterSheet(WikiPage):
-    renderers: Dict[type, Callable] = {}
 
+class WikiCharacterSheet(WikiPage, Generic[T]):
     def __init__(
         self,
         title: str,
@@ -23,19 +24,21 @@ class WikiCharacterSheet(WikiPage):
     ):
         super().__init__(title, tags, body, links, meta, modified, file)
         raw = self.md(True)
-        if {"mecha", "mech"} & set(x.lower() for x in self.tags):
-            self.char = Mecha.from_mdobj(raw)
-        elif "endworld" in [x.lower() for x in self.tags]:
-            self.char = EWCharacter.from_mdobj(raw)
-        elif "pbta" in [x.lower() for x in self.tags]:
-            self.char = PBTACharacter.from_mdobj(raw)
-        elif "character" in [x.lower() for x in self.tags] or (
+        self.char: Optional[T] = None
+
+        lower_tags = [x.lower() for x in self.tags]
+        if {"mecha", "mech"} & set(lower_tags):
+            self.char = cast(T, Mecha.from_mdobj(raw))
+        elif "endworld" in lower_tags:
+            self.char = cast(T, EWCharacter.from_mdobj(raw))
+        elif "pbta" in lower_tags:
+            self.char = cast(T, PBTACharacter.from_mdobj(raw))
+        elif "character" in lower_tags or (
             self.file
             and "character" in self.file.relative_to(self.wikipath()).as_posix()
         ):
-            self.char = FenCharacter.from_mdobj(raw)
-        else:
-            self.char = None
+            self.char = cast(T, FenCharacter.from_mdobj(raw))
+
         self.increment = 0
 
     @classmethod
@@ -83,12 +86,12 @@ class WikiCharacterSheet(WikiPage):
         """
         warning: blocks and requires some time
         """
-        if self.char:
+        if self.char and hasattr(self.char, "to_md"):
             self.body = self.char.to_md()
         super().save(author, page, message)
 
-    def save_low_prio(self, message):
+    def save_low_prio(self, message: str):
         self.increment += 1
-        if self.char:
+        if self.char and hasattr(self.char, "to_md"):
             self.body = self.char.to_md()
         super().save_low_prio(message + " saving charactersheet")
