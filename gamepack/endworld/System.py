@@ -1,10 +1,10 @@
 import re
-from typing import Type, Callable, Iterable
+from typing import Type, Callable, Iterable, Dict, List, Optional, Any
 
 from gamepack.MDPack import MDTable
 
 
-def to_heatformat(data):
+def to_heatformat(data: Dict[str, Any]) -> str:
     parts = []
     heat_keys = sorted(
         (k for k in data if k.startswith("heat")), key=lambda x: int(x[4:])
@@ -22,7 +22,7 @@ class System:
     enablers = ["x", "t", "y", "1"]
     disablers = ["-", "disabled", "~"]
 
-    registry: dict[str, Type["System"]] = {}
+    registry: Dict[str, Type["System"]] = {}
 
     systype = "generic"
 
@@ -40,7 +40,7 @@ class System:
         return wrapper
 
     @classmethod
-    def create(cls, type_name, name, data):
+    def create(cls, type_name: str, name: str, data: Dict[str, Any]) -> "System":
         subclass = cls.registry.get(type_name)
         if not subclass:
             instance = cls(name, data)
@@ -48,17 +48,19 @@ class System:
             return instance
         return subclass(name, data)
 
-    def __init__(self, name, data):
+    def __init__(self, name: str, data: Dict[str, Any]):
         self._data = {k.lower(): v for k, v in data.items()}
         self.name: str = name
-        self.errors = []
+        self.errors: List[str] = []
         self.mass: float = self.number(self.extract("mass"))
         self.amount: float = self.number(self.extract("amount"))
         self.energy: float = self.number(self.extract("energy"))
-        self.heats = self.from_heatformat(self.extract("heat", "0", False))
-        self.enabled = self.extract("enabled")
+        self.heats: Dict[str, float] = self.from_heatformat(
+            self.extract("heat", "0", False)
+        )
+        self.enabled: str = str(self.extract("enabled"))
 
-    def extract(self, key, default: str = "", req=True):
+    def extract(self, key: str, default: str = "", req: bool = True) -> Any:
         if key in self._data:
             return self._data[key]
         else:
@@ -66,19 +68,19 @@ class System:
                 self.errors.append(f"{self.name}: {key} not found in {self._data}.")
             return default
 
-    def number(self, inp: str, default=0):
+    def number(self, inp: Any, default: float = 0.0) -> float:
         try:
-            inp = str(inp).strip()
-            if inp.endswith("%"):
-                return float(inp[:-1]) / 100
+            inp_str = str(inp).strip()
+            if inp_str.endswith("%"):
+                return float(inp_str[:-1]) / 100
             else:
-                return float(inp)
+                return float(inp_str)
         except ValueError:
             self.errors.append(f'"{inp}" is not a valid number')
             return default
 
     @property
-    def total_mass(self):
+    def total_mass(self) -> float:
         return self.mass * self.amount
 
     def to_dict(self) -> dict:
@@ -91,7 +93,7 @@ class System:
             "Enabled": self.enabled,
         }
 
-    def get_headers(self):
+    def get_headers(self) -> List[str]:
         bonusheaders = []
         for h in self._data.keys():
             if h.title() not in self.headers:
@@ -101,40 +103,39 @@ class System:
     @classmethod
     def as_table(cls, systems: Iterable["System"]) -> MDTable:
         rows = []
-        headers = []
+        headers: List[str] = []
 
         for system in systems:
             row = [system.name]
             d = system.to_dict()
-            if headers:
-                assert headers == system.get_headers()
-            else:
+            if not headers:
                 headers = system.get_headers()
+
             for h in headers:
-                row.append(d.get(h, ""))
+                row.append(str(d.get(h, "")))
             rows.append(row)
 
         return MDTable(rows, [""] + headers)
 
-    def use(self, parameter) -> float:
-        parameter = parameter.lower() if parameter else ""
-        if not parameter:  # default is toggle
+    def use(self, parameter: Optional[str]) -> float:
+        param = parameter.lower() if parameter else ""
+        if not param:  # default is toggle
             self.enabled = "[ ]" if self.is_active() else "[x]"
-        elif parameter == "disable":
+        elif param == "disable":
             self.enabled = "[-]"
-        elif parameter == "enable":
+        elif param == "enable":
             self.enabled = "[ ]"
-        elif parameter in self.heats:
-            return self.heats[parameter]
-        return 0
+        elif param in self.heats:
+            return self.heats[param]
+        return 0.0
 
-    def is_active(self):
+    def is_active(self) -> bool:
         return any(x in self.enabled for x in self.enablers)
 
-    def is_disabled(self):
+    def is_disabled(self) -> bool:
         return any(x in self.enabled for x in self.disablers)
 
-    def from_heatformat(self, inp):
+    def from_heatformat(self, inp: Any) -> Dict[str, float]:
         result = {}
         parts = [p.strip() for p in str(inp).strip().split(";") if p.strip()]
         try:

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Self
+from typing import Self, Optional, Union, Dict, Callable, cast
 
 from gamepack.FenCharacter import FenCharacter
 from gamepack.PBTACharacter import PBTACharacter
@@ -9,7 +9,7 @@ from gamepack.endworld.EWCharacter import EWCharacter
 
 
 class WikiCharacterSheet(WikiPage):
-    renderers = {}
+    renderers: Dict[type, Callable] = {}
 
     def __init__(
         self,
@@ -17,21 +17,21 @@ class WikiCharacterSheet(WikiPage):
         tags: list[str],
         body: str,
         links: list[str],
-        meta: dict,
-        modified: float | None,
-        file: Path,
+        meta: Union[Dict, str],
+        modified: Optional[float],
+        file: Optional[Path],
     ):
         super().__init__(title, tags, body, links, meta, modified, file)
         raw = self.md(True)
         if {"mecha", "mech"} & set(x.lower() for x in self.tags):
             self.char = Mecha.from_mdobj(raw)
-        elif "endworld" in self.tags:
+        elif "endworld" in [x.lower() for x in self.tags]:
             self.char = EWCharacter.from_mdobj(raw)
-        elif "pbta" in self.tags:
+        elif "pbta" in [x.lower() for x in self.tags]:
             self.char = PBTACharacter.from_mdobj(raw)
-        elif (
-            "character" in self.tags
-            or "character" in self.file.relative_to(self.wikipath()).as_posix()
+        elif "character" in [x.lower() for x in self.tags] or (
+            self.file
+            and "character" in self.file.relative_to(self.wikipath()).as_posix()
         ):
             self.char = FenCharacter.from_mdobj(raw)
         else:
@@ -39,25 +39,10 @@ class WikiCharacterSheet(WikiPage):
         self.increment = 0
 
     @classmethod
-    def renderer(cls, t: type):
-        def wrapper(func):
-            cls.renderers[t] = func
-            return func
-
-        return wrapper
-
-    def render(self):
-        if not type(self.char) in self.renderers:
-            raise NotImplementedError(
-                f"no sheet renderer registered for {type(self.char)}"
-            )
-        return self.renderers[type(self.char)](self)
-
-    @classmethod
     def from_wikipage(cls, page: WikiPage) -> Self:
         return cls(
             page.title,
-            page.tags,
+            list(page.tags),
             page.body,
             page.links,
             page.meta,
@@ -66,33 +51,40 @@ class WikiCharacterSheet(WikiPage):
         )
 
     @classmethod
-    def load(cls, page: Path, cache=True) -> Self:
+    def load(cls, page: Optional[Path], cache=True) -> Optional[Self]:
+        if page is None:
+            return None
         p = WikiPage.load(page, cache)
         if isinstance(p, WikiCharacterSheet):
-            return p
+            return cast(Self, p)
         elif p:
-            WikiPage.page_cache[page] = cls.from_wikipage(
-                p
-            )  # update cached object with sheet info
-            return WikiPage.page_cache[page]
+            sheet = cls.from_wikipage(p)
+            WikiPage.page_cache[page] = sheet
+            return cast(Self, sheet)
         return None
 
     @classmethod
-    def load_locate(cls, page: str, cache=True) -> Self:
-        page = WikiPage.locate(page)
-        p = WikiPage.load(page)
+    def load_locate(cls, page: str, cache=True) -> Optional[Self]:
+        path = WikiPage.locate(page)
+        if path is None:
+            return None
+        p = WikiPage.load(path, cache)
         if isinstance(p, WikiCharacterSheet):
-            return p
+            return cast(Self, p)
         elif p:
-            WikiPage.page_cache[page] = cls.from_wikipage(p)
-            return WikiPage.page_cache[page]
+            sheet = cls.from_wikipage(p)
+            WikiPage.page_cache[path] = sheet
+            return cast(Self, sheet)
         return None
 
-    def save(self, author: str, page: Path = None, message: str = None):
+    def save(
+        self, author: str, page: Optional[Path] = None, message: Optional[str] = None
+    ):
         """
         warning: blocks and requires some time
         """
-        self.body = self.char.to_md()
+        if self.char:
+            self.body = self.char.to_md()
         super().save(author, page, message)
 
     def save_low_prio(self, message):

@@ -1,4 +1,4 @@
-from typing import List, Protocol, TypeVar
+from typing import List, Protocol, TypeVar, Optional, Dict, Tuple, Any, Callable
 
 from gamepack.MDPack import MDObj, MDTable
 
@@ -9,7 +9,7 @@ class ItemProtocol(Protocol):
     name: str
     description: str
     count: float
-    additional_info: dict[str, str]
+    additional_info: Dict[str, str]
 
     def __repr__(self) -> str: ...
 
@@ -18,21 +18,26 @@ class ItemProtocol(Protocol):
 
     @classmethod
     def from_table_row(
-        cls: type[T], row: list[str], offsets: dict, temp_cache: dict = None
+        cls: type[T],
+        row: List[str],
+        offsets: Dict[Any, int],
+        temp_cache: Optional[Dict[str, Any]] = None,
     ) -> T: ...
 
     @classmethod
-    def from_mdobj(cls: type[T], name: str, mdobj: "MDObj") -> T: ...
+    def from_mdobj(cls: type[T], name: str, mdobj: MDObj) -> T: ...
 
     @classmethod
     def process_offsets(
-        cls: type[T], headers: list[str]
-    ) -> (dict[str, int], list[str]): ...
+        cls: type[T], headers: List[str]
+    ) -> Tuple[Dict[Any, int], List[str]]: ...
 
     @classmethod
     def process_table(
-        cls: type[T], table: "MDTable", temp_cache=None
-    ) -> (List[T], List[str]): ...
+        cls: type[T], table: MDTable, temp_cache: Optional[Dict[str, Any]] = None
+    ) -> Tuple[List[T], List[str]]: ...
 
     @classmethod
-    def process_tree(cls: type[T], mdobj: "MDObj", flash) -> (List[T], List[str]): ...
+    def process_tree(
+        cls: type[T], mdobj: MDObj, flash: Callable[[str], None]
+    ) -> Tuple[List[T], List[str]]: ...

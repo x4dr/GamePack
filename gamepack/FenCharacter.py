@@ -6,7 +6,7 @@ __author__ = "maric"
 
 from collections import OrderedDict
 
-from typing import List, Tuple, Self
+from typing import List, Tuple, Self, Union, Callable, Optional
 
 from gamepack.Item import Item, total_table
 from gamepack.DiceParser import fullparenthesis, fast_fullparenthesis
@@ -230,17 +230,24 @@ class FenCharacter:
         return self.get_xp_for(name)
 
     @staticmethod
-    def recursive_category_handle(category: MDObj) -> (dict, dict | list[str]):
+    def recursive_category_handle(
+        category: MDObj,
+    ) -> tuple[dict, Union[dict, list[str]]]:
         """
         a recursive category either has a table or a dictionary of subcategories
         :param category: category name
         :return: dictionary of all stats in this category
         """
         if category.tables:
-            return {
-                r[0] if len(r) > 0 else "": r[1] if len(r) > 1 else ""
-                for r in category.tables[0].rows
-            }, category.tables[0].headers
+            table = category.tables[0]
+            # Use the first column as key and second as value
+            data = {}
+            for row in table.rows:
+                if len(row) >= 2:
+                    data[row[0]] = row[1]
+                elif len(row) == 1:
+                    data[row[0]] = ""
+            return data, table.headers
         res = {}
         h = {}
         for k, v in category.children.items():
@@ -248,20 +255,24 @@ class FenCharacter:
         return res, h
 
     @classmethod
-    def from_mdobj(cls, mdobj: MDObj, flash=None) -> Self:
+    def from_mdobj(
+        cls, mdobj: MDObj, flash_func: Optional[Callable[[str], None]] = None
+    ) -> Self:
         self = cls()
-        if not flash:
+        if not flash_func:
 
-            def flash(err):
+            def default_flash(err):
                 self.errors.append(err)
+
+            flash_func = default_flash
 
         # inform about things that should not be there
         if mdobj.plaintext.strip():
-            flash("Loose Text: " + mdobj.plaintext)
+            flash_func("Loose Text: " + mdobj.plaintext)
 
         for t in mdobj.tables:
             if t:
-                flash("Loose Table:" + t.to_md())
+                flash_func("Loose Table:" + t.to_md())
 
         for s in mdobj.children.keys():
             if s.lower().strip() in self.value_headings:
@@ -277,31 +288,39 @@ class FenCharacter:
                     self.Character = details
                     self.headings_used["description"] = s
                     for e in errors:
-                        flash(e)
+                        flash_func(e)
                 else:
                     self.Meta[s] = mdobj.children[s]
 
-        self.post_process(flash)
+        self.post_process(flash_func)
         return self
 
     @classmethod
     def construct_mdobj_from_category(
-        cls, category_dict: dict, headings: dict | list[str], flash
+        cls,
+        category_dict: dict,
+        headings: Union[dict, list[str]],
+        flash_func: Callable[[str], None],
     ) -> MDObj:
         """
         :param category_dict: dictionary of all stats in this category
         :param headings: headings of the lowest level tables at each leaf
-        :param flash: function to call for each error
+        :param flash_func: function to call for each error
         :return: MDObj of the category
         """
         if not category_dict:
-            return MDObj("", {}, flash)
+            return MDObj("", {}, flash_func)
         categories = MDObj("")
         for k, v in category_dict.items():
             if isinstance(v, dict):
+                current_headings = (
+                    headings.get(k, {"name": "value"})
+                    if isinstance(headings, dict)
+                    else headings
+                )
                 categories.add_child(
                     cls.construct_mdobj_from_category(
-                        v, headings.get(k, {"name": "value"}), flash
+                        v, current_headings, flash_func
                     ).with_header(k)
                 )
         if categories.children:
@@ -311,31 +330,41 @@ class FenCharacter:
             for k, v in category_dict.items()
             if isinstance(v, str) or isinstance(v, int)
         ]
+
+        final_headings: list[str] = []
         if isinstance(headings, dict):
             if headings:
                 k = list(headings.keys())[0]
-                headings = [k, headings[k]]
-        elif not isinstance(headings, list):
-            flash(str(headings) + " not valid table headings!")
-            headings = [str(headings), str(headings)]
-        return MDObj("", {}, flash, [MDTable(table, headings)])
+                final_headings = [k, str(headings[k])]
+            else:
+                final_headings = ["Stat", "Value"]
+        elif isinstance(headings, list):
+            final_headings = headings
+        else:
+            flash_func(str(headings) + " not valid table headings!")
+            final_headings = [str(headings), str(headings)]
 
-    def to_mdobj(self, flash=None):
-        if not flash:
+        return MDObj("", {}, flash_func, [MDTable(table, final_headings)])
 
-            def flash(err):
+    def to_mdobj(self, flash_func: Optional[Callable[[str], None]] = None):
+        if not flash_func:
+
+            def default_flash(err):
                 self.errors.append(err)
+
+            flash_func = default_flash
 
         description = MDObj(
             "",
-            flash=flash,
+            flash=flash_func,
             header=self.headings_used.get("description", "Description"),
         )
+
         for k, v in self.Character.items():
-            description.add_child(MDObj(v, flash=flash, header=k))
+            description.add_child(MDObj(v, flash=flash_func, header=k))
 
         categories = self.construct_mdobj_from_category(
-            self.Categories, self.headings_used.get("categories", {}), flash
+            self.Categories, self.headings_used.get("categories", {}), flash_func
         ).with_header(self.headings_used.get("values", "Values"))
         mdo = MDObj("")
         mdo.add_child(description)

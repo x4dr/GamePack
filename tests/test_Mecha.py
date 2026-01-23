@@ -140,7 +140,7 @@ def test_mecha_move_heat(mecha_with_heat):
     m.systems["Heat"]["H2"] = h2
 
     amt = m.move_heat("H1", "H2", 5)
-    assert isinstance(amt, int)
+    assert isinstance(amt, (int, float))
 
     with pytest.raises(KeyError):
         m.move_heat("Unknown", "H2", 5)

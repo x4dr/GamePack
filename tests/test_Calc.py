@@ -1,5 +1,6 @@
 import ast
 import unittest
+from typing import Any, cast
 
 # Import the code to test
 from gamepack.Calc import (
@@ -49,7 +50,7 @@ class TestEval(unittest.TestCase):
 
     def test_eval_node_unknown(self):
         # Test eval_node with an unknown node type
-        node = ast.Delete()
+        node = cast(Any, ast.Delete())
         with self.assertRaises(KeyError):
             eval_node(node, frozenset())  # noqa, testing wrong usage
 
@@ -160,6 +161,12 @@ class TestEval(unittest.TestCase):
         node = ast.UnaryOp(op=ast.Invert(), operand=ast.Constant(value=42))
         with self.assertRaises(KeyError):
             eval_unaryop(node, frozenset())
+
+    def test_eval_constant_error(self):
+        # Test eval_constant with non-numeric value
+        node = ast.Constant(value="not a number")
+        with self.assertRaises(TypeError):
+            eval_constant(node, frozenset())
 
     def test_evaluate(self):
         # Test evaluate with a valid expression

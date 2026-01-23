@@ -62,6 +62,23 @@ class TestPBTACharacter(unittest.TestCase):
             self.assertIn(str(a), (str(b) for b in loaded_character.inventory))
         self.assertEqual(self.example_character.notes, loaded_character.notes)
 
+    def test_health_and_inventory_get(self):
+        # test health_get
+        cur, maxx = self.example_character.health_get("Healing")
+        self.assertEqual(cur, 3)
+        self.assertEqual(maxx, 4)
+
+        # test nonexistent health
+        self.assertEqual(self.example_character.health_get("Missing"), (1, 1))
+
+        # test inventory_get
+        item = self.example_character.inventory_get("Sword")
+        self.assertIsNotNone(item)
+        assert item is not None
+        self.assertEqual(item.load, 1.0)
+
+        self.assertIsNone(self.example_character.inventory_get("Missing"))
+
     def test_from_md_conversion(self):
         # Convert the character to Markdown and back using from_md
         md_obj = self.example_character.to_mdobj()

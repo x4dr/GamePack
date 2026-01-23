@@ -5,7 +5,7 @@ import threading
 import time
 from datetime import timedelta, datetime, timezone
 from pathlib import Path
-from typing import Self
+from typing import Self, List, Optional, Union
 
 import bleach
 import yaml
@@ -27,7 +27,7 @@ class WikiPage:
     live = False
     page_cache: dict[Path, Self] = {}
     wikicache: dict[str, dict[str, list[str]]] = {}
-    _wikipath: Path = None
+    _wikipath: Optional[Path] = None
     wikistamp = 0
     clock_re = re.compile(
         r"\[clock\|(?P<name>.*?)\|(?P<current>.*?)\|(?P<maximum>.*?)]"
@@ -39,11 +39,11 @@ class WikiPage:
         tags: list[str],
         body: str,
         links: list[str],
-        meta: dict | str,
-        modified: float | None = None,
-        file: Path = None,
+        meta: Union[dict, str],
+        modified: Optional[float] = None,
+        file: Optional[Path] = None,
     ):
-        self.save_msg_queue = []
+        self.save_msg_queue: List[str] = []
         if Item.item_cache is None:
             WikiPage.cache_items()
         self.title = title
@@ -51,8 +51,10 @@ class WikiPage:
         self.body = body
         self.links = links
         if isinstance(meta, str):
-            meta = yaml.safe_load(meta)
-        self.meta: dict = meta
+            meta_dict = yaml.safe_load(meta) or {}
+        else:
+            meta_dict = meta
+        self.meta: dict = meta_dict
         self.last_modified = modified
         self.file = file
 
@@ -81,19 +83,18 @@ class WikiPage:
         cls._wikipath = path
 
     @classmethod
-    def locate(cls, pagename: str | Path) -> Path | None:
+    def locate(cls, pagename: Union[str, Path, None]) -> Optional[Path]:
         """
         Finds a page in the wiki. Accepts full or stem name.
         Returns path relative to wiki root if found, else None.
         """
-
         if pagename is None:
             return None
         if isinstance(pagename, str):
             pagename = Path(pagename)
         if pagename.as_posix() == ".":
             return None
-        root = WikiPage.wikipath()
+        root = cls.wikipath()
         pagename = Path(pagename).with_suffix(".md")
 
         if "/" in pagename.as_posix():
@@ -106,30 +107,35 @@ class WikiPage:
             return None
 
     @classmethod
-    def load_locate(cls, page: str, cache=True) -> Self:
-        return cls.load(cls.locate(page), cache)
+    def load_locate(cls, page: str, cache=True) -> Optional[Self]:
+        path = cls.locate(page)
+        if path is None:
+            return None
+        return cls.load(path, cache)
 
     @classmethod
-    def load(cls, page: Path, cache=True) -> Self:
+    def load(cls, page: Optional[Path], cache=True) -> Optional[Self]:
         """
         loads page from wiki
-        :param page: name of page
+        :param page: path of page
         :param cache: whether to retrieve from cache
-        :return: title, tags, body
+        :return: WikiPage object or None
         """
         if page is None:
             return None
         result = cls.page_cache.get(page) if cache else None
-        if result and result.file.stat().st_mtime == result.last_modified:
+        if (
+            result
+            and result.file
+            and result.file.stat().st_mtime == result.last_modified
+        ):
             return result
 
-        def lineloader(file):
-            for readline in file.readlines():
+        def lineloader(file_obj):
+            for readline in file_obj.readlines():
                 yield readline
 
         try:
-            if page is None:
-                raise FileNotFoundError
             if page.is_absolute():
                 try:
                     rel = page.relative_to(cls.wikipath())
@@ -141,30 +147,25 @@ class WikiPage:
             filetime = p.stat().st_mtime
             with p.open() as f:
                 lines = lineloader(f)
-                for line in lines:
-                    if line.strip():  # seek first line
-                        break
-                else:
-                    line = ""
-                preamble = None
-                if line.strip().startswith("---"):
-                    preamble = ""
+                first_line = next(lines, "").strip()
+                preamble_text = None
+                if first_line.startswith("---"):
+                    preamble_text = ""
                     for line in lines:
-                        if not line.strip():
-                            continue
                         if line.strip().startswith("---"):
                             break
-                        preamble += line
+                        preamble_text += line
                 else:
                     f.seek(0)
                     lines = lineloader(f)
-                if not preamble:
-                    preamble = ""
+
                 body = ""
-                try:
-                    preamble = yaml.safe_load(preamble) or {}
-                except yaml.YAMLError:
-                    body = f"???\n{preamble}\n???"
+                preamble = {}
+                if preamble_text:
+                    try:
+                        preamble = yaml.safe_load(preamble_text) or {}
+                    except yaml.YAMLError:
+                        body = f"???\n{preamble_text}\n???"
 
                 body += "".join(lines)
                 loaded_page = cls(
@@ -181,16 +182,20 @@ class WikiPage:
         except FileNotFoundError:
             raise DescriptiveError(str(page) + " not found in wiki.")
 
-    def save(self, author: str, page: Path = None, message=None):
+    def save(self, author: str, page: Optional[Path] = None, message=None):
         if not page:
             page = self.file
+        if not page:
+            raise DescriptiveError("No file path set for saving.")
         if page.suffix != ".md":
             raise DescriptiveError("page must be a .md file")
-        print(f"saving '{self.title}' as {page} ...")
+
+        target_path = self.wikipath() / page if not page.is_absolute() else page
+        print(f"saving '{self.title}' as {target_path} ...")
         self.meta["title"] = self.title
         self.meta["tags"] = list(self.tags)
         self.meta["outgoing links"] = self.links
-        with (self.wikipath() / page).open("w+") as f:
+        with target_path.open("w+") as f:
             f.write("---\n")
             f.write(
                 yaml.dump(
@@ -205,10 +210,12 @@ class WikiPage:
         self.reload_cache(page)
 
         commit_and_push(
-            self.wikipath(), page, message or f"{page} edited by {author}\n"
+            self.wikipath(), target_path, message or f"{page} edited by {author}\n"
         )
 
     def save_overwrite(self, author, message=None):
+        if not self.file:
+            raise DescriptiveError("No file path set for overwriting.")
         log.info(f"overwriting '{self.title}' at {self.file} ...")
         self.meta["title"] = self.title
         self.meta["tags"] = list(self.tags)
@@ -238,8 +245,6 @@ class WikiPage:
 
     @classmethod
     def reload_cache(cls, page: Path):
-        if not page.is_absolute():
-            page = cls.wikipath() / page
         canonical_name = page.as_posix().replace(page.name, page.stem)
         cls.wikicache.pop(canonical_name, None)
         cls.page_cache.pop(page, None)
@@ -247,18 +252,20 @@ class WikiPage:
 
     def cacheupdate(self):
         page = self.file
+        if not page:
+            return
         canonical_name = page.as_posix().replace(page.name, page.stem)
         self.wikicache[canonical_name] = {"tags": list(self.tags), "links": self.links}
-        if not page.is_absolute():
-            page = self.wikipath() / page
+        target_path = page if page.is_absolute() else self.wikipath() / page
         self.last_modified = time.time()
-        self.page_cache[page] = self
+        self.page_cache[target_path] = self
 
     @classmethod
     def wikindex(cls) -> list[Path]:
         mds = []
-        for p in cls.wikipath().glob("**/*.md"):
-            if p.relative_to(cls.wikipath()).as_posix().startswith("."):
+        root = cls.wikipath()
+        for p in root.glob("**/*.md"):
+            if p.relative_to(root).as_posix().startswith("."):
                 continue  # skip hidden files
             mds.append(p)
         return sorted(mds)
@@ -286,10 +293,14 @@ class WikiPage:
         log.info(f"it has been {message} since the last wiki indexing")
         cls.wikistamp = time.time()
         for m in cls.wikindex():
-            if m not in cls.wikicache:
+            canonical_name = m.as_posix().replace(m.name, m.stem)
+            if canonical_name not in cls.wikicache:
                 p = cls.load(m)
-                canonical_name = m.as_posix().replace(m.name, m.stem)
-                cls.wikicache[canonical_name] = {"tags": list(p.tags), "links": p.links}
+                if p:
+                    cls.wikicache[canonical_name] = {
+                        "tags": list(p.tags),
+                        "links": p.links,
+                    }
 
         log.info(
             f"index took: {str(1000 * (time.time() - cls.wikistamp))} milliseconds"
@@ -299,14 +310,18 @@ class WikiPage:
     def cache_items(cls):
         for itemclass in [Item, PBTAItem]:
             itemclass.item_cache = {}
-            cls.__caching = True
-            items, _ = itemclass.process_tree(
-                cls.load_locate(itemclass.home_md).md(), print
-            )
-            item_from_prices, _ = itemclass.process_tree(
-                cls.load_locate("prices").md(), print
-            )
-            items += item_from_prices
+            # cls.__caching = True # Unused?
+
+            home_page = cls.load_locate(itemclass.home_md)
+            if home_page:
+                items, _ = itemclass.process_tree(home_page.md(), print)
+            else:
+                items = []
+
+            prices_page = cls.load_locate("prices")
+            if prices_page:
+                item_from_prices, _ = itemclass.process_tree(prices_page.md(), print)
+                items += item_from_prices
 
             cache = {}
             for x in items:
@@ -314,7 +329,7 @@ class WikiPage:
 
             itemclass.item_cache = cache
 
-    def get_clock(self, name) -> re.Match | None:
+    def get_clock(self, name) -> Optional[re.Match]:
         for candidate in self.clock_re.finditer(self.body):
             if candidate.group("name") == name:
                 return candidate
@@ -329,13 +344,11 @@ class WikiPage:
         except ValueError:
             current = 0
         current += delta
-        # print("replacing", c, current)
         self.body = (
             self.body[: c.start()]
             + f"[clock|{c.group('name')}|{current}|{c.group('maximum')}]"
             + self.body[c.end() :]
         )
-        # print(">>>", self.body)
         return self
 
     def tagcheck(self, tag):
@@ -371,17 +384,17 @@ def delayed_push(repo, pushtime: datetime):
 saveat = None
 
 
-def commit_and_push(repo, file, commit_message: str):
+def commit_and_push(wikipath_val, file, commit_message: str):
     global saveat
     if not WikiPage.live:
         log.info("Not live, not pushing.")
         return
-    repo = Repo(os.path.expanduser(repo))
+    repo = Repo(os.path.expanduser(str(wikipath_val)))
     # Check for changes
     if not repo.is_dirty():
         return
     # Stage all changes
-    repo.git.add(file)
+    repo.git.add(str(file))
     with Path("commit_tmp").open("a") as f:
         f.write(commit_message + "\n")
     if not saveat or not saveat.is_alive():

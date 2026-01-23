@@ -31,7 +31,10 @@ def eval_expression(
 
 # noinspection PyUnusedLocal
 def eval_constant(node: ast.Constant, variables: frozenset[Tuple[str, Any]]) -> float:
-    return node.value
+    val = node.value
+    if isinstance(val, (int, float)):
+        return float(val)
+    raise TypeError(f"Constant value {val} is not a number")
 
 
 def eval_name(node: ast.Name, variables: frozenset[Tuple[str, Any]]) -> float:

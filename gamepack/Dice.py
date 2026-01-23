@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class Dice:
-    returnfun: str
+    returnfun: str | None
 
     # noinspection PyUnusedLocal
     def __init__(
@@ -197,10 +197,9 @@ class Dice:
     def roll_wodsuccesses(self) -> int:
         succ, antisucc = 0, 0
         self.log = ""
-        try:
-            diff = int(self.difficulty)
-        except TypeError:
+        if self.difficulty is None:
             raise DescriptiveError("No Difficulty set!")
+        diff = int(self.difficulty)
         for x in self.r:
             self.log += str(x) + ": "
             if x >= diff:  # last die face >= than the difficulty
@@ -215,27 +214,30 @@ class Dice:
         return (self.botchformat(succ, antisucc)) * self.sign
 
     def roll_v(self) -> str:  # verbose
-        log = ""
+        log_text = ""
         if self.max == 0:
-            return log
+            return log_text
         if not (self.name.endswith("sum") or self.name.endswith("=")):
             if not self.log or self.returnfun == "threshhold":
-                log = ", ".join(str(x) for x in self.r)
+                log_text = ", ".join(str(x) for x in self.r)
             elif self.log:
-                log = [x for x in self.log.split("\n") if x][-1].strip()
+                log_text = [x for x in self.log.split("\n") if x][-1].strip()
         res = self.result
         if res is not None:
             if not self.r:
                 return " ==> 0"
-            log += " ==> " + str(res)
-        return log
+            log_text += " ==> " + str(res)
+        return log_text
 
     def roll_sel(self):
+        if self.returnfun is None:
+            return 0
         selectors = [
             max(min(int(x), len(self.r)), 0) for x in self.returnfun[:-1].split(",")
         ]
-        selectors = [x - 1 if x > 0 else None for x in selectors]
-        return sum(sorted(self.r)[s] for s in selectors if s is not None) * self.sign
+        selectors_indices = [x - 1 if x > 0 else None for x in selectors]
+        sorted_r = sorted(self.r)
+        return sum(sorted_r[s] for s in selectors_indices if s is not None) * self.sign
 
     def __int__(self) -> int:
         return self.result or 0

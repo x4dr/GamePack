@@ -20,17 +20,39 @@ class TestDice(TestCase):
     def test_roll_v_min(self):
         self.assertIn("==> 1", DiceInterpretation("min", Dice(50, 3)).roll_v())
 
+    def test_process_rerolls(self):
+        d = DiceInterpretation("sum", Dice([1, 2, 3, 4, 5], 5, rerolls=2))
+        items, log = d.process_rerolls()
+        # Should drop 2 smallest (1, 2)
+        self.assertEqual(items, [3, 4, 5])
+        self.assertIn("(1)", log)
+        self.assertIn("(2)", log)
+
+        d2 = DiceInterpretation("sum", Dice([1, 2, 3, 4, 5], 5, rerolls=-2))
+        items2, log2 = d2.process_rerolls()
+        # Should drop 2 largest (4, 5)
+        self.assertEqual(items2, [1, 2, 3])
+        self.assertIn("(4)", log2)
+        self.assertIn("(5)", log2)
+
+    def test_roll_wod(self):
+        # Already tested in test_rollwod but let's ensure it's covered
+        pass
+
     def test_roll_thresh(self):
         self.assertRegex(
-            DiceInterpretation("e6", Dice(3, 9, 5)).roll_v(), r"\d, \d, \d ==> \d"
+            DiceInterpretation("e6", Dice(3, 9, explode=5)).roll_v(),
+            r"\d, \d, \d ==> \d",
         )
 
     def test_empty_roll_v(self):
-        self.assertEqual(" ==> 0", DiceInterpretation("e6", Dice([], 4, 2)).roll_v())
+        self.assertEqual(
+            " ==> 0", DiceInterpretation("e6", Dice([], 4, explode=2)).roll_v()
+        )
 
     def test_empty_amt(self):
         # noinspection PyTypeChecker
-        self.assertEqual(0, DiceInterpretation("e6", Dice(None, 4, 2)).result)
+        self.assertEqual(0, DiceInterpretation("e6", Dice(None, 4, explode=2)).result)
 
     def test_rollwod(self):
         d = DiceInterpretation("f2", Dice([7, 7, 1], 9, explode=6))

@@ -204,7 +204,7 @@ class TestMDObj(unittest.TestCase):
             ["Column 1", "Column 2", "Column 3", "Garbage"],
             ["Row 1", "1", "2", "asdf"],
             ["Row 2", "3", "4", "ghjkl"],
-            ["Total", "4.0", "6.0", "0"],
+            ["Total", "4", "6", "0"],
         ]
 
         # Call the function with the input

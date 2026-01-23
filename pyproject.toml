@@ -7,6 +7,7 @@ dependencies = [
     "bleach>=6.3.0",
     "gitpython>=3.1.45",
     "beautifulsoup4>=4.14.2",
+    "ply>=3.11",
 ]
 license = "GPL-3.0-or-later"
 name = "gamepack"

@@ -1,7 +1,7 @@
 import logging
 import re
 from collections import deque
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Optional, Tuple
 
 from gamepack.Calc import evaluate
 from gamepack.Dice import DescriptiveError, Dice, DiceCodeError
@@ -17,31 +17,31 @@ class MessageReturn(Exception):
     pass
 
 
-def tuple_overlap(a: tuple, b: tuple) -> bool:
+def tuple_overlap(a: tuple[int, int], b: tuple[int, int]) -> bool:
     """
     checks if the first two elements of the tuples overlap on the numberline/other ordering
     """
-    a, b = sorted(a), sorted(b)
+    a_sorted, b_sorted = sorted(a), sorted(b)
     return (
-        b[0] <= a[0] <= b[1]
-        or b[0] <= a[1] <= b[1]
-        or a[0] <= b[0] <= a[1]
-        or a[0] <= b[1] <= a[1]
+        b_sorted[0] <= a_sorted[0] <= b_sorted[1]
+        or b_sorted[0] <= a_sorted[1] <= b_sorted[1]
+        or a_sorted[0] <= b_sorted[0] <= a_sorted[1]
+        or a_sorted[0] <= b_sorted[1] <= a_sorted[1]
     )
 
 
 class Node:
-    special = (
+    special: tuple[list[str], list[str], list[str]] = (
         ["+", "*", "* *", ",", "-", "/", "/ /"],
         ["~", "="],
         ["h", "l", "g", "d", "e", "f"],
     )
 
-    def __init__(self, roll: str, depth):
+    def __init__(self, roll: str, depth: int):
         self.do = False
         self.code = str(roll)
         self.depth = depth
-        self.dependent: dict[tuple, Node] = {}
+        self.dependent: dict[Tuple[Tuple[int, int], str], Node] = {}
         if self.depth > 100:
             raise DescriptiveError("recursion depth exceeded")
         self.buildroll()
@@ -72,24 +72,24 @@ class Node:
         self.code = Node.calc(self.code)
 
     @staticmethod
-    def calc(to_calculate):
+    def calc(to_calculate: Union[str, List[str]]) -> str:
         if isinstance(to_calculate, str):
-            to_calculate = to_calculate.strip()
+            res = to_calculate.strip()
         elif isinstance(to_calculate, list):
-            to_calculate = " ".join(to_calculate)
+            res = " ".join(to_calculate)
         else:
             raise TypeError("parameter was not str or list", to_calculate)
         # replace any amount of whitespace with just one space
-        to_calculate = re.sub(r"\s+", " ", to_calculate)
-        to_calculate = math_formula_regex.sub(
-            lambda x: str(evaluate(x.group(), frozenset())), to_calculate
+        res = re.sub(r"\s+", " ", res)
+        res = math_formula_regex.sub(
+            lambda x: f"{evaluate(x.group(), frozenset()):g}", res
         )
 
-        return to_calculate
+        return res
 
 
 class DiceParser:
-    last_parse: "DiceParser"
+    last_parse: Optional["DiceParser"]
     rolllogs: deque[Dice]
     dice_expression_parser = DiceExpressionParser()
 
@@ -107,7 +107,7 @@ class DiceParser:
         self.define_regex = self.update_define_regex()
         self.rolllogs = deque(maxlen=100)  # if the last roll isn't interesting
         self.last_rolls = deque(lastroll or [], maxlen=5)
-        self.last_parse = lastparse or None
+        self.last_parse = lastparse
 
     def update_define_regex(self):
         self.define_regex = re.compile(
@@ -237,18 +237,20 @@ class DiceParser:
         roll.calculate()
         return roll
 
-    def resonances(self, rolls: list[Dice] = None) -> List[Dict[int, int]]:
+    def resonances(self, rolls: Optional[list[Dice]] = None) -> List[Dict[int, int]]:
         """
         evaluates the last rolls for resonances and returns an
         ordered list of resonances and a dict of occurences for each
         """
         if rolls is None:
-            rolls = self.rolllogs
+            rolls_list = list(self.rolllogs)
             if self.last_parse:
-                rolls += self.last_parse.rolllogs
+                rolls_list += list(self.last_parse.rolllogs)
+        else:
+            rolls_list = rolls
         res = [{} for _ in range(10)]
-        for r in rolls:
-            if "@" not in r.returnfun:
+        for r in rolls_list:
+            if r.returnfun is None or "@" not in r.returnfun:
                 continue
             for i in range(10):
                 res[i][r.resonance(i + 1)] = res[i].get(r.resonance(i + 1), 0) + 1
@@ -259,22 +261,24 @@ class DiceParser:
     def project(self, body: str) -> str:
         roll, goal, current = body, None, 0
         try:
-            roll, goal = body.rsplit(" ", 2)
-            goal = int(goal)
+            roll, goal_str = body.rsplit(" ", 1)
+            goal = int(goal_str)
             i = 0
-            log = ""
+            log_text = ""
             while i < min(
                 (self.triggers.get("max") or 50),
                 (500 if not self.triggers.get("limitbreak", None) else 1000),
             ):
                 x = self.do_roll(roll).result
-                log += str(x) + " : "
+                if x is None:
+                    raise DescriptiveError(roll + " does not have a result")
+                log_text += str(x) + " : "
                 i += 1
                 current += x
-                log += f"{str(current)} + {x} = {current}\n"
+                log_text += f"{str(current)} + {x} = {current}\n"
                 if current >= goal:
                     break
-            self.triggers["project"] = (i, current, goal, log)
+            self.triggers["project"] = (i, current, goal, log_text)
             return str(i)
         except TypeError:
             raise DescriptiveError(roll + " does not have a result")  # probably
@@ -385,7 +389,7 @@ class DiceParser:
             pos += message[pos:].find(trigger) + len(trigger)  # processed part
         return triggers
 
-    def pretrigger(self, roll: str) -> (str, bool):
+    def pretrigger(self, roll: str) -> tuple[str, bool]:
         triggers = self.gettriggers(roll)
         triggerreplace = []
         change = False
@@ -404,7 +408,7 @@ class DiceParser:
                 while val.count(")") > val.count("("):
                     if not roll:
                         raise DescriptiveError("unmatched ')' in " + val)
-                    val: str = roll[-1] + val
+                    val = roll[-1] + val
                     roll = roll[:-1]
                 val = val.strip()
                 if val.startswith("(") and val.endswith(")"):
@@ -426,15 +430,15 @@ class DiceParser:
 
         return roll, change
 
-    def resolvedefines(self, roll: Node, used: List[str] = None) -> None:
-        used = used or []
-        if not used:
+    def resolvedefines(self, roll: Node, used: Optional[List[str]] = None) -> None:
+        used_list = used or []
+        if not used_list:
             self.update_define_regex()
         while roll.depth < 1000:
             matches = self.define_regex.finditer(roll.code)
             for match in matches:
                 key = (match.span(), match.group(0))
-                if key[1] in used:
+                if key[1] in used_list:
                     continue
                 skip = False
                 for other in roll.dependent.keys():
@@ -442,8 +446,8 @@ class DiceParser:
                         skip = True  # this is in another define
                 if skip:
                     continue
-                new = Node(self.defines[key[1]], roll.depth + 1)
-                self.resolvedefines(new, used + [key[1]])
+                new = Node(str(self.defines[key[1]]), roll.depth + 1)
+                self.resolvedefines(new, used_list + [key[1]])
                 new.do = False
                 roll.dependent[key] = new
 
@@ -468,7 +472,7 @@ def fullparenthesis(
         return text
     i = -1
     lvl = 0
-    begun = None
+    begun: Optional[int] = None
     while ((lvl > 0) or begun is None) and (i <= len(text) + 5):
         i += 1
         if (
@@ -496,7 +500,7 @@ def fullparenthesis(
             lvl += 1
             if begun is None:
                 begun = i
-    if i > len(text) + len(closing):
+    if begun is None or i > len(text) + len(closing):
         raise DescriptiveError("unmatched '" + opening + "': '" + text + "'")
     result = text[
         begun

@@ -1,3 +1,4 @@
+from typing import List, Dict, Tuple, Optional, Self, Union, Callable
 from gamepack.Item import tryfloatdefault
 from gamepack.MDPack import MDObj, MDTable, MDChecklist
 from gamepack.PBTAItem import PBTAItem
@@ -6,27 +7,25 @@ from gamepack.PBTAItem import PBTAItem
 class PBTACharacter:
     def __init__(
         self,
-        info,
-        moves,
-        health,
-        stats,
-        inventory=None,
-        inventory_bonus_headers=None,
-        notes=None,
-        meta=None,
-        errors=None,
+        info: Dict[str, str],
+        moves: List[Tuple[str, bool]],
+        health: Dict[str, Union[Dict, List]],
+        stats: Dict[str, Dict],
+        inventory: Optional[List[PBTAItem]] = None,
+        inventory_bonus_headers: Optional[set[str]] = None,
+        notes: str = "",
+        meta: Optional[Dict[str, MDObj]] = None,
+        errors: Optional[List[str]] = None,
     ):
-        self.info: dict[str, str] = info
-        self.moves: list[(str, bool)] = moves
-        self.health: dict[str, (int, int)] = health
-        self.stats: dict[str, dict] = stats
+        self.info = info
+        self.moves = moves
+        self.health = health
+        self.stats = stats
         self.inventory = inventory or []
-        self.inventory_bonus_headers = (
-            set() if inventory_bonus_headers is None else inventory_bonus_headers
-        )
-        self.notes = notes or ""
-        self.meta = {} if meta is None else meta
-        self.errors = [] if errors is None else errors
+        self.inventory_bonus_headers = inventory_bonus_headers or set()
+        self.notes = notes
+        self.meta = meta or {}
+        self.errors = errors or []
 
     info_headings = ["info"]
     health_headings = ["health", "damage"]
@@ -45,17 +44,17 @@ class PBTACharacter:
     stat_table_headers = ["Stat", "Value"]
     wound_headings = ["harm", "wounds", "wunden", "injuries", "verletzungen"]
 
-    def post_process(self, flash):
+    def post_process(self, flash: Callable[[str], None]):
         # tally inventory
         for k in list(self.meta.keys()):
             if k.lower() in self.inventory_headings:
                 self.process_inventory(self.meta[k], flash)
                 del self.meta[k]
-            if k.lower() in self.note_headings:
+            elif k.lower() in self.note_headings:
                 self.notes = self.meta[k].plaintext
                 del self.meta[k]
 
-    def process_inventory(self, node: MDObj, flash):
+    def process_inventory(self, node: MDObj, flash: Callable[[str], None]):
         for table in node.tables:
             items, headers = PBTAItem.process_table(table)
             self.inventory.extend(items)
@@ -64,48 +63,48 @@ class PBTACharacter:
             self.process_inventory(content, flash)
 
     @classmethod
-    def from_mdobj(cls, body: MDObj, handle_error=None):
+    def from_mdobj(
+        cls, body: MDObj, handle_error: Optional[Callable[[str], None]] = None
+    ) -> Self:
         errors = []
         if not handle_error:
             handle_error = errors.append
 
         info = {}
         health = {}
-        moves: [(str, bool)] = []
+        moves = []
         stats = {}
         meta = {}
 
         for k, v in body.children.items():
-            if k.lower() in cls.info_headings:  # processing basic info
+            k_lower = k.lower().strip()
+            if k_lower in cls.info_headings:  # processing basic info
                 info, err = v.confine_to_tables()
-                handle_error(err)
-            elif k.lower() in cls.moves_headings:
+                for e in err:
+                    handle_error(e)
+            elif k_lower in cls.moves_headings:
                 moves = v.all_checklists
-            elif k.lower() in cls.stats_headings:
+            elif k_lower in cls.stats_headings:
                 stats, err = v.confine_to_tables()
-                handle_error(err)
-            elif k.lower() in cls.health_headings:
-                health: dict[str, dict | list] = {}
+                for e in err:
+                    handle_error(e)
+            elif k_lower in cls.health_headings:
+                health = {}
                 for t in v.tables:
-                    name = t.header_pos(cls.type_headings, 0)
-                    current = t.header_pos(cls.current_headings, 1)
-                    maximum = t.header_pos(cls.max_headings, 2)
-                    health.update(
-                        {
-                            row[name].title(): {
-                                cls.current_headings[0].title(): row[current],
-                                cls.max_headings[0].title(): row[maximum],
+                    name_idx = t.header_pos(cls.type_headings, 0)
+                    cur_idx = t.header_pos(cls.current_headings, 1)
+                    max_idx = t.header_pos(cls.max_headings, 2)
+                    for row in t.rows:
+                        if len(row) > max(name_idx, cur_idx, max_idx):
+                            health[row[name_idx].title()] = {
+                                cls.current_headings[0].title(): row[cur_idx],
+                                cls.max_headings[0].title(): row[max_idx],
                             }
-                            for row in t.rows
-                        }
-                    )
                 for section, child in v.children.items():
-                    if section.lower() not in cls.wound_headings:
-                        continue
-                    for severity, description_obj in child.children.items():
-                        text = description_obj.plaintext.strip()
-                        health[severity] = [w for w in text.splitlines(False) if w]
-
+                    if section.lower().strip() in cls.wound_headings:
+                        for severity, description_obj in child.children.items():
+                            text = description_obj.plaintext.strip()
+                            health[severity] = [w for w in text.splitlines(False) if w]
             else:
                 meta[k] = v
 
@@ -120,28 +119,33 @@ class PBTACharacter:
         character.post_process(handle_error)
         return character
 
-    def health_get(self, key: str) -> (int, int):
-        h = self.health[key.title()]
+    def health_get(self, key: str) -> tuple[int, int]:
+        h = self.health.get(key.title())
+        if not h or not isinstance(h, dict):
+            return 1, 1
+
+        cur_key = self.current_headings[0].title()
+        max_key = self.max_headings[0].title()
 
         try:
-            current = int(h[self.current_headings[0].title()])
-        except ValueError:
+            current = int(tryfloatdefault(h.get(cur_key), 1.0))
+        except (ValueError, TypeError):
             current = 1
         try:
-            maximum = int(h[self.max_headings[0].title()])
-        except ValueError:
+            maximum = int(tryfloatdefault(h.get(max_key), 1.0))
+        except (ValueError, TypeError):
             maximum = 1
         return current, maximum
 
     @classmethod
-    def from_md(cls, body: str, flash=None):
+    def from_md(cls, body: str, flash: Optional[Callable[[str], None]] = None) -> Self:
         sheet_parts = MDObj.from_md(body)
         return cls.from_mdobj(sheet_parts, flash)
 
-    def to_md(self):
+    def to_md(self) -> str:
         return self.to_mdobj().to_md()
 
-    def to_mdobj(self, error_handler=None):
+    def to_mdobj(self, error_handler: Optional[Callable[[str], None]] = None) -> MDObj:
         if not error_handler:
 
             def default_error_handler(error):
@@ -150,75 +154,72 @@ class PBTACharacter:
             error_handler = default_error_handler
 
         sections = MDObj("", flash=error_handler)
+
         # Basic Information Section
-        info = MDObj("", {}, error_handler, header=self.info_headings[0].title())
+        info_mdo = MDObj("", flash=error_handler, header=self.info_headings[0].title())
         for key, value in self.info.items():
-            info.add_child(MDObj(value, {}, error_handler, header=key))
-        sections.add_child(info)
+            info_mdo.add_child(MDObj(str(value), flash=error_handler, header=key))
+        sections.add_child(info_mdo)
 
         # Health Section
-        health = MDObj(
-            "",
-            {},
-            error_handler,
-            header=self.health_headings[0].title(),
+        health_mdo = MDObj(
+            "", flash=error_handler, header=self.health_headings[0].title()
         )
+        harm_mdo = MDObj("", header=self.wound_headings[0])
 
-        harm = MDObj("", header=self.wound_headings[0])
-        for wound_level, description in sorted(
-            self.health.items(), key=lambda x: tryfloatdefault(x[0], 0)
-        ):
-            if wound_level.isdigit():
-                harm.add_child(
-                    MDObj("\n".join(description), {}, error_handler, header=wound_level)
+        health_rows = []
+        for key, val in self.health.items():
+            if isinstance(val, list):
+                harm_mdo.add_child(
+                    MDObj("\n".join(val), flash=error_handler, header=key)
+                )
+            elif isinstance(val, dict):
+                health_rows.append(
+                    [
+                        key,
+                        str(val.get(self.current_headings[0].title(), "")),
+                        str(val.get(self.max_headings[0].title(), "")),
+                    ]
                 )
 
-        health.add_child(harm)
-        headers = ["Type", "Current", "Maximum"]
-        rows = [
-            [
-                stat_name,
-                stats[headers[1]],
-                stats[headers[2]],
-            ]
-            for stat_name, stats in self.health.items()
-            if not str(stat_name).isdigit()
-        ]
+        if harm_mdo.children:
+            health_mdo.add_child(harm_mdo)
 
-        health_table = MDTable(rows, headers)
-        health.tables.append(health_table)
-        sections.add_child(health)
+        if health_rows:
+            health_mdo.tables.append(
+                MDTable(health_rows, ["Type", "Current", "Maximum"])
+            )
+
+        sections.add_child(health_mdo)
 
         # Moves Section
-
-        sections.add_child(
-            MDObj(
-                "",
-                {},
-                checklists=[MDChecklist(self.moves)],
-                header=self.moves_headings[0].title(),
+        if self.moves:
+            sections.add_child(
+                MDObj(
+                    "",
+                    lists=[MDChecklist(self.moves)],
+                    header=self.moves_headings[0].title(),
+                )
             )
-        )
 
         # Stats Section
         sections.add_child(self._create_stats_section())
 
         # Inventory Section
         inventory_section = self._create_inventory_section(error_handler)
-        sections.add_child(inventory_section)
-        sections.add_child(MDObj(self.notes, header="Notes"))
+        if inventory_section:
+            sections.add_child(inventory_section)
+
+        if self.notes:
+            sections.add_child(MDObj(self.notes, header="Notes"))
 
         return sections
 
     def _create_stats_section(self) -> MDObj:
         result = MDObj("", header=self.stats_headings[0].title())
-
-        if not self.stats:
-            self.stats = {}
-
         for category, skills in self.stat_structure.items():
             data = [
-                [skill, self.stats.get(category, {}).get(skill, "0")]
+                [skill, str(self.stats.get(category, {}).get(skill, "0"))]
                 for skill in skills
             ]
             result.add_child(
@@ -230,33 +231,37 @@ class PBTACharacter:
             )
         return result
 
-    def _create_inventory_section(self, error_handler):
+    def _create_inventory_section(
+        self, error_handler: Callable[[str], None]
+    ) -> Optional[MDObj]:
         if not self.inventory:
             return None
 
-        headers = [
-            "Name",
-            "Quantity",
-            "Maximum",
-            "Description",
-        ]
-        headers.extend(self.inventory_bonus_headers)
-        rows = [
-            [
-                f"{item.name}",
+        headers = ["Name", "Quantity", "Maximum", "Description"]
+        bonus_headers = sorted(list(self.inventory_bonus_headers))
+        headers.extend(bonus_headers)
+
+        rows = []
+        for item in self.inventory:
+            row = [
+                item.name,
                 f"{item.count:g}",
-                item.maximum,
+                str(item.maximum),
                 item.description,
             ]
-            + [item.additional_info.get(x) or "" for x in self.inventory_bonus_headers]
-            for item in self.inventory
-        ]
-        total_row = ["Total"] + (len(headers) - 1) * [""]
-        rows.append(total_row)
-        inventory_table = MDTable(rows, headers)
-        return MDObj("", {}, error_handler, [inventory_table], header="Inventory")
+            for h in bonus_headers:
+                row.append(item.additional_info.get(h, ""))
+            rows.append(row)
 
-    def inventory_get(self, name):
+        rows.append(["Total"] + (len(headers) - 1) * [""])
+        # total_table from gamepack.Item could be used here if compatible
+
+        inventory_table = MDTable(rows, headers)
+        return MDObj(
+            "", flash=error_handler, tables=[inventory_table], header="Inventory"
+        )
+
+    def inventory_get(self, name: str) -> Optional[PBTAItem]:
         for i in self.inventory:
             if i.name == name:
                 return i
