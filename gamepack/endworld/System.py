@@ -1,5 +1,5 @@
 import re
-from typing import Type, Callable, Iterable, Dict, List, Optional, Any
+from typing import Iterable, Dict, List, Optional, Any
 
 from gamepack.MDPack import MDTable
 
@@ -33,6 +33,11 @@ class System:
     energy: float
     heats: Dict[str, float]
     enabled: str
+    activation_rounds: int
+    boot_progress: int
+    boot_roll: Optional[int]
+    breakpoints: List[int]
+    keywords: List[str]
 
     def __init__(self, name: str, data: Dict[str, Any]):
         self._data = {k.lower(): v for k, v in data.items()}
@@ -45,6 +50,26 @@ class System:
             self.extract("heat", "0", False)
         )
         self.enabled: str = str(self.extract("enabled"))
+        self.activation_rounds: int = int(self.number(self.extract("boot", "0", False)))
+        self.boot_progress: int = 0
+        self.boot_roll: Optional[int] = None
+
+        # Breakpoints can be defined in data as "breakpoints": "5, 8, 13"
+        bp_str = str(self.extract("breakpoints", "", False))
+        self.breakpoints = [
+            int(x.strip()) for x in bp_str.split(",") if x.strip().isdigit()
+        ]
+
+        # Keywords
+        kw_str = str(self.extract("keywords", "", False))
+        self.keywords = [x.strip() for x in kw_str.split(",") if x.strip()]
+
+        # Auto-parse "Bootup X turns" keyword if boot stat is missing
+        for kw in self.keywords:
+            if kw.lower().startswith("bootup") and self.activation_rounds == 0:
+                match = re.search(r"(\d+)", kw)
+                if match:
+                    self.activation_rounds = int(match.group(1))
 
     def extract(self, key: str, default: str = "", req: bool = True) -> Any:
         if key in self._data:
@@ -83,6 +108,7 @@ class System:
                 "Energy": f"{self.energy:g}",
                 "Heat": to_heatformat(self.heats),
                 "Enabled": self.enabled,
+                "Keywords": ", ".join(self.keywords),
             }
         )
         return res
@@ -127,8 +153,26 @@ class System:
             return self.heats[param]
         return 0.0
 
+    def reset_ephemeral(self):
+        """Reset ephemeral state for replay."""
+        self.boot_progress = 0
+        self.boot_roll = None
+
     def is_active(self) -> bool:
-        return any(x in self.enabled for x in self.enablers)
+        return (
+            any(x in self.enabled for x in self.enablers)
+            and self.boot_progress >= self.activation_rounds
+        )
+
+    def is_booting(self) -> bool:
+        return (
+            any(x in self.enabled for x in self.enablers)
+            and self.boot_progress < self.activation_rounds
+        )
+
+    def needs_roll(self) -> bool:
+        """Returns True if the system is booting and needs a roll to proceed."""
+        return self.is_booting() and bool(self.breakpoints) and self.boot_roll is None
 
     def is_disabled(self) -> bool:
         return any(x in self.enabled for x in self.disablers)

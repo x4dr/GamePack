@@ -35,11 +35,11 @@ class MovementSystem(System):
             f"Mass={self.mass}"
         )
 
-    def speeds(self, mech_total_mass: float) -> List[float]:
+    def speeds(self, mech_total_mass: float, initial_speed: float = 0.0) -> List[float]:
         dt = 0.1  # timestep in seconds
 
-        speed = 0.0  # m/s
-        speeds_list = [speed]
+        speed = initial_speed / 3.6  # convert kmh to m/s
+        speeds_list = [speed * 3.6]
 
         thrust_force = self.thrust * self.amount  # N
         friction_force = self.anchor * mech_total_mass  # N

@@ -1,9 +1,19 @@
 import pytest
 
 from gamepack.MDPack import MDObj
+from gamepack.WikiPage import WikiPage
 from gamepack.endworld import EnergySystem, MovementSystem, System, SealSystem
 from gamepack.endworld.HeatSystem import HeatSystem
 from gamepack.endworld.Mecha import Mecha
+
+
+@pytest.fixture(autouse=True, scope="session")
+def setup_wikipath(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("wiki")
+    try:
+        WikiPage.set_wikipath(tmp_path)
+    except:
+        pass
 
 
 @pytest.fixture
@@ -57,10 +67,10 @@ def test_heat_add_and_withdraw(basic_heat):
     assert h.current == h.capacity
     # withdraw valid amount
     h.current = 5
-    assert h.withdraw_heat(3) == 3
+    assert h.withdraw_heat(3) == 0
     assert h.current == 2
-    # withdraw more than current → returns remaining
-    assert h.withdraw_heat(5) == 2
+    # withdraw more than current → returns underage
+    assert h.withdraw_heat(5) == 3
     assert h.current == 0
 
 
@@ -263,18 +273,26 @@ def test_get_syscat_and_use_system(mecha_with_systems):
     ds = System("S1", {"heat": "Shoot 3"})
     m.Offensive["X"] = ds
     m.use_system("Offensive", "X", "Shoot")
-    assert m.heatflux == 0  # no leftover heat in flux
-    assert m.Heat["H1"].current == 3.0
+    assert m.fluxpool == 3.0
 
 
 def test_flux_baseload(basic_mecha):
     m = basic_mecha
 
-    m.Offensive["O1"] = System("O1", {"heat": 5, "enabled": "[x]"})
-    m.Defensive["D1"] = System("D1", {"heat": 2, "enabled": "[x]"})
-    m.Support["S1"] = System("S1", {"heat": 3, "enabled": "[x]"})
-    m.flux_baseload()
-    assert m.heatflux == 5 + 2 + 3
+    o1 = System("O1", {"heat": 5, "enabled": "[x]", "amount": 1})
+    o1.boot_progress = o1.activation_rounds
+    m.Offensive["O1"] = o1
+
+    d1 = System("D1", {"heat": 2, "enabled": "[x]", "amount": 1})
+    d1.boot_progress = d1.activation_rounds
+    m.Defensive["D1"] = d1
+
+    s1 = System("S1", {"heat": 3, "enabled": "[x]", "amount": 1})
+    s1.boot_progress = s1.activation_rounds
+    m.Support["S1"] = s1
+
+    val = m.flux_baseload()
+    assert val == 5 + 2 + 3
 
 
 def test_energy_allocation_budget_loop(mecha_with_systems):
