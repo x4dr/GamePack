@@ -3,7 +3,7 @@ from gamepack.endworld.System import System
 
 
 class EnergySystem(System):
-    headers = ["Energy", "Mass", "Amount", "Enabled"]
+    headers = ["Energy", "Mass", "Amount", "Heat", "Enabled"]
     systype = "energy"
 
     def __init__(self, name: str, data: Dict[str, Any]):

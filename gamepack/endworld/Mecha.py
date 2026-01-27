@@ -157,7 +157,7 @@ class Mecha(BaseCharacter):
 
         loadouts_node: MDObj = mdobj.children.get("Loadouts", MDObj.empty())
         for loadout_name, loadout_node in loadouts_node.children.items():
-            instance.loadouts[loadout_name.title()] = instance.process_loadout(
+            instance.loadouts[loadout_name] = instance.process_loadout(
                 loadout_node.plaintext
             )
         if "Default" not in instance.loadouts:
