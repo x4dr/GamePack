@@ -37,35 +37,40 @@ class MovementSystem(System):
 
     def speeds(self, mech_total_mass: float, initial_speed: float = 0.0) -> List[float]:
         dt = 0.1  # timestep in seconds
-
         speed = initial_speed / 3.6  # convert kmh to m/s
         speeds_list = [speed * 3.6]
 
-        thrust_force = self.thrust * self.amount  # N
-        friction_force = self.anchor * mech_total_mass  # N
+        thrust_force = self.thrust * self.amount  # kN
+        # Friction scales with mass (Anchor is kN per ton)
+        friction_force = self.anchor * mech_total_mass  # kN
+
         accel = 1.0
         step = 1
-        # print("\n", self.name, mech_total_mass, "t")
-        while accel > 0.001:
-            if self.dynamics == 0:
-                drag_force = speed**3
-            else:
-                drag_force = speed**2 / (self.dynamics / 10)
+
+        while accel > 0.0001 and step < 2000:  # Cap at 200s
+            # Quadratic drag: F_drag = v^2 / (Dyn / 10)
+            # Scaling by 10 allows 'natural' 1-100 dynamics values
+            drag_force = (speed**2) / (
+                (self.dynamics / 10.0) if self.dynamics > 0 else 0.01
+            )
 
             if mech_total_mass <= 0:
                 break
 
-            accel = (thrust_force - friction_force - drag_force) / (
-                mech_total_mass * 10
-            )
+            # a = F/m (kN / tons = m/s^2)
+            net_force = thrust_force - friction_force - drag_force
+            accel = net_force / mech_total_mass
+
+            if accel < 0 and speed <= 0:
+                accel = 0
+                speed = 0
+
             speed += accel * dt
             if speed < 0:
-                speed = 0.0
+                speed = 0
 
             if step % int(1 / dt) == 0:
-                # print(thrust_force, friction_force, drag_force, end="=")
                 speeds_list.append(speed * 3.6)  # kmh
-                # print(f"{accel=},    {step} {speed}")
             step += 1
 
         return speeds_list

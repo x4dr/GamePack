@@ -38,11 +38,13 @@ class System:
     boot_roll: Optional[int]
     breakpoints: List[int]
     keywords: List[str]
+    current_heat: float
 
     def __init__(self, name: str, data: Dict[str, Any]):
         self._data = {k.lower(): v for k, v in data.items()}
         self.name: str = name
         self.errors: List[str] = []
+        self.current_heat = 0.0
         self.mass: float = self.number(self.extract("mass"))
         self.amount: float = self.number(self.extract("amount"))
         self.energy: float = self.number(self.extract("energy"))

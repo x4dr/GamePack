@@ -25,6 +25,7 @@ class Mecha(BaseCharacter):
     _categories: List[str]
     heatflux: float
     loadouts: Dict[str, List[Union[System, str]]]
+    shutoff_counters: Dict[str, int]
 
     def __init__(self):
         super().__init__()
@@ -39,6 +40,7 @@ class Mecha(BaseCharacter):
         self.Support: Dict[str, System] = {}
         self.Seal: Dict[str, SealSystem] = {}
         self.Sectors: Dict[str, Dict[str, Any]] = {}
+        self.shutoff_counters = {}
 
         self._categories: List[str] = [
             "Movement",
@@ -668,157 +670,138 @@ class Mecha(BaseCharacter):
             self.apply_event(event)
 
     def next_turn(self) -> Dict[str, Any]:
-        """Process the transition to the next turn."""
-        print(
-            f"DEBUG: next_turn() START, current turn {self.turn}, current pool {self.fluxpool}"
-        )
+        """Process the transition to the next turn with Double-Flux and Shutoff logic."""
         self.turn += 1
-
         self.flux_used = 0.0
         events = []
         overheated = False
 
-        # 1. Movement Transition (5 seconds = 50 steps of 0.1s)
+        # 1. Movement
         old_speed = self.current_speed
         target = self.target_speed
         new_speed = old_speed
-
         active_move = [m for m in self.Movement.values() if m.is_active()]
         if active_move:
-            # Use the first active movement system for transition
             ms = active_move[0]
+            # Use 5 seconds of movement (Turn length)
             full_curve = ms.speeds(self.total_mass, initial_speed=old_speed)
             if target > old_speed:
-                # Accelerating
+                # Accelerate towards target
                 new_speed = full_curve[min(5, len(full_curve) - 1)]
                 if new_speed > target:
                     new_speed = target
             elif target < old_speed:
-                # Decelerating (simplified: drop speed towards target)
-                # In the future, use braking force/anchor
-                new_speed = (
-                    old_speed - (old_speed - target) * 0.5
-                )  # Placeholder: 50% drop per turn
+                # Decelerate (Braking Force)
+                new_speed = old_speed - (old_speed - target) * 0.5
                 if new_speed < target:
                     new_speed = target
         else:
-            # No active movement: decelerate rapidly
             new_speed = old_speed * 0.5
             if new_speed < 0.1:
                 new_speed = 0.0
-
         self.current_speed = new_speed
-        events.append(
-            {
-                "type": "MOVEMENT",
-                "value": new_speed,
-                "message": f"Speed: {old_speed:g} -> {new_speed:g} km/h (Target: {target:g})",
-            }
-        )
+        events.append({"type": "MOVEMENT", "value": new_speed})
 
-        # 2. Heat & Energy
-        # Add pending heat before ticking
-        if self.pending_heat != 0:
-            self.fluxpool += self.pending_heat
-            events.append(
-                {
-                    "type": "HEAT_GEN",
-                    "value": self.pending_heat,
-                    "message": f"Manual heat adjustment: {self.pending_heat:g}",
-                }
-            )
+        # 2. Double-Flux Heat Transfer Logic
+        total_flux_cap = self.fluxpool_max()
 
-        # Add baseload heat from all active systems
-        # This fills the fluxpool for the turn we just finished
-        baseload = self.flux_baseload()
-        if baseload > 0:
-            self.fluxpool += baseload
-            events.append(
-                {
-                    "type": "HEAT_GEN",
-                    "value": baseload,
-                    "message": f"Generated {baseload:g} baseload heat.",
-                }
-            )
+        # Phase A: Inbound (Systems -> Pool)
+        remaining_inbound_flux = total_flux_cap
 
-        # Check for unassigned heat penalties before ticking
-        print(
-            f"DEBUG: Checking overheat: pool={self.fluxpool}, max={self.fluxpool_max()}"
-        )
-        if self.fluxpool > self.fluxpool_max():
-            overheated = True
-            overage = self.fluxpool - self.fluxpool_max()
-            events.append(
-                {
-                    "type": "PENALTY",
-                    "message": f"Unassigned heat overage: {overage:g}! Damage/Shutdown imminent.",
-                }
-            )
-            # Find the first power generator for damage suggestion
-            target_gen = None
-            if self.Energy:
-                # MD usually follows iteration order of the dict if parsed correctly
-                target_gen = list(self.Energy.keys())[0]
+        # Add manual pending heat to pool first (e.g. firing weapons)
+        manual_heat = self.pending_heat
+        moved_manual = min(manual_heat, remaining_inbound_flux)
+        self.fluxpool += moved_manual
+        remaining_inbound_flux -= moved_manual
+        internal_manual_overheat = manual_heat - moved_manual
 
-            events.append(
-                {"type": "OVERHEAT", "target": target_gen, "overage": overage}
-            )
-
-        # Heat systems dissipate heat from their storage
-        thermals = self.tick_heat()
-        dissipated = sum(thermals.values())
-        events.append(
-            {
-                "type": "HEAT_DISSIPATION",
-                "values": thermals,
-                "message": f"Dissipated {dissipated:g} heat from storage.",
-            }
-        )
-
-        # Process system booting
-        booted = []
+        # Update Shutoff Counters and calculate system heat
         for cat in self._categories:
             for sys in self.get_syscat(cat).values():
-                if sys.is_booting():
-                    # If it needs a roll and we are at the last round of booting, block progress
-                    if (
-                        sys.needs_roll()
-                        and sys.boot_progress >= sys.activation_rounds - 1
-                    ):
-                        events.append(
-                            {
-                                "type": "SYSTEM",
-                                "message": f"{sys.name} waiting for activation roll.",
-                            }
-                        )
-                        continue
+                gen = 0.0
+                if sys.is_active():
+                    gen = sum(sys.heats.values()) * sys.amount
+                    if isinstance(sys, EnergySystem):
+                        self.shutoff_counters[sys.name] = sys.shutoff
+                elif (
+                    isinstance(sys, EnergySystem)
+                    and self.shutoff_counters.get(sys.name, 0) > 0
+                ):
+                    # Reactor is off but still "Shutting down"
+                    gen = sum(sys.heats.values()) * sys.amount
+                    self.shutoff_counters[sys.name] -= 1
+                    events.append(
+                        {
+                            "type": "SHUTOFF_DELAY",
+                            "message": f"{sys.name} cooling... ({self.shutoff_counters[sys.name]} turns left)",
+                        }
+                    )
 
-                    # Advance progress
-                    progress_gain = 1
-                    if sys.boot_roll is not None and sys.breakpoints:
-                        # For every breakpoint reached, potentially gain extra progress
-                        if any(sys.boot_roll >= bp for bp in sys.breakpoints):
-                            progress_gain += 1
+                if gen > 0:
+                    can_move = min(gen, remaining_inbound_flux)
+                    self.fluxpool += can_move
+                    remaining_inbound_flux -= can_move
+                    sys.current_heat = gen - can_move
+                else:
+                    sys.current_heat = 0.0
+        
+        events.append({"type": "HEAT_GEN", "value": total_flux_cap - remaining_inbound_flux})
 
-                    sys.boot_progress += progress_gain
-                    if sys.boot_progress >= sys.activation_rounds:
-                        booted.append(sys.name)
-                        sys.boot_progress = sys.activation_rounds  # Cap it
-                        events.append(
-                            {"type": "SYSTEM", "message": f"{sys.name} online."}
-                        )
+        # Phase B: Outbound (Pool -> Sinks/Vents)
+        moved_to_sinks = 0.0
+        remaining_outbound_flux = total_flux_cap
 
-        # Reset per-turn flux tracking
-        self.heatflux = 0.0
+        if self.fluxpool > 0:
+            for h_sys in self.Heat.values():
+                can_take = min(
+                    remaining_outbound_flux,
+                    h_sys.flux,
+                    h_sys.spare_capacity(),
+                    self.fluxpool,
+                )
+                if can_take > 0:
+                    h_sys.add_heat(can_take)
+                    self.fluxpool -= can_take
+                    remaining_outbound_flux -= can_take
+                    moved_to_sinks += can_take
+        
+        if moved_to_sinks > 0:
+            # We don't have a direct HEAT_SINK event that is replayed to update sys.current, 
+            # but HEAT_ASSIGNMENT can be used if we want to log it? 
+            # Actually replay() uses HEAT_ASSIGNMENT to update sys.current.
+            # But here it's automatic. We should probably log HEAT_ASSIGNMENT for each sink 
+            # or add a new event type that handles automatic dissipation.
+            # For now, Mecha.apply_event handles HEAT_ASSIGNMENT.
+            pass
+
+        # 3. Check for Global Pool Overheat (Overflow)
+        if self.fluxpool > total_flux_cap:
+            overheated = True
+            events.append(
+                {"type": "POOL_OVERFLOW", "value": self.fluxpool - total_flux_cap}
+            )
+
+        # 4. Dissipation (Vents work on their internal heat)
+        thermals = self.tick_heat()
+        events.append({"type": "HEAT_DISSIPATION", "values": thermals})
+
+        # 5. Reset turn state
         self.pending_heat = 0.0
-        for h in self.Heat.values():
-            h.flux_used = 0.0
 
         return {
             "turn": self.turn,
-            "thermals": thermals,
+            "internal_overheat": sum(
+                s.current_heat
+                for cat in self._categories
+                for s in self.get_syscat(cat).values()
+            )
+            + internal_manual_overheat,
+            "moved_to_pool": total_flux_cap - remaining_inbound_flux,
+            "moved_to_sinks": moved_to_sinks,
+            "dissipated": sum(thermals.values()),
+            "pool_status": self.fluxpool,
             "new_flux": self.fluxpool,
-            "booted_systems": booted,
+            "new_speed": new_speed,
             "events": events,
             "overheated": overheated,
         }
@@ -864,6 +847,22 @@ class Mecha(BaseCharacter):
     def current_flux(self) -> float:
         """current flux"""
         return self.heatflux
+
+    def projected_cooling(self) -> float:
+        """Calculate the total projected cooling performance for the next turn."""
+        total = 0.0
+        for h in self.Heat.values():
+            # Cooling is based on active/passive dissipation logic in HeatSystem.tick()
+            # but we need a projected version. 
+            # Passive is always active if not disabled.
+            if not h.is_disabled():
+                rel, abs_val = h.unpack(h.passive)
+                total += abs_val + (rel * h.current)
+            # Active cooling if active or booting
+            if h.is_active() or h.is_booting():
+                rel, abs_val = h.unpack(h.active)
+                total += abs_val + (rel * h.current)
+        return total
 
     def energy_output(self) -> float:
         return self.energy_budget()
