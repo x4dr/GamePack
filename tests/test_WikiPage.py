@@ -29,8 +29,11 @@ class TestWikiPage(unittest.TestCase):
 
     def test_wikipath_not_set(self):
         with patch.object(WikiPage, "_wikipath", None):
-            with self.assertRaises(DescriptiveError):
-                WikiPage.wikipath()
+            import os
+
+            with patch.dict(os.environ, clear=True):
+                with self.assertRaises(DescriptiveError):
+                    WikiPage.wikipath()
 
     def test_locate(self):
         path = WikiPage.locate("test")
