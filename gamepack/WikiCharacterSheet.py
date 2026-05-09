@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Self, Optional, Union, Dict, Callable, Any, cast, Generic, TypeVar
+from typing import Self, Optional, Union, Dict, cast, Generic, TypeVar
 
 from gamepack.BaseCharacter import BaseCharacter
 from gamepack.FenCharacter import FenCharacter
@@ -54,29 +54,45 @@ class WikiCharacterSheet(WikiPage, Generic[T]):
         )
 
     @classmethod
-    def load(cls, page: Optional[Path], cache=True) -> Optional[Self]:
+    def load(cls, page: Optional[Path], cache: bool = True) -> Optional[Self]:
         if page is None:
             return None
+
+        abs_path = (cls.wikipath() / page).resolve()
+        if abs_path.suffix != ".md":
+            abs_path = abs_path.with_suffix(".md")
+
         p = WikiPage.load(page, cache)
         if isinstance(p, WikiCharacterSheet):
             return cast(Self, p)
         elif p:
+            if not isinstance(p, WikiPage):
+                raise TypeError(f"Expected WikiPage instance, got {type(p)}")
+
             sheet = cls.from_wikipage(p)
-            WikiPage.page_cache[page] = sheet
+            WikiPage.page_cache[abs_path] = sheet
             return cast(Self, sheet)
         return None
 
     @classmethod
-    def load_locate(cls, page: str, cache=True) -> Optional[Self]:
+    def load_locate(cls, page: str, cache: bool = True) -> Optional[Self]:
         path = WikiPage.locate(page)
         if path is None:
             return None
+
+        abs_path = (cls.wikipath() / path).resolve()
+        if abs_path.suffix != ".md":
+            abs_path = abs_path.with_suffix(".md")
+
         p = WikiPage.load(path, cache)
         if isinstance(p, WikiCharacterSheet):
             return cast(Self, p)
         elif p:
+            if not isinstance(p, WikiPage):
+                raise TypeError(f"Expected WikiPage instance, got {type(p)}")
+
             sheet = cls.from_wikipage(p)
-            WikiPage.page_cache[path] = sheet
+            WikiPage.page_cache[abs_path] = sheet
             return cast(Self, sheet)
         return None
 
