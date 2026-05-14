@@ -6,6 +6,7 @@ from gamepack.MDPack import MDObj
 from .EnergySystem import EnergySystem
 from .HeatSystem import HeatSystem
 from .MovementSystem import MovementSystem
+from .OffensiveSystem import OffensiveSystem
 from .SealSystem import SealSystem
 from .System import System
 
@@ -17,13 +18,12 @@ class Mecha(BaseCharacter):
     Movement: Dict[str, MovementSystem]
     Energy: Dict[str, EnergySystem]
     Heat: Dict[str, HeatSystem]
-    Offensive: Dict[str, System]
+    Offensive: Dict[str, OffensiveSystem]
     Defensive: Dict[str, System]
     Support: Dict[str, System]
     Seal: Dict[str, SealSystem]
     Sectors: Dict[str, Dict[str, Any]]
     _categories: List[str]
-    heatflux: float
     loadouts: Dict[str, List[Union[System, str]]]
     shutoff_counters: Dict[str, int]
 
@@ -35,7 +35,7 @@ class Mecha(BaseCharacter):
         self.Movement: Dict[str, MovementSystem] = {}
         self.Energy: Dict[str, EnergySystem] = {}
         self.Heat: Dict[str, HeatSystem] = {}
-        self.Offensive: Dict[str, System] = {}
+        self.Offensive: Dict[str, OffensiveSystem] = {}
         self.Defensive: Dict[str, System] = {}
         self.Support: Dict[str, System] = {}
         self.Seal: Dict[str, SealSystem] = {}
@@ -52,10 +52,8 @@ class Mecha(BaseCharacter):
             "Seal",
         ]
 
-        self.heatflux = 0.0
         self.pending_heat = 0.0
         self.fluxpool = 0.0
-        self.flux_used = 0.0
         self._turn = 0
         self.loadouts: Dict[str, List[Union[System, str]]] = {}
 
@@ -143,7 +141,7 @@ class Mecha(BaseCharacter):
                     elif key == "Seal":
                         instance.Seal[k] = SealSystem(k, final_data)
                     elif key == "Offensive":
-                        instance.Offensive[k] = System(k, final_data)
+                        instance.Offensive[k] = OffensiveSystem(k, final_data)
                     elif key == "Defensive":
                         instance.Defensive[k] = System(k, final_data)
                     elif key == "Support":
@@ -292,7 +290,7 @@ class Mecha(BaseCharacter):
             ("Movement", self.Movement.values(), MovementSystem),
             ("Energy", self.Energy.values(), EnergySystem),
             ("Heat", self.Heat.values(), HeatSystem),
-            ("Offensive", self.Offensive.values(), System),
+            ("Offensive", self.Offensive.values(), OffensiveSystem),
             ("Defensive", self.Defensive.values(), System),
             ("Support", self.Support.values(), System),
             ("Seal", self.Seal.values(), SealSystem),
@@ -469,13 +467,16 @@ class Mecha(BaseCharacter):
             and not isinstance(x, EnergySystem)
         ]
 
+        active_systems: List[System] = []
         for s in loadout_systems:
-            budget -= s.energy
-            if budget < 0:
+            cost = s.energy * s.amount
+            if budget - cost < 0:
                 break
+            budget -= cost
+            active_systems.append(s)
             activated += 1
 
-        return loadout_systems, activated
+        return active_systems, activated
 
     def get_syscat(self, name: str) -> Dict[str, System]:
         if name == "Generic":
@@ -656,7 +657,6 @@ class Mecha(BaseCharacter):
         self._current_speed = 0.0
         self._target_speed = 0.0
         self._fluxpool = 0.0
-        self._flux_used = 0.0
         self._pending_heat = 0.0
         for cat in self._categories:
             for sys in self.get_syscat(cat).values():
@@ -672,7 +672,6 @@ class Mecha(BaseCharacter):
     def next_turn(self) -> Dict[str, Any]:
         """Process the transition to the next turn with Double-Flux and Shutoff logic."""
         self.turn += 1
-        self.flux_used = 0.0
         events = []
         overheated = False
 
@@ -719,17 +718,15 @@ class Mecha(BaseCharacter):
         for cat in self._categories:
             for sys in self.get_syscat(cat).values():
                 gen = 0.0
-                if sys.is_active():
-                    gen = sum(sys.heats.values()) * sys.amount
-                    if isinstance(sys, EnergySystem):
+                if isinstance(sys, EnergySystem):
+                    if sys.is_active():
+                        gen = sys.generated_heat()
                         self.shutoff_counters[sys.name] = sys.shutoff
-                elif (
-                    isinstance(sys, EnergySystem)
-                    and self.shutoff_counters.get(sys.name, 0) > 0
-                ):
-                    # Reactor is off but still "Shutting down"
+                    elif self.shutoff_counters.get(sys.name, 0) > 0:
+                        gen = sys.generated_heat()
+                        self.shutoff_counters[sys.name] -= 1
+                elif sys.is_active():
                     gen = sum(sys.heats.values()) * sys.amount
-                    self.shutoff_counters[sys.name] -= 1
                     events.append(
                         {
                             "type": "SHUTOFF_DELAY",
@@ -744,8 +741,10 @@ class Mecha(BaseCharacter):
                     sys.current_heat = gen - can_move
                 else:
                     sys.current_heat = 0.0
-        
-        events.append({"type": "HEAT_GEN", "value": total_flux_cap - remaining_inbound_flux})
+
+        events.append(
+            {"type": "HEAT_GEN", "value": total_flux_cap - remaining_inbound_flux}
+        )
 
         # Phase B: Outbound (Pool -> Sinks/Vents)
         moved_to_sinks = 0.0
@@ -764,12 +763,12 @@ class Mecha(BaseCharacter):
                     self.fluxpool -= can_take
                     remaining_outbound_flux -= can_take
                     moved_to_sinks += can_take
-        
+
         if moved_to_sinks > 0:
-            # We don't have a direct HEAT_SINK event that is replayed to update sys.current, 
-            # but HEAT_ASSIGNMENT can be used if we want to log it? 
+            # We don't have a direct HEAT_SINK event that is replayed to update sys.current,
+            # but HEAT_ASSIGNMENT can be used if we want to log it?
             # Actually replay() uses HEAT_ASSIGNMENT to update sys.current.
-            # But here it's automatic. We should probably log HEAT_ASSIGNMENT for each sink 
+            # But here it's automatic. We should probably log HEAT_ASSIGNMENT for each sink
             # or add a new event type that handles automatic dissipation.
             # For now, Mecha.apply_event handles HEAT_ASSIGNMENT.
             pass
@@ -844,24 +843,18 @@ class Mecha(BaseCharacter):
                 max_s = sys_data["topspeed"]
         return max_s
 
-    def current_flux(self) -> float:
-        """current flux"""
-        return self.heatflux
-
     def projected_cooling(self) -> float:
-        """Calculate the total projected cooling performance for the next turn."""
+        """Calculate the projected total dissipation for the next turn."""
         total = 0.0
         for h in self.Heat.values():
-            # Cooling is based on active/passive dissipation logic in HeatSystem.tick()
-            # but we need a projected version. 
-            # Passive is always active if not disabled.
+            sys_diss = 0.0
             if not h.is_disabled():
                 rel, abs_val = h.unpack(h.passive)
-                total += abs_val + (rel * h.current)
-            # Active cooling if active or booting
+                sys_diss += abs_val + (rel * h.current)
             if h.is_active() or h.is_booting():
                 rel, abs_val = h.unpack(h.active)
-                total += abs_val + (rel * h.current)
+                sys_diss += abs_val + (rel * h.current)
+            total += min(sys_diss, h.current)
         return total
 
     def energy_output(self) -> float:

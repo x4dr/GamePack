@@ -17,7 +17,6 @@ class HeatSystem(System):
     ]
     systype = "heat"
 
-    thermal: float
     capacity: float
     passive: str
     active: str
@@ -28,7 +27,6 @@ class HeatSystem(System):
 
     def __init__(self, name: str, data: Dict[str, Any]):
         super().__init__(name, data)
-        self.thermal = 0.0
         self.capacity = self.number(self.extract("capacity"))
         self.passive = str(self.extract("passive"))
         self.active = str(self.extract("active"))
