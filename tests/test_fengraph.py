@@ -95,9 +95,8 @@ class TestFengraph(unittest.TestCase):
         mock_db.return_value = mock_conn
         mock_conn.execute.return_value.fetchall.return_value = []
 
-        with self.assertRaises(DescriptiveError) as cm:
-            fastdata((1, 2), 0)
-        self.assertIn("Cache Updated", str(cm.exception))
+        res = fastdata((1, 2), 0)
+        self.assertEqual(res, {3: 1})
         self.assertTrue(mock_conn.commit.called)
 
     @patch("gamepack.fengraph.fastdata")

@@ -32,20 +32,17 @@ def fastdata(selector: tuple[int, ...], mod: int) -> dict[int, int]:
     ).fetchall()
     if res:
         return {int(r[0]): r[1] for r in res}
-    for mod in range(-5, 6):
-        occ: dict[int, int] = collections.defaultdict(int)
-        for roll, occurence_count in freq_dicts[mod].items():
-            result = sum(roll[s - 1] for s in selector)
-            occ[int(result)] += int(occurence_count)
-        for result, occurence_count in occ.items():
-            db.execute(
-                "INSERT INTO occurences VALUES (?,?,?,?)",
-                [str(selector), int(mod), int(result), int(occurence_count)],
-            )
+    occ: dict[int, int] = collections.defaultdict(int)
+    for roll, occurence_count in freq_dicts[mod].items():
+        result = sum(roll[s - 1] for s in selector)
+        occ[int(result)] += int(occurence_count)
+    for result, occurence_count in occ.items():
+        db.execute(
+            "INSERT INTO occurences VALUES (?,?,?,?)",
+            [str(selector), int(mod), int(result), int(occurence_count)],
+        )
     db.commit()
-    raise DescriptiveError(
-        "Cache Updated, try again! I could just continue but I am no longer trusted to do my job!"
-    )
+    return dict(occ)
 
 
 def fastversus(
