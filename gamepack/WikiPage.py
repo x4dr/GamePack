@@ -123,7 +123,15 @@ class WikiPage:
         """
         if page is None:
             return None
-        result = cls.page_cache.get(page) if cache else None
+        if page.is_absolute():
+            try:
+                rel = page.relative_to(cls.wikipath())
+                p = cls.wikipath() / rel
+            except ValueError:
+                raise ValueError(f"Absolute path {page} is outside of the wiki!")
+        else:
+            p = cls.wikipath() / page
+        result = cls.page_cache.get(p) if cache else None
         if (
             result
             and result.file
@@ -136,14 +144,6 @@ class WikiPage:
                 yield readline
 
         try:
-            if page.is_absolute():
-                try:
-                    rel = page.relative_to(cls.wikipath())
-                    p = cls.wikipath() / rel
-                except ValueError:
-                    raise ValueError(f"Absolute path {page} is outside of the wiki!")
-            else:
-                p = cls.wikipath() / page
             filetime = p.stat().st_mtime
             with p.open() as f:
                 lines = lineloader(f)
@@ -257,7 +257,7 @@ class WikiPage:
         canonical_name = page.as_posix().replace(page.name, page.stem)
         self.wikicache[canonical_name] = {"tags": list(self.tags), "links": self.links}
         target_path = page if page.is_absolute() else self.wikipath() / page
-        self.last_modified = time.time()
+        self.last_modified = page.stat().st_mtime
         self.page_cache[target_path] = self
 
     @classmethod
