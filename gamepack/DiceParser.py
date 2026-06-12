@@ -126,7 +126,7 @@ class DiceParser:
         """
         try:
             params = cls.dice_expression_parser.parse(message)
-        except (DiceCodeError, DescriptiveError):
+        except DiceCodeError, DescriptiveError:
             raise
         except Exception as e:
             raise DiceCodeError(message + " is not valid. \n" + cls.usage) from e

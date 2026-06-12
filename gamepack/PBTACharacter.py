@@ -132,11 +132,11 @@ class PBTACharacter(BaseCharacter):
 
         try:
             current = int(tryfloatdefault(h.get(cur_key), 1.0))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             current = 1
         try:
             maximum = int(tryfloatdefault(h.get(max_key), 1.0))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             maximum = 1
         return current, maximum
 

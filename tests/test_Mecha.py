@@ -10,10 +10,7 @@ from gamepack.endworld.Mecha import Mecha
 @pytest.fixture(autouse=True, scope="session")
 def setup_wikipath(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("wiki")
-    try:
-        WikiPage.set_wikipath(tmp_path)
-    except:
-        pass
+    WikiPage._wikipath = tmp_path
 
 
 @pytest.fixture

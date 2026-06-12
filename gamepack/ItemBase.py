@@ -16,7 +16,7 @@ def tryfloatdefault(inp: Any, default: float = 0.0) -> float:
         return default
     try:
         return float(inp)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         if isinstance(inp, str) and len(inp) > 1:
             return tryfloatdefault(inp[:-1], default)
         return default
