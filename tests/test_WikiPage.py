@@ -15,6 +15,27 @@ class TestWikiPage(unittest.TestCase):
         (Path(cls.temp_dir) / "items.md").touch()
         (Path(cls.temp_dir) / "pbtaitems.md").touch()
         (Path(cls.temp_dir) / "prices.md").touch()
+        resolve_page = Path(cls.temp_dir) / "resolve_test.md"
+        resolve_page.write_text(
+            "---\ntitle: Resolve Test\n---\n"
+            "# Main\n"
+            "Main content.\n"
+            "## Skills\n"
+            "Skill description.\n"
+            "### Melee\n"
+            "Melee skill details.\n"
+            "### Ranged\n"
+            "Ranged skill details.\n"
+            "## Background\n"
+            "Background text.\n"
+        )
+        foldable_page = Path(cls.temp_dir) / "foldable_test.md"
+        foldable_page.write_text(
+            "---\ntitle: Foldable Test\n---\n"
+            "# Main\n"
+            "## !Hidden\n"
+            "Hidden content\n"
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -83,3 +104,38 @@ class TestWikiPage(unittest.TestCase):
         page = WikiPage("Title", [], "[clock|task|1|10]", [], {})
         page.change_clock("task", 2)
         self.assertIn("[clock|task|3|10]", page.body)
+
+    def test_resolve_address_full_page(self):
+        result = WikiPage.resolve_address("resolve_test")
+        self.assertIsNotNone(result)
+        self.assertIn("# Main", result)
+        self.assertIn("## Skills", result)
+        self.assertIn("## Background", result)
+
+    def test_resolve_address_section(self):
+        result = WikiPage.resolve_address("resolve_test#Skills")
+        self.assertIsNotNone(result)
+        self.assertIn("## Skills", result)
+        self.assertIn("Skill description", result)
+        self.assertIn("### Melee", result)
+        self.assertNotIn("## Background", result)
+
+    def test_resolve_address_subsection(self):
+        result = WikiPage.resolve_address("resolve_test#Skills:Melee")
+        self.assertIsNotNone(result)
+        self.assertIn("### Melee", result)
+        self.assertIn("Melee skill details", result)
+        self.assertNotIn("### Ranged", result)
+
+    def test_resolve_address_nonexistent_page(self):
+        result = WikiPage.resolve_address("no_such_page")
+        self.assertIsNone(result)
+
+    def test_resolve_address_nonexistent_section(self):
+        result = WikiPage.resolve_address("resolve_test#NoSuchHeading")
+        self.assertIsNone(result)
+
+    def test_resolve_address_foldable_section(self):
+        result = WikiPage.resolve_address("foldable_test#Hidden")
+        self.assertIsNotNone(result)
+        self.assertIn("Hidden content", result)

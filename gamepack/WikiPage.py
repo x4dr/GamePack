@@ -13,7 +13,7 @@ from git import Repo, GitCommandError
 
 from gamepack.Dice import DescriptiveError
 from gamepack.Item import Item
-from gamepack.MDPack import MDObj
+from gamepack.MDPack import MDObj, traverse_md
 from gamepack.PBTAItem import PBTAItem
 
 log = logging.getLogger(__name__)
@@ -359,6 +359,32 @@ class WikiPage:
 
     def render(self) -> Any:
         return None
+
+    @classmethod
+    def resolve_address(cls, address: str) -> str | None:
+        parts = address.split("#", 1)
+        page_name = parts[0]
+
+        page = cls.load_locate(page_name)
+        if page is None:
+            return None
+
+        body = page.body
+
+        if len(parts) < 2:
+            return body
+
+        body = re.sub(r"^(#+)\s*!\s*", r"\1 ", body, flags=re.MULTILINE)
+
+        fragments = parts[1].split(":")
+        for fragment in fragments:
+            if not fragment.strip():
+                continue
+            body = traverse_md(body, fragment.strip())
+            if not body.strip():
+                return None
+
+        return body
 
 
 def delayed_push(repo, pushtime: datetime):

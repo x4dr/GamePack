@@ -11,54 +11,60 @@ GamePack is a Python 3.14+ game mechanics library factored out from NossiNet. It
 ### Testing
 ```bash
 # Run all tests
-source .venv/bin/activate && python -m pytest
+uv run python -m pytest
 
 # Run single test file
-source .venv/bin/activate && python -m pytest tests/test_Dice.py
+uv run python -m pytest tests/test_Dice.py
 
 # Run specific test method
-source .venv/bin/activate && python -m pytest tests/test_Dice.py::TestDice::test_param -v
+uv run python -m pytest tests/test_Dice.py::TestDice::test_param -v
 
 # Run tests with coverage
-source .venv/bin/activate && python -m pytest --cov=gamepack
+uv run python -m pytest --cov=gamepack
 ```
 
 ### Code Formatting and Linting
 ```bash
 # Format code (Black)
-source .venv/bin/activate && black .
+uv run black .
 
-# Run pre-commit hooks (includes Black and additional checks)
-source .venv/bin/activate && pre-commit run --all-files
+# Type check with mypy strict
+uv run mypy --strict src/ gamepack/
 
-# Flake8 is configured in pre-commit but not installed separately
-# Configuration is in .flake8
+# Lint with Ruff
+uv run ruff check .
+
+# Run pre-commit hooks (includes Black, Ruff, mypy, and additional checks)
+uv run pre-commit run --all-files
 ```
 
 ### Dependencies and Environment
 ```bash
-# Install dev dependencies
-source .venv/bin/activate && pip install -e ".[dev]"
+# Install all dependencies (including dev)
+uv sync
+
+# Install dev dependencies (legacy fallback)
+uv pip install -e ".[dev]"
 
 # Project uses Python 3.14+ (as specified in pyproject.toml)
-# Virtual environment is in .venv/
+# Virtual environment is managed by uv in .venv/
 ```
 
 ## Code Style Guidelines
 
 ### Import Organization
 - Standard library imports first, sorted alphabetically
-- Third-party imports next, sorted alphabetically  
+- Third-party imports next, sorted alphabetically
 - Local imports last, sorted alphabetically
-- Use `from typing import` for type annotations
+- Use built-in generics (`list[]`, `dict[]`) over `typing` equivalents
 - Example pattern follows PEP8:
 ```python
 import itertools
 import re
 import time
 
-from collections import OrderedDict
-from typing import List, Tuple, Self
+from collections.abc import Sequence
+from typing import Self
 
 from gamepack.Item import Item
 from gamepack.DiceParser import fullparenthesis
@@ -67,8 +73,9 @@ from gamepack.DiceParser import fullparenthesis
 ### Type Annotations
 - Use modern typing syntax (Python 3.14+ features available)
 - Class variables use type annotations with `:` syntax
-- Union types: `Union[float, None]` or `int | None` (both acceptable)
-- Generic types: `List[Item]`, `dict[str, str]`
+- Union types: Use `X | None`, never `Union[X, None]`
+- Generic types: Use `list[Item]`, `dict[str, str]`, never `List[Item]`, `Dict[str, str]`
+- Import ABCs from `collections.abc` (e.g., `Sequence`, `Mapping`) not from `typing`
 
 ### Naming Conventions
 - Classes: `PascalCase` (e.g., `FenCharacter`, `DescriptiveError`)
@@ -81,36 +88,34 @@ from gamepack.DiceParser import fullparenthesis
 - Use custom exception classes that inherit from `Exception`
 - Example: `class DescriptiveError(Exception): pass`
 - Raise specific exceptions with descriptive error messages
-- Use `assertRaisesRegex` in tests for specific error messages
+- Use `pytest.raises` in tests for specific error messages
 
 ### Documentation and Comments
-- Docstrings are minimal in this codebase - follow the existing pattern
-- Class and method docstrings should be brief and to the point
+- Use comprehensive docstrings (Google style) for all public APIs
 - Use inline comments sparingly, only for complex logic
 
 ### Code Structure
 - Class attributes defined at class level with type annotations
 - Instance variables initialized in `__init__`
 - Use `Self` for return type annotations where appropriate
-- Method parameters have type hints, but return types may be omitted for complex logic
+- All function signatures have full type hints (parameters and return types)
 
 ### Testing Conventions
-- Test classes: `TestClassName` (inheriting from `unittest.TestCase`)
-- Test methods: `test_specific_behavior`
-- Use `setUp()` for test preparation (e.g., `random.seed(0)`)
+- Use pytest style (plain functions, fixtures, parametrize)
+- Test classes: `TestClassName` (no base class needed)
+- Test methods/functions: `test_specific_behavior`
+- Use fixtures for setup/teardown over `setUp()`/`tearDown()`
+- Use `pytest.raises` over `assertRaises`
 - Test files are named `test_ModuleName.py` in the `tests/` directory
 
 ### Configuration Files
-- **pyproject.toml**: Project metadata, dependencies, tool configuration
-- **.flake8**: Linting rules (ignores E722, W503, E203, E704; max-line-length: 127)
-- **.pre-commit-config.yaml**: Pre-commit hooks (Black, Flake8, various checks)
-- Black uses default line length (88 characters)
-- Flake8 allows 127 characters max line length
+- **pyproject.toml**: Project metadata, dependencies, tool configuration (Black, Ruff, mypy)
+- **.pre-commit-config.yaml**: Pre-commit hooks (Black, Ruff, mypy, various checks)
 
 ## Key Patterns in Codebase
 
 ### Data Classes and Items
-- Classes sometimes have an  attribute for an associated markdown file 
+- Classes sometimes have an  attribute for an associated markdown file
 - Item classes use tuple constants for field name matching (e.g., `table_name = ("objekt", "object", "name")`)
 - Cache patterns using class-level dictionaries for performance
 
@@ -139,5 +144,5 @@ from gamepack.DiceParser import fullparenthesis
 - Database connections use singleton pattern (`dicecache_db()`)
 - Import optimizations are in place for frequently accessed modules
 
-When working on this codebase, always run the pre-commit hooks before committing, and ensure your changes pass all existing tests.
+When working on this codebase, always run pre-commit hooks and mypy before committing, and ensure your changes pass all existing tests.
 Keep Coverage above 80%
