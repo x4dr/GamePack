@@ -1,15 +1,16 @@
-import unittest
 import io
-from unittest.mock import patch, MagicMock
-from gamepack.fengraph import (
-    modify_dmg,
-    chances,
-    versus,
-    fastdata,
-    count_sorted_rolls,
-    count_lowest_rolls,
-)
+import unittest
+from unittest.mock import MagicMock, patch
+
 from gamepack.Dice import DescriptiveError
+from gamepack.fengraph import (
+    chances,
+    count_lowest_rolls,
+    count_sorted_rolls,
+    fastdata,
+    modify_dmg,
+    versus,
+)
 
 
 class TestFengraph(unittest.TestCase):
@@ -69,7 +70,7 @@ class TestFengraph(unittest.TestCase):
         self.assertEqual(res, {10: 100})
 
     @patch("gamepack.fengraph.dicecache_db")
-    def test_fastdata_invalid_mod(self, mock_db):
+    def test_fastdata_invalid_mod(self, _mock_db):
         res = fastdata((1, 2), 100)
         self.assertEqual(res, {})
 

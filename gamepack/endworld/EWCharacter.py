@@ -1,14 +1,17 @@
 import re
-from typing import Optional, Callable, Self
+from typing import TYPE_CHECKING, ClassVar, Self
 
+from gamepack.endworld.Mecha import Mecha
 from gamepack.FenCharacter import FenCharacter
 from gamepack.MDPack import MDObj
 from gamepack.WikiPage import WikiPage
-from gamepack.endworld.Mecha import Mecha
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class EWCharacter(FenCharacter):
-    mech_headings = ["mech", "mecha"]
+    mech_headings: ClassVar[list[str]] = ["mech", "mecha"]
 
     def __init__(self):
         super().__init__()
@@ -16,7 +19,9 @@ class EWCharacter(FenCharacter):
 
     @classmethod
     def from_mdobj(
-        cls, mdobj: MDObj, flash_func: Optional[Callable[[str], None]] = None
+        cls,
+        mdobj: MDObj,
+        flash_func: Callable[[str], None] | None = None,
     ) -> Self:
         self = super().from_mdobj(mdobj, flash_func)
         if not flash_func:
@@ -37,7 +42,6 @@ class EWCharacter(FenCharacter):
                         page = WikiPage.load(p)
                         if page:
                             self.mecha = Mecha.from_mdobj(page.md())
-                else:
-                    if any(x.lower() == "systems" for x in section.children.keys()):
-                        self.mecha = Mecha.from_mdobj(section)
+                elif any(x.lower() == "systems" for x in section.children):
+                    self.mecha = Mecha.from_mdobj(section)
         return self

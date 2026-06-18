@@ -1,10 +1,11 @@
 import unittest
 from pathlib import Path
 from typing import cast
-from unittest.mock import patch, MagicMock
-from gamepack.WikiPage import WikiPage
-from gamepack.WikiCharacterSheet import WikiCharacterSheet
+from unittest.mock import MagicMock, patch
+
 from gamepack.MDPack import MDObj
+from gamepack.WikiCharacterSheet import WikiCharacterSheet
+from gamepack.WikiPage import DescriptiveError, WikiPage
 
 
 class TestWiki(unittest.TestCase):
@@ -25,11 +26,11 @@ class TestWiki(unittest.TestCase):
 
     def test_wikipath_errors(self):
         WikiPage._wikipath = None
-        with self.assertRaises(Exception):
+        with self.assertRaises(DescriptiveError):
             WikiPage.wikipath()
 
         WikiPage.set_wikipath(self.wiki_root)
-        with self.assertRaises(Exception):
+        with self.assertRaises(DescriptiveError):
             WikiPage.set_wikipath(Path("another"))
 
     def test_locate(self):
@@ -116,7 +117,7 @@ class TestWiki(unittest.TestCase):
         self.assertIsNotNone(sheet.char)
         from gamepack.FenCharacter import FenCharacter
 
-        char = cast(FenCharacter, sheet.char)
+        char = cast("FenCharacter", sheet.char)
         self.assertEqual(char.Character.get("Name"), "Hero")
 
     @patch("gamepack.WikiPage.WikiPage.load_locate")
@@ -124,7 +125,7 @@ class TestWiki(unittest.TestCase):
         # Mock load_locate to return pages with tables
         mock_page = MagicMock()
         mock_page.md.return_value = MDObj.from_md(
-            "| Name | Weight | Price |\n|---|---|---|\n| Item1 | 1kg | 10s |"
+            "| Name | Weight | Price |\n|---|---|---|\n| Item1 | 1kg | 10s |",
         )
         mock_load.return_value = mock_page
 

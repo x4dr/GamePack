@@ -1,10 +1,10 @@
-from typing import Dict, Any, List
+from typing import Any, ClassVar
 
 from gamepack.endworld.System import System
 
 
 class OffensiveSystem(System):
-    headers = [
+    headers: ClassVar[list[str]] = [
         "Energy",
         "Mass",
         "Damage",
@@ -24,7 +24,7 @@ class OffensiveSystem(System):
     modes: str
     weapon_type: str
 
-    def __init__(self, name: str, data: Dict[str, Any]):
+    def __init__(self, name: str, data: dict[str, Any]):
         super().__init__(name, data)
         self.damage = self.number(self.extract("damage"))
         self.weapon_range = str(self.extract("range", "-"))
@@ -43,9 +43,9 @@ class OffensiveSystem(System):
             "Type": self.weapon_type,
         }
 
-    def get_headers(self) -> List[str]:
+    def get_headers(self) -> list[str]:
         bonusheaders = []
-        for h in self._data.keys():
+        for h in self._data:
             if h.title() not in self.headers:
                 bonusheaders.append(h.title())
         return self.headers + bonusheaders

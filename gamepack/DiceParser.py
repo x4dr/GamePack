@@ -1,12 +1,10 @@
 import logging
 import re
 from collections import deque
-from typing import List, Union, Dict, Optional, Tuple
 
 from gamepack.Calc import evaluate
 from gamepack.Dice import DescriptiveError, Dice, DiceCodeError
 from gamepack.DiceExpressionParser import DiceExpressionParser
-
 
 logger = logging.getLogger(__name__)
 math_formula_regex = re.compile(r"(\b\d[\d\s+/*-]+\d\b)")
@@ -18,9 +16,7 @@ class MessageReturn(Exception):
 
 
 def tuple_overlap(a: tuple[int, int], b: tuple[int, int]) -> bool:
-    """
-    checks if the first two elements of the tuples overlap on the numberline/other ordering
-    """
+    """Checks if the first two elements of the tuples overlap on the numberline/other ordering."""
     a_sorted, b_sorted = sorted(a), sorted(b)
     return (
         b_sorted[0] <= a_sorted[0] <= b_sorted[1]
@@ -41,7 +37,7 @@ class Node:
         self.do = False
         self.code = str(roll)
         self.depth = depth
-        self.dependent: dict[Tuple[Tuple[int, int], str], Node] = {}
+        self.dependent: dict[tuple[tuple[int, int], str], Node] = {}
         if self.depth > 100:
             raise DescriptiveError("recursion depth exceeded")
         self.buildroll()
@@ -72,7 +68,7 @@ class Node:
         self.code = Node.calc(self.code)
 
     @staticmethod
-    def calc(to_calculate: Union[str, List[str]]) -> str:
+    def calc(to_calculate: str | list[str]) -> str:
         if isinstance(to_calculate, str):
             res = to_calculate.strip()
         elif isinstance(to_calculate, list):
@@ -81,15 +77,14 @@ class Node:
             raise TypeError("parameter was not str or list", to_calculate)
         # replace any amount of whitespace with just one space
         res = re.sub(r"\s+", " ", res)
-        res = math_formula_regex.sub(
-            lambda x: f"{evaluate(x.group(), frozenset()):g}", res
+        return math_formula_regex.sub(
+            lambda x: f"{evaluate(x.group(), frozenset()):g}",
+            res,
         )
-
-        return res
 
 
 class DiceParser:
-    last_parse: Optional["DiceParser"]
+    last_parse: DiceParser | None
     rolllogs: deque[Dice]
     dice_expression_parser = DiceExpressionParser()
 
@@ -111,7 +106,7 @@ class DiceParser:
 
     def update_define_regex(self):
         self.define_regex = re.compile(
-            r"\b" + "|".join(map(re.escape, self.defines.keys())) + r"\b"
+            r"\b" + "|".join(map(re.escape, self.defines.keys())) + r"\b",
         )
         return self.define_regex
 
@@ -119,10 +114,9 @@ class DiceParser:
 
     @classmethod
     def extract_diceparams(cls, message):
-        """
-        extracts the dice parameters
+        """Extracts the dice parameters
         :param message: the actual dicecode, after all processing
-        :return: dictionary of paramaters
+        :return: dictionary of paramaters.
         """
         try:
             params = cls.dice_expression_parser.parse(message)
@@ -136,13 +130,14 @@ class DiceParser:
 
         # sanitychecks:
         if "@" in message and "@" not in params.get("returnfun", ""):
-            raise DiceCodeError(f"Invalid Selectors in: {message}")
+            msg = f"Invalid Selectors in: {message}"
+            raise DiceCodeError(msg)
         if "amount" not in params:
             raise DiceCodeError(cls.usage)
         return params
 
     def do_roll(self, roll, depth=0) -> Dice:
-        """Wrapper around make_roll that handles edgecases"""
+        """Wrapper around make_roll that handles edgecases."""
         if isinstance(roll, str):
             if ";" in roll:
                 for subroll in roll.split(";"):
@@ -177,12 +172,11 @@ class DiceParser:
         self.last_rolls.append(d)
         return d
 
-    def resolveroll(self, roll: Union[Node, str], depth) -> Node:
-        """
-        Step in resolvin
+    def resolveroll(self, roll: Node | str, depth) -> Node:
+        """Step in resolvin
         :param roll:  strings will automatically be made into rollNodes, if applicable
         :param depth: anti-infinite-recursion
-        :return: Node with dependents populated, resolved and the code changed to reflect
+        :return: Node with dependents populated, resolved and the code changed to reflect.
         """
         if isinstance(roll, str):
             oldroll = roll[:]
@@ -193,8 +187,7 @@ class DiceParser:
                 raise
             except DescriptiveError:
                 roll = Node(oldroll, depth)
-            res = self.resolveroll(roll, depth)
-            return res
+            return self.resolveroll(roll, depth)
         if not roll.code and not roll.dependent:
             return roll
         roll.code, change = self.pretrigger(roll.code)
@@ -202,7 +195,7 @@ class DiceParser:
             roll.rebuild()
             self.resolvedefines(roll)
         while roll.dependent:
-            k = list(roll.dependent.keys())[0]  # get any dependent
+            k = next(iter(roll.dependent.keys()))  # get any dependent
             v = roll.dependent.pop(k)
             if v is None:
                 toreplace = ""
@@ -215,9 +208,12 @@ class DiceParser:
                 toreplace = str(v)
             pos, key = k
             if roll.code[pos[0] : pos[1]] != key:
-                raise Exception(
+                msg = (
                     f"Offset Calculation Failed! {roll.code}@{pos} \n"
                     f"{key}:{roll.code[pos[0] : pos[1]]}"
+                )
+                raise Exception(
+                    msg,
                 )
 
             roll.code = roll.code[: pos[0]] + toreplace + roll.code[pos[1] :]
@@ -237,10 +233,9 @@ class DiceParser:
         roll.calculate()
         return roll
 
-    def resonances(self, rolls: Optional[list[Dice]] = None) -> List[Dict[int, int]]:
-        """
-        evaluates the last rolls for resonances and returns an
-        ordered list of resonances and a dict of occurences for each
+    def resonances(self, rolls: list[Dice] | None = None) -> list[dict[int, int]]:
+        """Evaluates the last rolls for resonances and returns an
+        ordered list of resonances and a dict of occurences for each.
         """
         if rolls is None:
             rolls_list = list(self.rolllogs)
@@ -275,24 +270,28 @@ class DiceParser:
                 log_text += str(x) + " : "
                 i += 1
                 current += x
-                log_text += f"{str(current)} + {x} = {current}\n"
+                log_text += f"{current!s} + {x} = {current}\n"
                 if current >= goal:
                     break
             self.triggers["project"] = (i, current, goal, log_text)
             return str(i)
         except TypeError:
-            raise DescriptiveError(roll + " does not have a result")  # probably
+            raise DescriptiveError(
+                roll + " does not have a result"
+            ) from None  # probably
         except DescriptiveError:
             raise
         except Exception:
-            raise DescriptiveError(
+            msg = (
                 "project parameters: roll, current, goal\n"
                 f"not fullfilled by {roll}, {current}, {goal}"
             )
+            raise DescriptiveError(
+                msg,
+            ) from None
 
     def triggerswitch(self, triggername, triggerbody):
-        """
-        :param triggername: name to select method by
+        """:param triggername: name to select method by
         :param triggerbody: input to method
         :return: what to replace the trigger with, once resolved
         """
@@ -304,10 +303,7 @@ class DiceParser:
             return ""
 
         if triggername in ["shift", "max"]:
-            if triggername == "max":
-                x = min(int(triggerbody), 100)
-            else:
-                x = int(triggerbody)
+            x = min(int(triggerbody), 100) if triggername == "max" else int(triggerbody)
 
             self.triggers[triggername] = x
             return ""
@@ -315,7 +311,7 @@ class DiceParser:
             return self.project(triggerbody)
         if triggername in ["ignore", "verbose"]:
             if "off" not in triggerbody:
-                self.triggers[triggername] = triggerbody if triggerbody else True
+                self.triggers[triggername] = triggerbody or True
             else:
                 self.triggers[triggername] = False
             return ""
@@ -328,7 +324,7 @@ class DiceParser:
                     min(
                         (self.triggers.get("max", 0) or 50),
                         (500 if not self.triggers.get("limitbreak", None) else 1000),
-                    )
+                    ),
                 ),
             )
             loopsum = sum(self.do_roll(roll).result or 0 for _ in range(times))
@@ -342,26 +338,27 @@ class DiceParser:
             except Exception:
                 raise DescriptiveError(
                     "Values malformed. Expected: "
-                    '"&values key:value; key:value; key:value&"'
-                )
+                    '"&values key:value; key:value; key:value&"',
+                ) from None
         if triggername == "resonances":
             raise MessageReturn(
                 "\n"
-                + "\n".join([f"{i}: {x}" for i, x in enumerate(self.resonances()) if x])
+                + "\n".join(
+                    [f"{i}: {x}" for i, x in enumerate(self.resonances()) if x]
+                ),
             )
         if triggername == "param":
             try:
                 self.triggers["param"] = self.triggers.get(
-                    "param", []
-                ) + triggerbody.split(
-                    " "
-                )  # space delimited
+                    "param",
+                    [],
+                ) + triggerbody.split(" ")  # space delimited
                 return ""  # no substitution to be made
             except Exception:
                 raise DescriptiveError(
                     'Parameter malformed. Expected: "&param key1 key2 key3& [...] '
-                    'value1 value2 value3"'
-                )
+                    'value1 value2 value3"',
+                ) from None
         if triggername == "if":
             # &if a then b else c&
             ifbranch = fullparenthesis(triggerbody, opening="", closing="then")
@@ -374,7 +371,7 @@ class DiceParser:
         raise DescriptiveError("unknown Trigger: " + triggername)
 
     @staticmethod
-    def gettriggers(message) -> List[str]:
+    def gettriggers(message) -> list[str]:
         c = message.count("&")
         if c == 0:
             return []
@@ -383,7 +380,7 @@ class DiceParser:
         pos = 0
         triggers = []
         while pos < len(message):
-            trigger = fullparenthesis(message[pos:], "&", "&", True)
+            trigger = fullparenthesis(message[pos:], "&", "&", include=True)
             if "&" in trigger:
                 triggers.append(trigger)
             pos += message[pos:].find(trigger) + len(trigger)  # processed part
@@ -399,7 +396,7 @@ class DiceParser:
             except ValueError:
                 triggername, triggerbody = trigger.strip("& "), ""
             triggerreplace.append(
-                (trigger, self.triggerswitch(triggername, triggerbody))
+                (trigger, self.triggerswitch(triggername, triggerbody)),
             )
             param = self.triggers.pop("param", [])  # if there is anything
             for p in reversed(param):  # right to left
@@ -420,17 +417,18 @@ class DiceParser:
             roll = roll.replace(kv[0], kv[1], 1)
 
         if self.defines.get("defaultselector", "").startswith(
-            "@"
+            "@",
         ) and numbers_and_commas.match(roll):
             roll = numbers_and_commas.sub(
-                r"\g<0>" + self.defines["defaultselector"], roll
+                r"\g<0>" + self.defines["defaultselector"],
+                roll,
             )
             self.defines["returnfun"] = ""
             change = True
 
         return roll, change
 
-    def resolvedefines(self, roll: Node, used: Optional[List[str]] = None) -> None:
+    def resolvedefines(self, roll: Node, used: list[str] | None = None) -> None:
         used_list = used or []
         if not used_list:
             self.update_define_regex()
@@ -441,60 +439,66 @@ class DiceParser:
                 if key[1] in used_list:
                     continue
                 skip = False
-                for other in roll.dependent.keys():
+                for other in roll.dependent:
                     if tuple_overlap(other[0], key[0]):
                         skip = True  # this is in another define
                 if skip:
                     continue
                 new = Node(str(self.defines[key[1]]), roll.depth + 1)
-                self.resolvedefines(new, used_list + [key[1]])
+                self.resolvedefines(new, [*used_list, key[1]])
                 new.do = False
                 roll.dependent[key] = new
 
-            else:
-                break
+            break
 
 
 def fullparenthesis(
-    text: str, opening: str = "(", closing: str = ")", include=False
+    text: str,
+    opening: str = "(",
+    closing: str = ")",
+    *, include=False,
 ) -> str:
-    """
-    Finds the text within a parenthesis
+    """Finds the text within a parenthesis
     (or other bounding strings that work like parenthesis)
     :param text: the text to be searched
     :param opening: start token
     :param closing: end token
     :param include: if True, the opening and closing parts will be included
     :return: text between first opening token and first matching
-    closing token or complete text on failure
+    closing token or complete text on failure.
     """
     if opening not in text:
         return text
     i = -1
     lvl = 0
-    begun: Optional[int] = None
+    begun: int | None = None
     while ((lvl > 0) or begun is None) and (i <= len(text) + 5):
         i += 1
         if (
             not (opening == closing and (begun is None))
             and (text[i : i + len(closing)] == closing)
             and (
-                (i == 0 or (not text[i - 1].isalnum()))
-                and not (text + " " * len(closing) * 2)[i + len(closing)].isalnum()
+                (
+                    (i == 0 or (not text[i - 1].isalnum()))
+                    and not (text + " " * len(closing) * 2)[i + len(closing)].isalnum()
+                )
                 or len(closing) == 1
             )
         ):
             if begun is None:
                 continue  # ignore closing parenthesis if not opened yet
             lvl -= 1
-        elif (not opening and not i) or (  # "" matches at the start of line
-            (text[i : i + len(opening)] == opening)
-            and (
-                (
-                    (i == 0 or (not text[i - 1].isalnum()))
-                    and not text[i + len(opening)].isalnum()
+        elif (
+            (not opening and not i)
+            or (  # "" matches at the start of line
+                (text[i : i + len(opening)] == opening)
+                and (
+                    (
+                        (i == 0 or (not text[i - 1].isalnum()))
+                        and not text[i + len(opening)].isalnum()
+                    )
+                    or len(opening) == 1
                 )
-                or len(opening) == 1
             )
         ):
             lvl += 1
@@ -502,20 +506,17 @@ def fullparenthesis(
                 begun = i
     if begun is None or i > len(text) + len(closing):
         raise DescriptiveError("unmatched '" + opening + "': '" + text + "'")
-    result = text[
-        begun
-        + (len(opening) if not include else 0) : i
+    return text[
+        begun + (len(opening) if not include else 0) : i
         + (len(closing) if include else 0)
     ]
-    return result
 
 
 def fast_fullparenthesis(text: str) -> str:
-    """
-    Finds the text within a parenthesis (only for opening='(' and closing=')')
+    """Finds the text within a parenthesis (only for opening='(' and closing=')')
     :param text: the text to be searched
     :return: text between first opening token and first matching closing token or raises DescriptiveError
-    if an unmatched opening parenthesis is found
+    if an unmatched opening parenthesis is found.
     """
     start = text.find("(")
     if start == -1:
@@ -529,4 +530,5 @@ def fast_fullparenthesis(text: str) -> str:
             lvl -= 1
             if lvl == 0:
                 return text[start:i]
-    raise DescriptiveError(f"unmatched '(' in text: {text}")
+    msg = f"unmatched '(' in text: {text}"
+    raise DescriptiveError(msg)

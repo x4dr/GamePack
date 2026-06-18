@@ -1,3 +1,4 @@
+import contextlib
 import itertools
 import re
 import time
@@ -5,27 +6,29 @@ import time
 __author__ = "maric"
 
 from collections import OrderedDict
-
-from typing import List, Tuple, Self, Union, Callable, Optional
+from typing import TYPE_CHECKING, ClassVar, Self
 
 from gamepack.BaseCharacter import BaseCharacter
+from gamepack.DiceParser import fast_fullparenthesis, fullparenthesis
 from gamepack.Item import Item, total_table
-from gamepack.DiceParser import fullparenthesis, fast_fullparenthesis
 from gamepack.MDPack import MDObj, MDTable
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class FenCharacter(BaseCharacter):
-    Inventory: List[Item]
-    description_headings = [
+    Inventory: list[Item]
+    description_headings: ClassVar[list[str]] = [
         "charakter",
         "character",
         "beschreibung",
         "description",
     ]
-    value_headings = ["werte", "values", "statistics", "stats"]
-    inventory_headings = ["inventar", "inventory"]
-    halfpoint_sections = ["forma"]
-    fullpoint_sections = [
+    value_headings: ClassVar[list[str]] = ["werte", "values", "statistics", "stats"]
+    inventory_headings: ClassVar[list[str]] = ["inventar", "inventory"]
+    halfpoint_sections: ClassVar[list[str]] = ["forma"]
+    fullpoint_sections: ClassVar[list[str]] = [
         "fähigkeiten",
         "skills",
         "aspekt",
@@ -41,11 +44,16 @@ class FenCharacter(BaseCharacter):
         "sources",
         "source",
     ]
-    onepoint_sections = ["vorteile", "perks", "zauber", "spells"]
-    experience_headings = ["erfahrung", "experience", "xp", "fortschritt"]
-    wound_headings = ["wunden", "wounds", "damage", "schaden"]
-    note_headings = ["notes", "notiz", "notizen", "zettel"]
-    concept_headings = ["konzept", "konzepte", "concepts"]
+    onepoint_sections: ClassVar[list[str]] = ["vorteile", "perks", "zauber", "spells"]
+    experience_headings: ClassVar[list[str]] = [
+        "erfahrung",
+        "experience",
+        "xp",
+        "fortschritt",
+    ]
+    wound_headings: ClassVar[list[str]] = ["wunden", "wounds", "damage", "schaden"]
+    note_headings: ClassVar[list[str]] = ["notes", "notiz", "notizen", "zettel"]
+    concept_headings: ClassVar[list[str]] = ["konzept", "konzepte", "concepts"]
 
     def __init__(self):
         super().__init__()
@@ -63,28 +71,30 @@ class FenCharacter(BaseCharacter):
         self.headings_used = {}
 
     def stat_definitions(self) -> dict:
-        """
-        :return: simplified dictionary of stats and their values
-        """
+        """:return: simplified dictionary of stats and their values"""
         if self.definitions is not None:
             return self.definitions
         definitions = {}
-        for catname, cat in self.Categories.items():
-            for secname, sec in cat.items():
+        for _catname, cat in self.Categories.items():
+            for _secname, sec in cat.items():
                 for statname, stat in sec.items():
                     stat = stat.strip(" _")
-                    if statname.strip() and re.match(r"-?\d+", str(stat)):
-                        if definitions.get(statname, None) is None:
-                            definitions[statname.strip()] = stat
+                    if (
+                        statname.strip()
+                        and re.match(r"-?\d+", str(stat))
+                        and definitions.get(statname) is None
+                    ):
+                        definitions[statname.strip()] = stat
         self.definitions = definitions
         return definitions
 
     @staticmethod
     def cost(
-        att: Tuple[int, ...], internal_costs: List[int], internal_penalty: List[int]
+        att: tuple[int, ...],
+        internal_costs: list[int],
+        internal_penalty: list[int],
     ) -> int:
-        """
-        tuple of attributes to xp costs
+        """Tuple of attributes to xp costs.
 
         :param att: attributes
         :param internal_costs: absolute cost of each level
@@ -98,8 +108,7 @@ class FenCharacter(BaseCharacter):
 
     @staticmethod
     def cost_calc(inputstring, width=3):
-        """
-        :param inputstring: either ',' separated list of attributes or total skills
+        """:param inputstring: either ',' separated list of attributes or total skills
         :param width: amount of attributes
         :return: list -> int, int -> list of lists
         """
@@ -131,43 +140,38 @@ class FenCharacter(BaseCharacter):
     def magicwidth(self, name) -> int:
         c = self.Categories[name]
         f = {}
-        for k in c.keys():
+        for k in c:
             if k.lower() in self.concept_headings:
                 f.update(c[k])
         return len(f)
 
     def points(self, name) -> int:
-        """
-        total fp for a given category.
+        """Total fp for a given category.
         members with a _ prefix are treated differently, according to their type
         :param name: the CATEGORY name to calculate
-        :return: number of FP (full for the already skilled ones and partial for those written down in the xp table)
+        :return: number of FP (full for the already skilled ones and partial for those written down in the xp table).
         """
         res = 0
         c = self.Categories[name]
         f = {}
-        for k in c.keys():
+        for k in c:
             if k.lower() in self.fullpoint_sections:
                 f.update(c[k])
-        for k, v in f.items():
-            try:
+        for _k, v in f.items():
+            with contextlib.suppress(ValueError):  # dont count invalid entries
                 res += int(v)
-            except ValueError:
-                pass  # dont count invalid entries
 
         return res
 
     def get_xp_for(self, name) -> int:
-        """
-        :param name: name of some stat
+        """:param name: name of some stat
         :return: total amount of xp associated with that name
         """
         return self.xp_cache.get(name.lower(), 0)
 
     @staticmethod
     def parse_xp(s):
-        """
-        Parses a string representation of experience points (xp) and returns the xp as an integer.
+        """Parses a string representation of experience points (xp) and returns the xp as an integer.
 
         Args:
             s (str): A string representation of experience points
@@ -207,8 +211,7 @@ class FenCharacter(BaseCharacter):
         return res
 
     def add_xp(self, name, value) -> int:
-        """
-        :param name: name of the stat
+        """:param name: name of the stat
         :param value: amount of xp to add
         :return: new total
         """
@@ -221,7 +224,10 @@ class FenCharacter(BaseCharacter):
                 continue
             if row[0].lower() == name.lower():
                 row[1] = re.sub(
-                    r"^\d*", lambda x: str(int(x.group() or 0) + value), row[1], count=1
+                    r"^\d*",
+                    lambda x: str(int(x.group() or 0) + value),
+                    row[1],
+                    count=1,
                 )
                 break
         else:
@@ -233,11 +239,10 @@ class FenCharacter(BaseCharacter):
     @staticmethod
     def recursive_category_handle(
         category: MDObj,
-    ) -> tuple[dict, Union[dict, list[str]]]:
-        """
-        a recursive category either has a table or a dictionary of subcategories
+    ) -> tuple[dict, dict | list[str]]:
+        """A recursive category either has a table or a dictionary of subcategories
         :param category: category name
-        :return: dictionary of all stats in this category
+        :return: dictionary of all stats in this category.
         """
         if category.tables:
             table = category.tables[0]
@@ -257,7 +262,9 @@ class FenCharacter(BaseCharacter):
 
     @classmethod
     def from_mdobj(
-        cls, mdobj: MDObj, flash_func: Optional[Callable[[str], None]] = None
+        cls,
+        mdobj: MDObj,
+        flash_func: Callable[[str], None] | None = None,
     ) -> Self:
         self = cls()
         if not flash_func:
@@ -275,7 +282,7 @@ class FenCharacter(BaseCharacter):
             if t:
                 flash_func("Loose Table:" + t.to_md())
 
-        for s in mdobj.children.keys():
+        for s in mdobj.children:
             if s.lower().strip() in self.value_headings:
                 self.headings_used["values"] = s
                 (
@@ -283,15 +290,14 @@ class FenCharacter(BaseCharacter):
                     self.headings_used["categories"],
                 ) = self.recursive_category_handle(mdobj.children[s])
 
+            elif s.strip().lower() in self.description_headings:
+                details, errors = mdobj.children[s].confine_to_tables()
+                self.Character = details
+                self.headings_used["description"] = s
+                for e in errors:
+                    flash_func(e)
             else:
-                if s.strip().lower() in self.description_headings:
-                    details, errors = mdobj.children[s].confine_to_tables()
-                    self.Character = details
-                    self.headings_used["description"] = s
-                    for e in errors:
-                        flash_func(e)
-                else:
-                    self.Meta[s] = mdobj.children[s]
+                self.Meta[s] = mdobj.children[s]
 
         self.post_process(flash_func)
         return self
@@ -300,11 +306,10 @@ class FenCharacter(BaseCharacter):
     def construct_mdobj_from_category(
         cls,
         category_dict: dict,
-        headings: Union[dict, list[str]],
+        headings: dict | list[str],
         flash_func: Callable[[str], None],
     ) -> MDObj:
-        """
-        :param category_dict: dictionary of all stats in this category
+        """:param category_dict: dictionary of all stats in this category
         :param headings: headings of the lowest level tables at each leaf
         :param flash_func: function to call for each error
         :return: MDObj of the category
@@ -321,21 +326,21 @@ class FenCharacter(BaseCharacter):
                 )
                 categories.add_child(
                     cls.construct_mdobj_from_category(
-                        v, current_headings, flash_func
-                    ).with_header(k)
+                        v,
+                        current_headings,
+                        flash_func,
+                    ).with_header(k),
                 )
         if categories.children:
             return categories
         table = [
-            [k, str(v)]
-            for k, v in category_dict.items()
-            if isinstance(v, str) or isinstance(v, int)
+            [k, str(v)] for k, v in category_dict.items() if isinstance(v, (str, int))
         ]
 
         final_headings: list[str] = []
         if isinstance(headings, dict):
             if headings:
-                k = list(headings.keys())[0]
+                k = next(iter(headings.keys()))
                 final_headings = [k, str(headings[k])]
             else:
                 final_headings = ["Stat", "Value"]
@@ -347,7 +352,7 @@ class FenCharacter(BaseCharacter):
 
         return MDObj("", {}, flash_func, [MDTable(table, final_headings)])
 
-    def to_mdobj(self, flash_func: Optional[Callable[[str], None]] = None):
+    def to_mdobj(self, flash_func: Callable[[str], None] | None = None):
         if not flash_func:
 
             def default_flash(err):
@@ -365,7 +370,9 @@ class FenCharacter(BaseCharacter):
             description.add_child(MDObj(v, flash=flash_func, header=k))
 
         categories = self.construct_mdobj_from_category(
-            self.Categories, self.headings_used.get("categories", {}), flash_func
+            self.Categories,
+            self.headings_used.get("categories", {}),
+            flash_func,
         ).with_header(self.headings_used.get("values", "Values"))
         mdo = MDObj("")
         mdo.add_child(description)
@@ -376,14 +383,13 @@ class FenCharacter(BaseCharacter):
             mdo.add_child(v.with_header(k))
         if mdo.children.get(self.headings_used.get("notes", "Notes")):
             mdo.add_child(
-                self.Notes.with_header(self.headings_used.get("notes", "Notes"))
+                self.Notes.with_header(self.headings_used.get("notes", "Notes")),
             )
         return mdo
 
     @classmethod
     def from_md(cls, body, flash=None):
-        """
-        takes in the entire character sheet and constructs the Fencharacter object from it
+        """Takes in the entire character sheet and constructs the Fencharacter object from it.
 
         :param flash: function to call for each error
         :param body: md string with the charactersheet
@@ -397,7 +403,7 @@ class FenCharacter(BaseCharacter):
 
     def post_process(self, flash):
         notes = None
-        for k in self.Meta.keys():
+        for k in self.Meta:
             if k.lower() in self.inventory_headings:
                 self.process_inventory(self.Meta[k], flash)
             if k.lower() in self.experience_headings:
@@ -440,8 +446,8 @@ class FenCharacter(BaseCharacter):
                 "Gewicht Gesamt",
                 "Preis Gesamt",
                 "Beschreibung",
-            ]
-            + list(self.Inventory_Bonus_Headers)
+                *list(self.Inventory_Bonus_Headers),
+            ],
         ]
         for i in self.Inventory:
             inv_table.append(
@@ -454,7 +460,9 @@ class FenCharacter(BaseCharacter):
                     i.total_price,
                     i.description,
                 ]
-                + [i.additional_info.get(x) or "" for x in self.Inventory_Bonus_Headers]
+                + [
+                    i.additional_info.get(x) or "" for x in self.Inventory_Bonus_Headers
+                ],
             )
         inv_table.append(["Gesamt"] + len(self.Inventory_Bonus_Headers) * [""])
         total_table(inv_table, print)

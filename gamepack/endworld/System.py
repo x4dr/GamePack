@@ -1,10 +1,13 @@
 import re
-from typing import Iterable, Dict, List, Optional, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from gamepack.MDPack import MDTable
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
-def to_heatformat(data: Dict[str, Any]) -> str:
+
+def to_heatformat(data: dict[str, Any]) -> str:
     parts = []
     heat_keys = sorted(
         (k for k in data if k.startswith("heat") and k[4:].isdigit()),
@@ -20,50 +23,50 @@ def to_heatformat(data: Dict[str, Any]) -> str:
 
 
 class System:
-    headers = ["Energy", "Mass", "Heat", "Amount", "Enabled"]
-    enablers = ["x", "t", "y", "1"]
-    disablers = ["-", "disabled", "~"]
+    headers: ClassVar[list[str]] = ["Energy", "Mass", "Heat", "Amount", "Enabled"]
+    enablers: ClassVar[list[str]] = ["x", "t", "y", "1"]
+    disablers: ClassVar[list[str]] = ["-", "disabled", "~"]
 
     systype = "generic"
 
     name: str
-    errors: List[str]
+    errors: list[str]
     mass: float
     amount: float
     energy: float
-    heats: Dict[str, float]
+    heats: dict[str, float]
     enabled: str
     activation_rounds: int
     boot_progress: int
-    boot_roll: Optional[int]
-    breakpoints: List[int]
-    keywords: List[str]
+    boot_roll: int | None
+    breakpoints: list[int]
+    keywords: list[str]
     current_heat: float
 
-    def __init__(self, name: str, data: Dict[str, Any]):
+    def __init__(self, name: str, data: dict[str, Any]):
         self._data = {k.lower(): v for k, v in data.items()}
         self.name: str = name
-        self.errors: List[str] = []
+        self.errors: list[str] = []
         self.current_heat = 0.0
         self.mass: float = self.number(self.extract("mass"))
         self.amount: float = self.number(self.extract("amount"))
         self.energy: float = self.number(self.extract("energy"))
-        self.heats: Dict[str, float] = self.from_heatformat(
-            self.extract("heat", "0", False)
+        self.heats: dict[str, float] = self.from_heatformat(
+            self.extract("heat", "0", req=False),
         )
         self.enabled: str = str(self.extract("enabled"))
-        self.activation_rounds: int = int(self.number(self.extract("boot", "0", False)))
+        self.activation_rounds: int = int(self.number(self.extract("boot", "0", req=False)))
         self.boot_progress: int = 0
-        self.boot_roll: Optional[int] = None
+        self.boot_roll: int | None = None
 
         # Breakpoints can be defined in data as "breakpoints": "5, 8, 13"
-        bp_str = str(self.extract("breakpoints", "", False))
+        bp_str = str(self.extract("breakpoints", "", req=False))
         self.breakpoints = [
             int(x.strip()) for x in bp_str.split(",") if x.strip().isdigit()
         ]
 
         # Keywords
-        kw_str = str(self.extract("keywords", "", False))
+        kw_str = str(self.extract("keywords", "", req=False))
         self.keywords = [x.strip() for x in kw_str.split(",") if x.strip()]
 
         # Auto-parse "Bootup X turns" keyword if boot stat is missing
@@ -73,21 +76,19 @@ class System:
                 if match:
                     self.activation_rounds = int(match.group(1))
 
-    def extract(self, key: str, default: str = "", req: bool = True) -> Any:
+    def extract(self, key: str, default: str = "", *, req: bool = True) -> Any:
         if key in self._data:
             return self._data[key]
-        else:
-            if req:
-                self.errors.append(f"{self.name}: {key} not found in {self._data}.")
-            return default
+        if req:
+            self.errors.append(f"{self.name}: {key} not found in {self._data}.")
+        return default
 
     def number(self, inp: Any, default: float = 0.0) -> float:
         try:
             inp_str = str(inp).strip()
             if inp_str.endswith("%"):
                 return float(inp_str[:-1]) / 100
-            else:
-                return float(inp_str)
+            return float(inp_str)
         except ValueError:
             self.errors.append(f'"{inp}" is not a valid number')
             return default
@@ -111,21 +112,21 @@ class System:
                 "Heat": to_heatformat(self.heats),
                 "Enabled": self.enabled,
                 "Keywords": ", ".join(self.keywords),
-            }
+            },
         )
         return res
 
-    def get_headers(self) -> List[str]:
+    def get_headers(self) -> list[str]:
         bonusheaders = []
-        for h in self._data.keys():
+        for h in self._data:
             if h.title() not in self.headers:
                 bonusheaders.append(h.title())
         return self.headers + bonusheaders
 
     @classmethod
-    def as_table(cls, systems: Iterable["System"]) -> MDTable:
+    def as_table(cls, systems: Iterable[System]) -> MDTable:
         rows = []
-        headers: List[str] = []
+        headers: list[str] = []
 
         for system in systems:
             row = [system.name]
@@ -137,9 +138,9 @@ class System:
                 row.append(str(d.get(h, "")))
             rows.append(row)
 
-        return MDTable(rows, [""] + headers)
+        return MDTable(rows, ["", *headers])
 
-    def use(self, parameter: Optional[Any]) -> float:
+    def use(self, parameter: Any | None) -> float:
         if isinstance(parameter, int):
             parameter = ""
         param = str(parameter).lower() if parameter else ""
@@ -179,13 +180,14 @@ class System:
     def is_disabled(self) -> bool:
         return any(x in self.enabled for x in self.disablers)
 
-    def from_heatformat(self, inp: Any) -> Dict[str, float]:
+    def from_heatformat(self, inp: Any) -> dict[str, float]:
         result = {}
         parts = [p.strip() for p in str(inp).strip().split(";") if p.strip()]
         try:
             for i, part in enumerate(parts):
                 match = re.match(
-                    r"^\s*(?:(?P<name>.*?)\s+)?(?P<val>-?\d+(?:\.\d+)?)\s*$", part
+                    r"^\s*(?:(?P<name>.*?)\s+)?(?P<val>-?\d+(?:\.\d+)?)\s*$",
+                    part,
                 )
                 if match:
                     name = match.group("name")

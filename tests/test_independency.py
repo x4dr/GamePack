@@ -1,7 +1,9 @@
 import importlib
-import pytest
-from gamepack import dicecache_db, handle
 from pathlib import Path
+
+import pytest
+
+from gamepack import dicecache_db, handle
 
 ROOT = Path(__file__).parent.parent.resolve()
 BLACKLIST = [".venv"]

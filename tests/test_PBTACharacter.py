@@ -1,4 +1,5 @@
 import unittest
+
 from gamepack.PBTACharacter import PBTACharacter
 from gamepack.PBTAItem import PBTAItem
 
@@ -56,7 +57,8 @@ class TestPBTACharacter(unittest.TestCase):
                 )
 
         self.assertEqual(
-            len(self.example_character.inventory), len(loaded_character.inventory)
+            len(self.example_character.inventory),
+            len(loaded_character.inventory),
         )
         for a in self.example_character.inventory:
             self.assertIn(str(a), (str(b) for b in loaded_character.inventory))
@@ -89,10 +91,12 @@ class TestPBTACharacter(unittest.TestCase):
         self.assertEqual(self.example_character.info, loaded_character.info)
         self.assertEqual(self.example_character.moves, loaded_character.moves)
         self.assertEqual(
-            len(self.example_character.inventory), len(loaded_character.inventory)
+            len(self.example_character.inventory),
+            len(loaded_character.inventory),
         )
         for a in self.example_character.inventory:
             self.assertIn(str(a), (str(b) for b in loaded_character.inventory))
         self.assertEqual(
-            self.example_character.notes.strip(), loaded_character.notes.strip()
+            self.example_character.notes.strip(),
+            loaded_character.notes.strip(),
         )

@@ -6,14 +6,12 @@ import pathlib
 from collections import Counter
 from itertools import combinations_with_replacement
 from math import ceil, factorial
-from typing import Dict
 
 import matplotlib.pyplot as plt
 import requests
 
 from gamepack import dicecache_db
 from gamepack.Dice import DescriptiveError
-
 from gamepack.fasthelpers import ascii_graph
 
 log = logging.Logger("fengraph")
@@ -23,7 +21,7 @@ def fastdata(selector: tuple[int, ...], mod: int) -> dict[int, int]:
     if mod not in freq_dicts or not all(0 < s < 6 for s in selector):
         return {}
     selector = tuple(
-        sorted(selector)
+        sorted(selector),
     )  # cuts down on cache size since order doesn't matter
     db = dicecache_db()
     res = db.execute(
@@ -46,8 +44,11 @@ def fastdata(selector: tuple[int, ...], mod: int) -> dict[int, int]:
 
 
 def fastversus(
-    selector1: tuple[int, ...], selector2: tuple[int, ...], mod1: int, mod2: int
-) -> Dict[int, int]:
+    selector1: tuple[int, ...],
+    selector2: tuple[int, ...],
+    mod1: int,
+    mod2: int,
+) -> dict[int, int]:
     db = dicecache_db()
     res = db.execute(
         "SELECT res, occ FROM versus WHERE sel1 = ? AND sel2 = ? AND mod1 = ? AND mod2 = ?",
@@ -100,26 +101,26 @@ def modify_dmg(specific_modifiers, dmg, damage_type, armor):
     for damage_instance in dmg:
         if len(damage_instance) > 1:
             effective_dmg = damage_instance[0] - max(0, armor - damage_instance[1])
-            effectivedmg.append(effective_dmg if effective_dmg > 0 else 0)
+            effectivedmg.append(max(0, effective_dmg))
         else:
             damage_instance = damage_instance[0]
             if damage_type == "Stechen":
                 effectivedmg.append(
-                    0 if damage_instance <= armor else math.ceil(damage_instance / 2)
+                    0 if damage_instance <= armor else math.ceil(damage_instance / 2),
                 )
             elif damage_type == "Schlagen":
                 effective_dmg = damage_instance - int(armor / 2)
-                effectivedmg.append(effective_dmg if effective_dmg > 0 else 0)
+                effectivedmg.append(max(0, effective_dmg))
             elif damage_type == "Schneiden":
                 effective_dmg = damage_instance - armor
                 effectivedmg.append(
                     effective_dmg + ceil(effective_dmg / 5) * 3
                     if effective_dmg > 0
-                    else 0
+                    else 0,
                 )
             else:
                 effective_dmg = damage_instance - armor
-                effectivedmg.append(effective_dmg if effective_dmg > 0 else 0)
+                effectivedmg.append(max(0, effective_dmg))
 
     for i, damage_instance in enumerate(effectivedmg):
         total_damage += damage_instance * specific_modifiers[i]
@@ -141,7 +142,7 @@ def chances(
     modifier=0,
     number_of_quantiles=None,
     mode=0,
-    interactive=False,
+    *, interactive=False,
 ):
     selector = tuple(sorted(x for x in selector if 0 < int(x) < 6))
     if not selector:
@@ -150,42 +151,41 @@ def chances(
     occurrences = fastdata(selector, modifier)
     if number_of_quantiles is None:
         return ascii_graph(occurrences, mode)
-    else:
-        total = sum(occurrences.values())
-        vals = [occurrences[x] for x in sorted(occurrences.keys())]
-        if not mode:
-            fy = [x / total for x in vals]
-        elif mode > 0:
-            fy = [sum(vals[: i + 1]) / total for i in range(len(vals))]
-        else:  # elif mode < 0:
-            fy = [(total - sum(vals[:i])) / total for i in range(len(vals))]
+    total = sum(occurrences.values())
+    vals = [occurrences[x] for x in sorted(occurrences.keys())]
+    if not mode:
+        fy = [x / total for x in vals]
+    elif mode > 0:
+        fy = [sum(vals[: i + 1]) / total for i in range(len(vals))]
+    else:  # elif mode < 0:
+        fy = [(total - sum(vals[:i])) / total for i in range(len(vals))]
 
-        plt.figure()
-        plt.bar(
-            range(1, len(occurrences.values()) + 1),
-            fy,
-            facecolor="green",
-            alpha=0.75,
-            linewidth=1,
-        )
-        buf = io.BytesIO()
-        if max(occurrences.keys()) < 31:
-            plt.xticks(list(range(1, max(occurrences.keys()) + 1)))
-        plt.ylim(ymin=0.0)
-        plt.xlim(xmin=0.0)
-        plt.title(
-            ", ".join(str(x) for x in selector)
-            + "@5"
-            + (("R" + str(modifier)) if modifier else "")
-        )
-        plt.ylabel("%")
-        plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
-        if interactive:
-            plt.show()
+    plt.figure()
+    plt.bar(
+        range(1, len(occurrences.values()) + 1),
+        fy,
+        facecolor="green",
+        alpha=0.75,
+        linewidth=1,
+    )
+    buf = io.BytesIO()
+    if max(occurrences.keys()) < 31:
+        plt.xticks(list(range(1, max(occurrences.keys()) + 1)))
+    plt.ylim(ymin=0.0)
+    plt.xlim(xmin=0.0)
+    plt.title(
+        ", ".join(str(x) for x in selector)
+        + "@5"
+        + (("R" + str(modifier)) if modifier else ""),
+    )
+    plt.ylabel("%")
+    plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
+    if interactive:
+        plt.show()
 
-        plt.close()
-        buf.seek(0)
-        return buf
+    plt.close()
+    buf.seek(0)
+    return buf
 
 
 def count_sorted_rolls(num_dice, num_sides):

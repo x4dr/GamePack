@@ -1,13 +1,15 @@
 import logging
 import re
-from typing import List, Dict, Tuple, Callable, Optional, Union, Any, Sequence
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
 
 log = logging.Logger(__name__)
 
 
 class MDListItem:
-    """
-    A single item in a Markdown list or checklist.
+    """A single item in a Markdown list or checklist.
     Supports nesting via levels.
     """
 
@@ -15,7 +17,7 @@ class MDListItem:
         self,
         text: str,
         bullet: str = "-",
-        checked: Optional[bool] = None,
+        checked: bool | None = None,
         level: int = 0,
     ):
         self.text = text.strip()
@@ -28,23 +30,22 @@ class MDListItem:
 
 
 class MDList:
-    """
-    A class representing a Markdown list (ordered, unordered, or checklist).
+    """A class representing a Markdown list (ordered, unordered, or checklist).
     Supports nesting and round-trip serialization.
     """
 
     # Matches bullet, optional checkbox, and text. Group 1: indent, 2: bullet, 3: checkbox, 4: text
     LIST_PATTERN = re.compile(
-        r"^(\s*)([-*+]|\d+\.)\s+(?:\[(\s*x?\s*)]\s*)?(.*)", re.MULTILINE
+        r"^(\s*)([-*+]|\d+\.)\s+(?:\[(\s*x?\s*)]\s*)?(.*)",
+        re.MULTILINE,
     )
 
-    def __init__(self, items: List[MDListItem], position: Optional[int] = None):
+    def __init__(self, items: list[MDListItem], position: int | None = None):
         self.items = items
         self.position = position
 
     def to_md(self) -> str:
-        """
-        Convert the list back into Markdown format.
+        """Convert the list back into Markdown format.
         Nesting is preserved via indentation.
         """
         lines = []
@@ -57,7 +58,7 @@ class MDList:
         return "\n".join(lines)
 
     @property
-    def checklist(self) -> List[Tuple[str, bool]]:
+    def checklist(self) -> list[tuple[str, bool]]:
         """Compatibility property for legacy flattened checklist access."""
         return [
             (item.text, bool(item.checked))
@@ -66,9 +67,8 @@ class MDList:
         ]
 
     @classmethod
-    def from_md(cls, md_text: str, position: Optional[int] = None) -> "MDList":
-        """
-        Parse a Markdown string containing a list.
+    def from_md(cls, md_text: str, position: int | None = None) -> MDList:
+        """Parse a Markdown string containing a list.
         Detects nesting levels based on indentation.
         """
         lines = md_text.split("\n")
@@ -98,18 +98,17 @@ class MDList:
         return cls(items, position)
 
     @classmethod
-    def extract_lists(cls, plaintext: str) -> Tuple[str, List["MDList"]]:
-        """
-        Extract all lists (including checklists) from a block of text.
+    def extract_lists(cls, plaintext: str) -> tuple[str, list[MDList]]:
+        """Extract all lists (including checklists) from a block of text.
         Lists are removed from the text and returned as MDList objects.
         """
         text_lines = []
         linenr = 0
-        start_line: Optional[int] = None
-        lists: List[MDList] = []
+        start_line: int | None = None
+        lists: list[MDList] = []
         run = ""
 
-        lines = plaintext.splitlines(True)
+        lines = plaintext.splitlines(keepends=True)
         for line in lines:
             if cls.LIST_PATTERN.match(line):
                 if start_line is None:
@@ -138,10 +137,8 @@ class MDList:
         return "".join(text_lines), lists
 
     @classmethod
-    def insert_lists(cls, text: str, lists: Sequence["MDList"]) -> str:
-        """
-        Reinsert extracted lists back into the given text at their original positions.
-        """
+    def insert_lists(cls, text: str, lists: Sequence[MDList]) -> str:
+        """Reinsert extracted lists back into the given text at their original positions."""
         if not lists:
             return text
 
@@ -149,7 +146,7 @@ class MDList:
             lists,
             key=lambda mlist: mlist.position if mlist.position is not None else -1,
         )
-        lines = text.splitlines(True)
+        lines = text.splitlines(keepends=True)
 
         offset = 0
         for mlist in lists_sorted:
@@ -166,21 +163,18 @@ class MDList:
 
 
 class MDChecklist(MDList):
-    """
-    Legacy compatibility class for MDChecklist.
+    """Legacy compatibility class for MDChecklist.
     Now wraps MDList functionality.
     """
 
     CHECKBOX_PATTERN = re.compile(r"-\s*\[(\s*x?\s*)] ?(.*)")
 
-    def __init__(
-        self, checklist: List[Tuple[str, bool]], position: Optional[int] = None
-    ):
+    def __init__(self, checklist: list[tuple[str, bool]], position: int | None = None):
         items = [MDListItem(text, "-", checked, 0) for text, checked in checklist]
         super().__init__(items, position)
 
     @classmethod
-    def from_md(cls, md_text: str, position: Optional[int] = None) -> "MDChecklist":
+    def from_md(cls, md_text: str, position: int | None = None) -> MDChecklist:
         mlist = MDList.from_md(md_text, position)
         checklist_items = []
         for item in mlist.items:
@@ -189,20 +183,18 @@ class MDChecklist(MDList):
         return cls(checklist_items, position)
 
     @classmethod
-    def extract_checklists(cls, plaintext: str) -> Tuple[str, List["MDChecklist"]]:
-        """
-        Maintains legacy behavior: extracts only items with checkboxes.
-        """
+    def extract_checklists(cls, plaintext: str) -> tuple[str, list[MDChecklist]]:
+        """Maintains legacy behavior: extracts only items with checkboxes."""
         # We use MDList to find all lists, then filter for checklists
         # Actually, better to just use the original logic but return MDChecklist
         # to ensure we don't extract regular lists if only checklists were requested.
         text_lines = []
         linenr = 0
-        start_line: Optional[int] = None
-        checklists: List[MDChecklist] = []
+        start_line: int | None = None
+        checklists: list[MDChecklist] = []
         run = ""
 
-        for line in plaintext.splitlines(True):
+        for line in plaintext.splitlines(keepends=True):
             if cls.CHECKBOX_PATTERN.match(line):
                 if start_line is None:
                     start_line = linenr
@@ -221,27 +213,23 @@ class MDChecklist(MDList):
         return "".join(text_lines), checklists
 
     @classmethod
-    def insert_checklists(cls, text: str, checklists: List["MDChecklist"]) -> str:
-        """
-        Maintains legacy behavior: reinserts checklists.
-        """
+    def insert_checklists(cls, text: str, checklists: list[MDChecklist]) -> str:
+        """Maintains legacy behavior: reinserts checklists."""
         return cls.insert_lists(text, checklists)
 
 
 class MDTable:
-    """
-    A class representing a Markdown table.
+    """A class representing a Markdown table.
     Provides methods for parsing, manipulating, and serializing tables.
     """
 
     def __init__(
         self,
-        rows: List[List[str]],
-        headers: List[str],
-        style: Optional[List[Optional[str]]] = None,
+        rows: list[list[str]],
+        headers: list[str],
+        style: list[str | None] | None = None,
     ):
-        """
-        Initialize an MDTable.
+        """Initialize an MDTable.
 
         :param rows: 2D list of strings (data rows).
         :param headers: List of header strings.
@@ -250,20 +238,18 @@ class MDTable:
         """
         for row in rows:
             if len(row) != len(headers):
+                msg = f"Row length {len(row)} does not match headers' length {len(headers)}: {row}"
                 raise ValueError(
-                    f"Row length {len(row)} does not match headers' length {len(headers)}: {row}"
+                    msg,
                 )
-        self.rows: List[List[str]] = rows
-        self.headers: List[str] = headers
-        self.style: List[Optional[str]] = (
-            list(style) if style else [None] * len(headers)
-        )
-        self.prev_line_nr: Optional[int] = None  # For reconstruction
+        self.rows: list[list[str]] = rows
+        self.headers: list[str] = headers
+        self.style: list[str | None] = list(style) if style else [None] * len(headers)
+        self.prev_line_nr: int | None = None  # For reconstruction
 
     @staticmethod
-    def split_row(row: str, length: int) -> List[str]:
-        """
-        Split a Markdown table row into individual cells.
+    def split_row(row: str, length: int) -> list[str]:
+        """Split a Markdown table row into individual cells.
         Handles optional outer pipes and missing leading empty cells.
 
         :param row: The row string to split.
@@ -275,23 +261,21 @@ class MDTable:
         if row.startswith("|"):
             first_cell_potentially_missing = True
             row = row[1:]
-        if row.endswith("|"):
-            row = row[:-1]
+        row = row.removesuffix("|")
 
         cells = [x.strip() for x in row.split("|")]
 
         if len(cells) < length and first_cell_potentially_missing:
             # Handle cases where the first empty cell before | is omitted in split
-            cells = [""] + cells
+            cells = ["", *cells]
 
         # Pad or truncate to exact length
         if len(cells) < length:
             cells += [""] * (length - len(cells))
         return cells[:length]
 
-    def row_as_dict(self, row_idx: int) -> Dict[str, str]:
-        """
-        Get a row as a dictionary mapping headers to cell values.
+    def row_as_dict(self, row_idx: int) -> dict[str, str]:
+        """Get a row as a dictionary mapping headers to cell values.
 
         :param row_idx: Index of the data row.
         :return: Dictionary of {header: value}.
@@ -304,9 +288,8 @@ class MDTable:
         raise IndexError("Row index out of range")
 
     @staticmethod
-    def extract_styles(row: List[str]) -> List[Optional[str]]:
-        """
-        Extract alignment styles from a separator row (e.g., |:---|---:|).
+    def extract_styles(row: list[str]) -> list[str | None]:
+        """Extract alignment styles from a separator row (e.g., |:---|---:|).
 
         :param row: List of cell contents from the separator row.
         :return: List of styles ('l', 'r', 'c', or None).
@@ -323,9 +306,8 @@ class MDTable:
                 styles.append(None)
         return styles
 
-    def row(self, key: str) -> Optional[Dict[str, str]]:
-        """
-        Get a full row as a dictionary, using the first column as the key.
+    def row(self, key: str) -> dict[str, str] | None:
+        """Get a full row as a dictionary, using the first column as the key.
 
         :param key: Key to look for in the first column.
         :return: Dictionary of {header: value} for the matching row, or None.
@@ -336,9 +318,8 @@ class MDTable:
         return None
 
     @classmethod
-    def from_md(cls, md: str) -> "MDTable":
-        """
-        Parse a Markdown string into an MDTable.
+    def from_md(cls, md: str) -> MDTable:
+        """Parse a Markdown string into an MDTable.
         Attempts to be robust against various human-generated formats.
 
         :param md: The Markdown table string.
@@ -348,13 +329,11 @@ class MDTable:
         if not lines:
             return cls([], [])
 
-        def parse_line(line: str) -> List[str]:
+        def parse_line(line: str) -> list[str]:
             # Remove outer pipes if present
             content = line
-            if content.startswith("|"):
-                content = content[1:]
-            if content.endswith("|"):
-                content = content[:-1]
+            content = content.removeprefix("|")
+            content = content.removesuffix("|")
             return [cell.strip() for cell in content.split("|")]
 
         # Header processing
@@ -364,7 +343,7 @@ class MDTable:
             return cls([], headers)
 
         # Style row detection
-        styles: List[Optional[str]] = [None] * len(headers)
+        styles: list[str | None] = [None] * len(headers)
         if lines and all(c in "- |:" for c in lines[0]):
             style_row = parse_line(lines.pop(0))
             # If style row has different number of columns, it might not be a style row
@@ -391,8 +370,7 @@ class MDTable:
         return cls(rows, headers, styles)
 
     def to_md(self) -> str:
-        """
-        Serialize the table back to Markdown.
+        """Serialize the table back to Markdown.
         Normalization occurs here: column widths are standardized and alignment is applied.
 
         :return: Markdown string.
@@ -402,7 +380,7 @@ class MDTable:
         if not self.rows and not self.headers:
             return ""  # empty table
 
-        display_rows = self.rows if self.rows else [[""] * columns]
+        display_rows = self.rows or [[""] * columns]
 
         # Calculate column widths
         column_widths = [len(h) for h in self.headers]
@@ -451,9 +429,8 @@ class MDTable:
         return result
 
     @property
-    def rows_dict(self) -> Dict[str, Dict[str, str]]:
-        """
-        Returns a dictionary where keys are the first column values
+    def rows_dict(self) -> dict[str, dict[str, str]]:
+        """Returns a dictionary where keys are the first column values
         and values are dictionaries mapping headers to cell contents.
         """
         return {r[0]: self.row_as_dict(i) for i, r in enumerate(self.rows) if r}
@@ -462,9 +439,8 @@ class MDTable:
         return f"MDTable(headers={self.headers}, rows={len(self.rows)})"
 
     @staticmethod
-    def line_align(line: str, align: Optional[str], length: int) -> str:
-        """
-        Align a cell's content string.
+    def line_align(line: str, align: str | None, length: int) -> str:
+        """Align a cell's content string.
 
         :param line: Cell content.
         :param align: 'l', 'r', 'c', or None.
@@ -480,9 +456,8 @@ class MDTable:
             return line.center(length)
         return line.ljust(length)
 
-    def search(self, searchterm: str) -> Optional[List[str]]:
-        """
-        Find the first row containing the searchterm.
+    def search(self, searchterm: str) -> list[str] | None:
+        """Find the first row containing the searchterm.
 
         :param searchterm: String to search for.
         :return: The matching row (list of cells) or None.
@@ -495,13 +470,12 @@ class MDTable:
                 return row
         return None
 
-    def to_simple(self) -> Dict[str, Any]:
+    def to_simple(self) -> dict[str, Any]:
         """Convert table data to a simple dictionary."""
         return {"styles": self.style, "headers": self.headers, "rows": self.rows}
 
     def update_cell(self, row: int, col: int, data: str):
-        """
-        Update a specific cell value. Expands the table if indices are out of bounds.
+        """Update a specific cell value. Expands the table if indices are out of bounds.
 
         :param row: Data row index.
         :param col: Column index.
@@ -513,7 +487,7 @@ class MDTable:
             self.rows[row].append("")
         self.rows[row][col] = data
 
-    def update_rows(self, data: List[List[str]]):
+    def update_rows(self, data: list[list[str]]):
         """Update multiple rows of data."""
         for i, r in enumerate(data):
             for h, d in enumerate(r):
@@ -535,13 +509,12 @@ class MDTable:
         while self.rows and not any(x.strip() for x in self.rows[-1]):
             self.rows.pop()
 
-    def __getitem__(self, key: str) -> Optional[str]:
+    def __getitem__(self, key: str) -> str | None:
         """Dictionary-like access: treats first column as key and second as value."""
         return self.get(key)
 
     def get(self, key: str, default: Any = None) -> Any:
-        """
-        Treat the table as a dictionary where the first column is the key
+        """Treat the table as a dictionary where the first column is the key
         and the second column is the value.
 
         :param key: Key to look for in the first column.
@@ -553,9 +526,8 @@ class MDTable:
                 return row[1]
         return default
 
-    def column(self, key: str, default: Optional[List[str]] = None) -> List[str]:
-        """
-        Get all values in a specific column by header name.
+    def column(self, key: str, default: list[str] | None = None) -> list[str]:
+        """Get all values in a specific column by header name.
 
         :param key: Header name.
         :param default: Value if header not found.
@@ -567,9 +539,8 @@ class MDTable:
         except ValueError:
             return default or []
 
-    def header_pos(self, possible_headers: List[str], default: int = -1) -> int:
-        """
-        Find the index of the first matching header from a list of candidates.
+    def header_pos(self, possible_headers: list[str], default: int = -1) -> int:
+        """Find the index of the first matching header from a list of candidates.
 
         :param possible_headers: List of candidate header names.
         :param default: Value if no candidate found.
@@ -582,20 +553,19 @@ class MDTable:
         return default
 
     @classmethod
-    def extract_tables(cls, plaintext: str) -> Tuple[str, List["MDTable"]]:
-        """
-        Extract all tables from a block of text.
+    def extract_tables(cls, plaintext: str) -> tuple[str, list[MDTable]]:
+        """Extract all tables from a block of text.
 
         :param plaintext: Input text.
         :return: Tuple of (text_without_tables, list_of_extracted_tables).
         """
         text_lines = []
         linenr = 0
-        start_line: Optional[int] = None
-        tables: List[MDTable] = []
+        start_line: int | None = None
+        tables: list[MDTable] = []
         run = ""
 
-        for line in plaintext.splitlines(True):
+        for line in plaintext.splitlines(keepends=True):
             if "|" in line:
                 if start_line is None:
                     start_line = linenr
@@ -618,9 +588,8 @@ class MDTable:
         return "".join(text_lines), tables
 
     @classmethod
-    def insert_tables(cls, text: str, tables: List["MDTable"]) -> str:
-        """
-        Reinsert extracted tables back into text at their original positions.
+    def insert_tables(cls, text: str, tables: list[MDTable]) -> str:
+        """Reinsert extracted tables back into text at their original positions.
 
         :param text: Text without tables.
         :param tables: List of MDTable objects.
@@ -629,11 +598,12 @@ class MDTable:
         if not tables:
             return text
 
-        lines = text.splitlines(False)
+        lines = text.splitlines(keepends=False)
 
         # We must insert from bottom up to preserve indices or use offset logic
         tables_sorted = sorted(
-            tables, key=lambda t: t.prev_line_nr if t.prev_line_nr is not None else -1
+            tables,
+            key=lambda t: t.prev_line_nr if t.prev_line_nr is not None else -1,
         )
 
         offset = 0
@@ -651,25 +621,23 @@ class MDTable:
 
 
 class MDObj:
-    """
-    A tree-like representation of a Markdown document based on headers.
+    """A tree-like representation of a Markdown document based on headers.
     Automatically extracts tables, checklists, and general lists from the text content of each node.
     """
 
     def __init__(
         self,
         plaintext: str,
-        children: Optional[Dict[str, "MDObj"]] = None,
-        flash: Optional[Callable[[str], None]] = None,
-        tables: Optional[List[MDTable]] = None,
+        children: dict[str, MDObj] | None = None,
+        flash: Callable[[str], None] | None = None,
+        tables: list[MDTable] | None = None,
         level: int = 0,
         header: str = "",
-        original: Optional[str] = None,
-        lists: Optional[List[MDList]] = None,
-        checklists: Optional[List[MDChecklist]] = None,
+        original: str | None = None,
+        lists: list[MDList] | None = None,
+        checklists: list[MDChecklist] | None = None,
     ):
-        """
-        Initialize an MDObj.
+        """Initialize an MDObj.
 
         :param plaintext: Content of this node.
         :param children: Dictionary of child nodes {header: MDObj}.
@@ -703,14 +671,14 @@ class MDObj:
         else:
             self.lists = lists
 
-        self.children: Dict[str, "MDObj"] = children or {}
+        self.children: dict[str, MDObj] = children or {}
         self.level = level
         self.header = header
-        self.errors: List[str] = []
+        self.errors: list[str] = []
         self.flash = flash or self.add_to_error
 
     @property
-    def checklists(self) -> List[MDChecklist]:
+    def checklists(self) -> list[MDChecklist]:
         """Compatibility property for legacy checklist access."""
         return [mlist for mlist in self.lists if isinstance(mlist, MDChecklist)]
 
@@ -719,15 +687,16 @@ class MDObj:
         self.errors.append(error)
 
     @property
-    def all_checklists(self) -> List[Tuple[str, bool]]:
+    def all_checklists(self) -> list[tuple[str, bool]]:
         """Flattened list of all checklist items in this node."""
         return [item for mlist in self.lists for item in mlist.checklist]
 
     def search_checklist_with_path(
-        self, name: str, path: Optional[List[str]] = None
-    ) -> List[List[str]]:
-        """
-        Find the path to a checklist item by its name.
+        self,
+        name: str,
+        path: list[str] | None = None,
+    ) -> list[list[str]]:
+        """Find the path to a checklist item by its name.
 
         :param name: Item text to find.
         :param path: Current accumulation path (internal recursion).
@@ -743,7 +712,7 @@ class MDObj:
                     results.append(path[:])
 
         for heading, child in self.children.items():
-            results.extend(child.search_checklist_with_path(name, path + [heading]))
+            results.extend(child.search_checklist_with_path(name, [*path, heading]))
 
         return results
 
@@ -754,8 +723,7 @@ class MDObj:
         )
 
     def __getitem__(self, key: str) -> Any:
-        """
-        Access children or table values using square bracket notation.
+        """Access children or table values using square bracket notation.
         Priority: 1. Children, 2. Tables (in order of appearance).
         """
         # Search through children
@@ -768,18 +736,18 @@ class MDObj:
             if value is not None:
                 return value
 
-        raise KeyError(f"'{key}' not found in {self.header or 'MDObj'}")
+        msg = f"'{key}' not found in {self.header or 'MDObj'}"
+        raise KeyError(msg)
 
     @classmethod
     def from_md(
         cls,
-        lines: Union[str, List[str]],
+        lines: str | list[str],
         level: int = 0,
         header: str = "",
-        flash: Optional[Callable[[str], None]] = None,
-    ) -> "MDObj":
-        """
-        Recursively parse Markdown source into a tree of MDObj nodes.
+        flash: Callable[[str], None] | None = None,
+    ) -> MDObj:
+        """Recursively parse Markdown source into a tree of MDObj nodes.
 
         :param lines: Markdown string or stack of lines.
         :param level: Current header level being parsed.
@@ -841,10 +809,10 @@ class MDObj:
         )
 
     def confine_to_tables(
-        self, horizontal: bool = False
-    ) -> Tuple[Dict[str, Any], List[str]]:
-        """
-        Simplify the MDTree into a nested dictionary of data.
+        self,
+        *, horizontal: bool = False,
+    ) -> tuple[dict[str, Any], list[str]]:
+        """Simplify the MDTree into a nested dictionary of data.
         Assumes the document is primarily structured data (tables/checklists/subheaders).
 
         :param horizontal: If True, treats tables as having headers in the first row.
@@ -875,14 +843,14 @@ class MDObj:
                         continue
                     if len(row) != 2:
                         error(
-                            f"Malformed KeyValue at row '{'|'.join(row)}' in {subtable} "
+                            f"Malformed KeyValue at row '{'|'.join(row)}' in {subtable} ",
                         )
                         continue
                     result[row[0]] = row[1]
 
         for child_name, child_obj in self.children.items():
             if child_obj.children or child_obj.tables:
-                child_data, newerrors = child_obj.confine_to_tables(horizontal)
+                child_data, newerrors = child_obj.confine_to_tables(horizontal=horizontal)
                 result[child_name] = child_data
                 errors += newerrors
             else:
@@ -899,9 +867,8 @@ class MDObj:
 
         return result, errors
 
-    def search_children(self, name: str) -> Optional["MDObj"]:
-        """
-        Search for an MDObj node by its header name (case-insensitive).
+    def search_children(self, name: str) -> MDObj | None:
+        """Search for an MDObj node by its header name (case-insensitive).
 
         :param name: Header name to search for.
         :return: Found MDObj or None.
@@ -922,7 +889,7 @@ class MDObj:
                 return result
         return None
 
-    def set_levels(self, newlevel: Optional[int] = None):
+    def set_levels(self, newlevel: int | None = None):
         """Recursively set header levels for the tree."""
         if newlevel is not None:
             self.level = newlevel
@@ -930,32 +897,28 @@ class MDObj:
             if not child.level:
                 child.set_levels(self.level + 1)
 
-    def add_child(self, child: "MDObj") -> "MDObj":
+    def add_child(self, child: MDObj) -> MDObj:
         """Add a child node. Returns self for chaining."""
         if self.is_ancestor(child):
             raise Exception(
-                "Cannot add child, it is already a descendant of this object"
+                "Cannot add child, it is already a descendant of this object",
             )
         name = child.header.strip()
         self.children[name] = child
         return self
 
-    def is_ancestor(self, child: "MDObj") -> bool:
+    def is_ancestor(self, child: MDObj) -> bool:
         """Check if child is already a descendant of this node."""
-        for candidate in self.children.values():
-            if candidate == child or candidate.is_ancestor(child):
-                return True
-        return False
+        return any(candidate == child or candidate.is_ancestor(child) for candidate in self.children.values())
 
-    def add_children(self, children: List["MDObj"]) -> "MDObj":
+    def add_children(self, children: list[MDObj]) -> MDObj:
         """Add multiple child nodes."""
         for child in children:
             self.add_child(child)
         return self
 
-    def to_md(self, do_header: bool = True) -> str:
-        """
-        Serialize the tree back to Markdown in a canonical, optimal format.
+    def to_md(self, *, do_header: bool = True) -> str:
+        """Serialize the tree back to Markdown in a canonical, optimal format.
         Maintains order of tables and lists based on their stored positions.
 
         :param do_header: Whether to include the header of this node.
@@ -965,15 +928,15 @@ class MDObj:
             self.set_levels(0)
 
         # Reconstruct body from cleaned plaintext and parts
-        lines = self.plaintext.splitlines(True)
-        parts: List[Tuple[int, Union[MDTable, MDList]]] = []
+        lines = self.plaintext.splitlines(keepends=True)
+        parts: list[tuple[int, MDTable | MDList]] = []
         for t in self.tables:
             parts.append(
-                (t.prev_line_nr if t.prev_line_nr is not None else len(lines), t)
+                (t.prev_line_nr if t.prev_line_nr is not None else len(lines), t),
             )
         for mlist in self.lists:
             parts.append(
-                (mlist.position if mlist.position is not None else len(lines), mlist)
+                (mlist.position if mlist.position is not None else len(lines), mlist),
             )
 
         parts.sort(key=lambda x: x[0])
@@ -1015,7 +978,7 @@ class MDObj:
 
         return result
 
-    def search_tables(self, searchterm: str) -> Optional[MDTable]:
+    def search_tables(self, searchterm: str) -> MDTable | None:
         """Search all nodes for a table containing the searchterm."""
         for t in self.tables:
             if t.search(searchterm):
@@ -1031,27 +994,27 @@ class MDObj:
                 return r
         return None
 
-    def replace_content_by_path(self, path: List[str], new_content: str):
+    def replace_content_by_path(self, path: list[str], new_content: str):
         """Replace the content of a node at a specific path."""
         focus = self
         for p in path[:-1]:
             focus = focus.children[p]
         focus.children[path[-1]] = MDObj.from_md(new_content)
 
-    def get_content_by_path(self, path: List[str]) -> "MDObj":
+    def get_content_by_path(self, path: list[str]) -> MDObj:
         """Get an MDObj node at a specific path."""
         focus = self
         for p in path:
             focus = focus.children[p]
         return focus
 
-    def with_header(self, header_text: str) -> "MDObj":
+    def with_header(self, header_text: str) -> MDObj:
         """Set the header text. Returns self for chaining."""
         self.header = header_text
         return self
 
     @classmethod
-    def empty(cls) -> "MDObj":
+    def empty(cls) -> MDObj:
         """Create an empty MDObj."""
         return cls("")
 
@@ -1060,8 +1023,7 @@ class MDObj:
 
 
 def table_row_edit(md: str, key: str, value: str) -> str:
-    """
-    Find a table row by its first column (key) and update its subsequent columns.
+    """Find a table row by its first column (key) and update its subsequent columns.
 
     :param md: Markdown source.
     :param key: Key to match in the first column.
@@ -1078,14 +1040,13 @@ def table_row_edit(md: str, key: str, value: str) -> str:
     return md.replace(old, new, 1)
 
 
-def table_md(t: List[List[str]]) -> str:
+def table_md(t: list[list[str]]) -> str:
     """Simple converter for 2D list to Markdown table (no headers)."""
     return "\n".join(["|".join([x for x in row if x is not None]) for row in t if row])
 
 
 def table_add(md: str, key: str, new_val: str) -> str:
-    """
-    Manually insert a row into a Markdown table in a string.
+    """Manually insert a row into a Markdown table in a string.
 
     :param md: Markdown source.
     :param key: Key for the first column.
@@ -1094,7 +1055,7 @@ def table_add(md: str, key: str, new_val: str) -> str:
     """
     intable = False
     sofar = ""
-    lines = md.splitlines(True)
+    lines = md.splitlines(keepends=True)
     new_inserted = False
 
     for line in lines:
@@ -1106,19 +1067,14 @@ def table_add(md: str, key: str, new_val: str) -> str:
             sofar += " " * indent + f"| {key} | {new_val} |\n"
             new_inserted = True
 
-        if "|" in line:
-            intable = True
-        else:
-            intable = False
+        intable = "|" in line
 
         sofar += line
 
-    if not new_inserted:
-        # Check if we ended inside table
-        if intable:
-            prev_line = sofar.splitlines()[-1] if sofar else ""
-            indent = len(prev_line) - len(prev_line.lstrip())
-            sofar += " " * indent + f"| {key} | {new_val} |\n"
+    if not new_inserted and intable:
+        prev_line = sofar.splitlines()[-1] if sofar else ""
+        indent = len(prev_line) - len(prev_line.lstrip())
+        sofar += " " * indent + f"| {key} | {new_val} |\n"
 
     return sofar
 
@@ -1132,9 +1088,8 @@ def table_remove(md: str, key: str) -> str:
     return md.replace(old + "\n", "", 1)
 
 
-def search_tables(md: str, seek: str, surround: Optional[int] = None) -> str:
-    """
-    Search for a table row in Markdown text.
+def search_tables(md: str, seek: str, surround: int | None = None) -> str:
+    """Search for a table row in Markdown text.
 
     :param md: Markdown source.
     :param seek: Term to search for.
@@ -1145,34 +1100,34 @@ def search_tables(md: str, seek: str, surround: Optional[int] = None) -> str:
     curtable = []
     end = -1
 
-    for line in md.splitlines(True):
+    for line in md.splitlines(keepends=True):
         if "|" in line:
             curtable.append(line)
-            if not found and seek.lower() in line.lower():
-                if line.strip(" |").lower().startswith(seek.strip(" |").lower()):
-                    if surround is not None:
-                        end = surround * 2 + 1
-                        curtable = curtable[-surround - 1 :]
-                    found = True
+            if (
+                not found
+                and seek.lower() in line.lower()
+                and line.strip(" |").lower().startswith(seek.strip(" |").lower())
+            ):
+                if surround is not None:
+                    end = surround * 2 + 1
+                    curtable = curtable[-surround - 1 :]
+                found = True
 
             if end != -1 and len(curtable) >= end:
                 curtable = curtable[:end]
                 break
+        elif found:
+            break
         else:
-            if found:
-                break
-            else:
-                curtable = []
+            curtable = []
 
     if found:
         return "".join(curtable)
-    else:
-        return ""
+    return ""
 
 
 def traverse_md(md: str, seek: str) -> str:
-    """
-    Extract all lines under a specific header level.
+    """Extract all lines under a specific header level.
 
     :param md: Markdown source.
     :param seek: Header name to search for.

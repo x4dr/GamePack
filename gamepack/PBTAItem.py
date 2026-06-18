@@ -1,12 +1,12 @@
 import logging
-from typing import List, Self, Optional, Dict, Any, Union
+from typing import Any, Self
 
-from gamepack.MDPack import MDObj
 from gamepack.ItemBase import (
     ItemBase,
-    tryfloatdefault,
     extract,
+    tryfloatdefault,
 )
+from gamepack.MDPack import MDObj
 
 log = logging.getLogger(__name__)
 
@@ -31,11 +31,11 @@ class PBTAItem(ItemBase):
     def __init__(
         self,
         name: str,
-        load: Union[int, float],
+        load: float,
         description: str = "",
-        count: Union[float, str] = 1.0,
-        maximum: Union[int, str] = 1,
-        additional: Optional[Dict[str, str]] = None,
+        count: float | str = 1.0,
+        maximum: int | str = 1,
+        additional: dict[str, str] | None = None,
     ):
         super().__init__(name, description, count, additional)
         self.load = tryfloatdefault(load, 1.0)
@@ -51,9 +51,9 @@ class PBTAItem(ItemBase):
     @classmethod
     def from_table_row(
         cls,
-        row: List[str],
-        offsets: Dict[Any, int],
-        temp_cache: Optional[Dict[str, Any]] = None,
+        row: list[str],
+        offsets: dict[Any, int],
+        temp_cache: dict[str, Any] | None = None,
     ):
         if not temp_cache:
             temp_cache = {}
@@ -102,17 +102,15 @@ class PBTAItem(ItemBase):
         description_raw, u = extract(cls.table_description, mdobj)
         used.append(u)
         additional = {}
-        for heading in mdobj.children.keys():
+        for heading in mdobj.children:
             if heading in used:
                 continue
-            else:
-                additional[heading] = mdobj.children[heading].plaintext
+            additional[heading] = mdobj.children[heading].plaintext
 
-        item = cls(
+        return cls(
             name=name,
             load=tryfloatdefault(load_raw, 1.0),
             description=description_raw or "",
             count=tryfloatdefault(count_raw, 1.0),
             additional=additional,
         )
-        return item

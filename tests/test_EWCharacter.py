@@ -1,5 +1,6 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from gamepack.endworld.EWCharacter import EWCharacter
 from gamepack.MDPack import MDObj
 
@@ -13,7 +14,10 @@ class TestEWCharacter(unittest.TestCase):
     @patch("gamepack.WikiPage.WikiPage.locate")
     @patch("gamepack.WikiPage.WikiPage.load")
     def test_from_mdobj_with_mech_link(
-        self, mock_load, mock_locate, mock_mecha_from_md
+        self,
+        mock_load,
+        mock_locate,
+        mock_mecha_from_md,
     ):
         md_text = "# Mech\n(SomeMechLink)"
         mdobj = MDObj.from_md(md_text)

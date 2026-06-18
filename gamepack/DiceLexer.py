@@ -1,4 +1,4 @@
-import ply.lex as lex
+from ply import lex
 
 
 class DiceLexer:
@@ -38,12 +38,12 @@ class DiceLexer:
     t_RBRACK = r"\]"
     t_EXPLOSION = r"!+"
 
-    def t_NUMBER(self, t):
+    def t_NUMBER(self, t):  # noqa: N802
         r"\d+"
         t.value = int(t.value)
         return t
 
-    def t_MINUS_SEQUENCE(self, t):
+    def t_MINUS_SEQUENCE(self, t):  # noqa: N802
         r"-+"
         return t
 
@@ -52,7 +52,8 @@ class DiceLexer:
     def t_error(self, t):
         from gamepack.Dice import DiceCodeError
 
-        raise DiceCodeError(f"Illegal character '{t.value[0]}'")
+        msg = f"Illegal character '{t.value[0]}'"
+        raise DiceCodeError(msg)
 
     def __init__(self):
         self.lexer = lex.lex(module=self)

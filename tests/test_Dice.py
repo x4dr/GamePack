@@ -2,8 +2,8 @@ import random
 import re
 from unittest import TestCase
 
-from gamepack.Dice import Dice, DescriptiveError
-from gamepack.RegexRouter import RegexRouter, PartialMatchException
+from gamepack.Dice import DescriptiveError, Dice
+from gamepack.RegexRouter import PartialMatchException, RegexRouter
 
 
 class TestDice(TestCase):
@@ -29,7 +29,8 @@ class TestDice(TestCase):
 
     def test_roll_thresh(self):
         self.assertRegex(
-            Dice(3, 9, 5, returnfun="threshhold").roll_v(), r"\d, \d, \d ==> \d"
+            Dice(3, 9, 5, returnfun="threshhold").roll_v(),
+            r"\d, \d, \d ==> \d",
         )
 
     def test_empty_roll_v(self):
@@ -42,7 +43,8 @@ class TestDice(TestCase):
         d = Dice(1, 9, 2, onebehaviour=1, explosion=3, returnfun="threshhold")
         self.assertEqual(1, d.roll_wodsuccesses())
         self.assertEqual(
-            "7: success exploding!\n7: success exploding!\n1: subtract \n", d.log
+            "7: success exploding!\n7: success exploding!\n1: subtract \n",
+            d.log,
         )
         d = Dice(3, 10, 9, onebehaviour=1, returnfun="threshhold")
         d.r = [1, 1, 9]
@@ -52,7 +54,12 @@ class TestDice(TestCase):
         self.assertEqual(
             "8d9f2 exploding on 8",
             Dice(
-                8, 9, 2, onebehaviour=1, explosion=2, returnfun="threshhold"
+                8,
+                9,
+                2,
+                onebehaviour=1,
+                explosion=2,
+                returnfun="threshhold",
             ).__repr__(),
         )
         self.assertEqual("sum", Dice([], 1, returnfun="sum").name)

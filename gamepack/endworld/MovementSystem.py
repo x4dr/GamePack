@@ -1,9 +1,10 @@
-from typing import List, Dict, Any
+from typing import Any, ClassVar
+
 from gamepack.endworld.System import System
 
 
 class MovementSystem(System):
-    headers = [
+    headers: ClassVar[list[str]] = [
         "Energy",
         "Heat",
         "Thrust",
@@ -19,7 +20,7 @@ class MovementSystem(System):
     anchor: float
     dynamics: float
 
-    def __init__(self, name: str, data: Dict[str, Any]):
+    def __init__(self, name: str, data: dict[str, Any]):
         super().__init__(name, data)
         self.thrust = self.number(self.extract("thrust"))
         self.anchor = self.number(self.extract("anchor"))
@@ -35,7 +36,7 @@ class MovementSystem(System):
             f"Mass={self.mass}"
         )
 
-    def speeds(self, mech_total_mass: float, initial_speed: float = 0.0) -> List[float]:
+    def speeds(self, mech_total_mass: float, initial_speed: float = 0.0) -> list[float]:
         dt = 0.1  # timestep in seconds
         speed = initial_speed / 3.6  # convert kmh to m/s
         speeds_list = [speed * 3.6]
@@ -66,8 +67,7 @@ class MovementSystem(System):
                 speed = 0
 
             speed += accel * dt
-            if speed < 0:
-                speed = 0
+            speed = max(speed, 0)
 
             if step % int(1 / dt) == 0:
                 speeds_list.append(speed * 3.6)  # kmh

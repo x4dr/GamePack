@@ -17,13 +17,12 @@ def montecarlo(roll, run_for=10):
 
 def plot(
     data: dict[int, int],
-    showsucc: bool = False,
+    *, showsucc: bool = False,
     showgraph: bool = True,
     showdmgmods: bool = False,
     grouped: int = 1,
 ) -> str:
-    """
-    Plots data as a text-based histogram.
+    """Plots data as a text-based histogram.
 
     Args:
         data (dict): Dictionary with integer keys representing the rolls and
@@ -36,6 +35,7 @@ def plot(
 
     Returns:
         str: Text-based histogram of the data.
+
     """
     success = sum(v for k, v in data.items() if k > 0)
     zeros = sum(v for k, v in data.items() if k == 0)
@@ -127,6 +127,6 @@ def avgdev(occurrences) -> tuple[float, float]:
     total = sum(occurrences.values())
     avg = sum(int(k) * int(v) for k, v in occurrences.items()) / total
     dev = math.sqrt(
-        sum(((int(k) - avg) ** 2) * v for k, v in occurrences.items()) / total
+        sum(((int(k) - avg) ** 2) * v for k, v in occurrences.items()) / total,
     )
     return avg, dev

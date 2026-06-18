@@ -1,22 +1,26 @@
-from typing import List, Dict, Tuple, Optional, Self, Union, Callable
+from typing import TYPE_CHECKING, ClassVar, Self
+
 from gamepack.BaseCharacter import BaseCharacter
 from gamepack.Item import tryfloatdefault
-from gamepack.MDPack import MDObj, MDTable, MDChecklist
+from gamepack.MDPack import MDChecklist, MDObj, MDTable
 from gamepack.PBTAItem import PBTAItem
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class PBTACharacter(BaseCharacter):
     def __init__(
         self,
-        info: Dict[str, str],
-        moves: List[Tuple[str, bool]],
-        health: Dict[str, Union[Dict, List]],
-        stats: Dict[str, Dict],
-        inventory: Optional[List[PBTAItem]] = None,
-        inventory_bonus_headers: Optional[set[str]] = None,
+        info: dict[str, str],
+        moves: list[tuple[str, bool]],
+        health: dict[str, dict | list],
+        stats: dict[str, dict],
+        inventory: list[PBTAItem] | None = None,
+        inventory_bonus_headers: set[str] | None = None,
         notes: str = "",
-        meta: Optional[Dict[str, MDObj]] = None,
-        errors: Optional[List[str]] = None,
+        meta: dict[str, MDObj] | None = None,
+        errors: list[str] | None = None,
     ):
         super().__init__()
         self.info = info
@@ -30,22 +34,28 @@ class PBTACharacter(BaseCharacter):
         if errors:
             self.errors.extend(errors)
 
-    info_headings = ["info"]
-    health_headings = ["health", "damage"]
-    current_headings = ["current", "cur"]
-    max_headings = ["maximum", "max"]
-    type_headings = ["type", "name", "stat"]
-    moves_headings = ["moves"]
-    stats_headings = ["stats", "attributes"]
-    inventory_headings = ["inventory", "gear"]
-    note_headings = ["notes"]
-    stat_structure = {
+    info_headings: ClassVar[list[str]] = ["info"]
+    health_headings: ClassVar[list[str]] = ["health", "damage"]
+    current_headings: ClassVar[list[str]] = ["current", "cur"]
+    max_headings: ClassVar[list[str]] = ["maximum", "max"]
+    type_headings: ClassVar[list[str]] = ["type", "name", "stat"]
+    moves_headings: ClassVar[list[str]] = ["moves"]
+    stats_headings: ClassVar[list[str]] = ["stats", "attributes"]
+    inventory_headings: ClassVar[list[str]] = ["inventory", "gear"]
+    note_headings: ClassVar[list[str]] = ["notes"]
+    stat_structure: ClassVar[dict[str, list[str]]] = {
         "Insight": ["Hunt", "Study", "Survey", "Tinker"],
         "Prowess": ["Skirmish", "Finesse", "Prowl", "Wreck"],
         "Resolve": ["Attune", "Command", "Consort", "Sway"],
     }
-    stat_table_headers = ["Stat", "Value"]
-    wound_headings = ["harm", "wounds", "wunden", "injuries", "verletzungen"]
+    stat_table_headers: ClassVar[list[str]] = ["Stat", "Value"]
+    wound_headings: ClassVar[list[str]] = [
+        "harm",
+        "wounds",
+        "wunden",
+        "injuries",
+        "verletzungen",
+    ]
 
     def post_process(self, flash: Callable[[str], None]):
         # tally inventory
@@ -67,7 +77,9 @@ class PBTACharacter(BaseCharacter):
 
     @classmethod
     def from_mdobj(
-        cls, mdobj: MDObj, flash_func: Optional[Callable[[str], None]] = None
+        cls,
+        mdobj: MDObj,
+        flash_func: Callable[[str], None] | None = None,
     ) -> Self:
         errors = []
         if not flash_func:
@@ -107,7 +119,7 @@ class PBTACharacter(BaseCharacter):
                     if section.lower().strip() in cls.wound_headings:
                         for severity, description_obj in child.children.items():
                             text = description_obj.plaintext.strip()
-                            health[severity] = [w for w in text.splitlines(False) if w]
+                            health[severity] = [w for w in text.splitlines(keepends=False) if w]
             else:
                 meta[k] = v
 
@@ -141,14 +153,14 @@ class PBTACharacter(BaseCharacter):
         return current, maximum
 
     @classmethod
-    def from_md(cls, body: str, flash: Optional[Callable[[str], None]] = None) -> Self:
+    def from_md(cls, body: str, flash: Callable[[str], None] | None = None) -> Self:
         sheet_parts = MDObj.from_md(body)
         return cls.from_mdobj(sheet_parts, flash)
 
     def to_md(self) -> str:
         return self.to_mdobj().to_md()
 
-    def to_mdobj(self, error_handler: Optional[Callable[[str], None]] = None) -> MDObj:
+    def to_mdobj(self, error_handler: Callable[[str], None] | None = None) -> MDObj:
         if not error_handler:
 
             def default_error_handler(error):
@@ -166,7 +178,9 @@ class PBTACharacter(BaseCharacter):
 
         # Health Section
         health_mdo = MDObj(
-            "", flash=error_handler, header=self.health_headings[0].title()
+            "",
+            flash=error_handler,
+            header=self.health_headings[0].title(),
         )
         harm_mdo = MDObj("", header=self.wound_headings[0])
 
@@ -174,7 +188,7 @@ class PBTACharacter(BaseCharacter):
         for key, val in self.health.items():
             if isinstance(val, list):
                 harm_mdo.add_child(
-                    MDObj("\n".join(val), flash=error_handler, header=key)
+                    MDObj("\n".join(val), flash=error_handler, header=key),
                 )
             elif isinstance(val, dict):
                 health_rows.append(
@@ -182,7 +196,7 @@ class PBTACharacter(BaseCharacter):
                         key,
                         str(val.get(self.current_headings[0].title(), "")),
                         str(val.get(self.max_headings[0].title(), "")),
-                    ]
+                    ],
                 )
 
         if harm_mdo.children:
@@ -190,7 +204,7 @@ class PBTACharacter(BaseCharacter):
 
         if health_rows:
             health_mdo.tables.append(
-                MDTable(health_rows, ["Type", "Current", "Maximum"])
+                MDTable(health_rows, ["Type", "Current", "Maximum"]),
             )
 
         sections.add_child(health_mdo)
@@ -202,7 +216,7 @@ class PBTACharacter(BaseCharacter):
                     "",
                     lists=[MDChecklist(self.moves)],
                     header=self.moves_headings[0].title(),
-                )
+                ),
             )
 
         # Stats Section
@@ -230,18 +244,19 @@ class PBTACharacter(BaseCharacter):
                     "",
                     header=category.title(),
                     tables=[MDTable(data, self.stat_table_headers)],
-                )
+                ),
             )
         return result
 
     def _create_inventory_section(
-        self, error_handler: Callable[[str], None]
-    ) -> Optional[MDObj]:
+        self,
+        error_handler: Callable[[str], None],
+    ) -> MDObj | None:
         if not self.inventory:
             return None
 
         headers = ["Name", "Quantity", "Maximum", "Description"]
-        bonus_headers = sorted(list(self.inventory_bonus_headers))
+        bonus_headers = sorted(self.inventory_bonus_headers)
         headers.extend(bonus_headers)
 
         rows = []
@@ -261,10 +276,13 @@ class PBTACharacter(BaseCharacter):
 
         inventory_table = MDTable(rows, headers)
         return MDObj(
-            "", flash=error_handler, tables=[inventory_table], header="Inventory"
+            "",
+            flash=error_handler,
+            tables=[inventory_table],
+            header="Inventory",
         )
 
-    def inventory_get(self, name: str) -> Optional[PBTAItem]:
+    def inventory_get(self, name: str) -> PBTAItem | None:
         for i in self.inventory:
             if i.name == name:
                 return i

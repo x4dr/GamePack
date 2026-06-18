@@ -1,10 +1,10 @@
 import pytest
 
-from gamepack.MDPack import MDObj
-from gamepack.WikiPage import WikiPage
-from gamepack.endworld import EnergySystem, MovementSystem, System, SealSystem
+from gamepack.endworld import EnergySystem, MovementSystem, SealSystem, System
 from gamepack.endworld.HeatSystem import HeatSystem
 from gamepack.endworld.Mecha import Mecha
+from gamepack.MDPack import MDObj
+from gamepack.WikiPage import WikiPage
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -110,7 +110,8 @@ def mecha_with_heat():
     m = Mecha()
     # attach a real HeatSystem
     h = HeatSystem(
-        "H1", {"capacity": 10, "passive": "1", "active": "2", "flux": 3, "current": 0}
+        "H1",
+        {"capacity": 10, "passive": "1", "active": "2", "flux": 3, "current": 0},
     )
     h.enabled = "[x]"
     m.Heat["H1"] = h
@@ -140,7 +141,8 @@ def test_mecha_move_heat(mecha_with_heat):
     m = mecha_with_heat
     # add a target HeatSystem
     h2 = HeatSystem(
-        "H2", {"capacity": 10, "passive": "1", "active": "2", "flux": 3, "current": 0}
+        "H2",
+        {"capacity": 10, "passive": "1", "active": "2", "flux": 3, "current": 0},
     )
     h2.enabled = "[x]"
     m.Heat["H2"] = h2
@@ -192,7 +194,7 @@ def test_fluxmax_and_add_heat(basic_mecha, basic_heat):
     h1 = basic_heat
     h1.enabled = "[x]"
     h1.flux = 5
-    h1.add_heat = lambda x: 0
+    h1.add_heat = lambda x: 0  # noqa: ARG005
     basic_mecha.Heat["H1"] = h1
     basic_mecha.systems["Heat"]["H1"] = h1
 
@@ -307,7 +309,7 @@ def test_energy_allocation_budget_loop(mecha_with_systems):
             return True
 
     m.loadouts["Default"] = [DummySys(1), DummySys(2), DummySys(5)]
-    load, activated = m.energy_allocation()
+    _load, activated = m.energy_allocation()
     # activated should stop when budget exceeded
     assert activated <= 3
 

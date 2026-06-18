@@ -1,9 +1,10 @@
-from typing import Dict, Any, Tuple, Optional
+from typing import Any, ClassVar
+
 from gamepack.endworld.System import System
 
 
 class HeatSystem(System):
-    headers = [
+    headers: ClassVar[list[str]] = [
         "Energy",
         "Mass",
         "Amount",
@@ -25,13 +26,13 @@ class HeatSystem(System):
     active_flux: float
     passive_flux: float
 
-    def __init__(self, name: str, data: Dict[str, Any]):
+    def __init__(self, name: str, data: dict[str, Any]):
         super().__init__(name, data)
         self.capacity = self.number(self.extract("capacity"))
         self.passive = str(self.extract("passive"))
         self.active = str(self.extract("active"))
 
-        flux_raw = self.extract("flux", "0", False)
+        flux_raw = self.extract("flux", "0", req=False)
         if "/" in str(flux_raw):
             p, a = str(flux_raw).split("/")
             self.passive_flux = self.number(p)
@@ -66,7 +67,7 @@ class HeatSystem(System):
         self.current = 0.0
         self.flux_used = 0.0
 
-    def unpack(self, inp: str) -> Tuple[float, float]:
+    def unpack(self, inp: str) -> tuple[float, float]:
         r, a = 0.0, 0.0
         for part in inp.split("+"):
             part = part.strip()
@@ -77,7 +78,7 @@ class HeatSystem(System):
                     a += self.number(part)
         return r, a
 
-    def use(self, parameter: Optional[str]) -> float:
+    def use(self, parameter: str | None) -> float:
         param = parameter.lower() if parameter else ""
         if not param:  # default is toggle
             self.enabled = "[ ]" if self.is_active() else "[x]"

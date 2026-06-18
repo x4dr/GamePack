@@ -1,18 +1,18 @@
+import pathlib
 import unittest
 from unittest.mock import MagicMock
 
-import pathlib
 from gamepack.Item import total_table
 from gamepack.MDPack import (
-    search_tables,
-    traverse_md,
-    MDObj,
-    table_row_edit,
-    table_add,
-    table_remove,
-    MDTable,
     MDChecklist,
     MDList,
+    MDObj,
+    MDTable,
+    search_tables,
+    table_add,
+    table_remove,
+    table_row_edit,
+    traverse_md,
 )
 
 
@@ -208,7 +208,7 @@ class TestMDObj(unittest.TestCase):
         ]
 
         # Call the function with the input
-        total_table(input_table, lambda x: None)
+        total_table(input_table, lambda x: None)  # noqa: ARG005
 
         # Check that the output matches the expected output
         self.assertEqual(input_table, expected_output)
@@ -260,7 +260,8 @@ End of document."""
         # Step 3: Reinsert tables
         restored_text = MDTable.insert_tables(text_without_tables, tables)
 
-        # Assuming current implementation adds/removes newlines in a way that is acceptable but differs from exact input string
+        # Current impl adds/removes newlines in a way that's acceptable
+        # but may differ from the exact input string
         # We verify that table content is correct and structure is maintained
         self.assertIn("| Report  | Pending |", restored_text)
         self.assertIn("# Task List", restored_text)
@@ -292,7 +293,8 @@ End of document."""
 
         # Step 3: Reinsert checklists
         restored_text = MDChecklist.insert_checklists(
-            text_without_checklists, checklists
+            text_without_checklists,
+            checklists,
         )
         self.assertEqual(md_text.strip(), restored_text)
 
@@ -433,7 +435,8 @@ testask
         self.assertEqual(mlist.items[2].level, 2)
         # Serialization (using 2 spaces per level as implemented)
         self.assertEqual(
-            mlist.to_md(), "- Item 1\n  - Item 1.1\n    - Item 1.1.1\n- Item 2"
+            mlist.to_md(),
+            "- Item 1\n  - Item 1.1\n    - Item 1.1.1\n- Item 2",
         )
 
     def test_mdtable_row_access(self):

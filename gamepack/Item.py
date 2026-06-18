@@ -1,15 +1,18 @@
 import logging
-from typing import List, Self, Optional, Dict, Any, Union, Callable
+from typing import TYPE_CHECKING, Any, Self
 
-from gamepack.MDPack import MDObj
 from gamepack.ItemBase import (
     ItemBase,
-    tryfloatdefault,
+    extract,
     fenconvert,
     fendeconvert,
-    extract,
+    tryfloatdefault,
     value_category,
 )
+from gamepack.MDPack import MDObj
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 log = logging.getLogger(__name__)
 
@@ -37,8 +40,8 @@ class Item(ItemBase):
         weight: float,
         price: float,
         description: str = "",
-        count: Union[float, str] = 1.0,
-        additional: Optional[Dict[str, str]] = None,
+        count: float | str = 1.0,
+        additional: dict[str, str] | None = None,
     ):
         super().__init__(name, description, count, additional)
         self.weight = tryfloatdefault(weight)
@@ -63,9 +66,9 @@ class Item(ItemBase):
     @classmethod
     def from_table_row(
         cls,
-        row: List[str],
-        offsets: Dict[Any, int],
-        temp_cache: Optional[Dict[str, Any]] = None,
+        row: list[str],
+        offsets: dict[Any, int],
+        temp_cache: dict[str, Any] | None = None,
     ):
         if not temp_cache:
             temp_cache = {}
@@ -119,13 +122,12 @@ class Item(ItemBase):
         description_raw, u = extract(cls.table_description, mdobj)
         used.append(u)
         additional = {}
-        for heading in mdobj.children.keys():
+        for heading in mdobj.children:
             if heading in used:
                 continue
-            else:
-                additional[heading] = mdobj.children[heading].plaintext
+            additional[heading] = mdobj.children[heading].plaintext
 
-        item = cls(
+        return cls(
             name=name,
             weight=fenconvert(weight_raw or ""),
             price=fenconvert(price_raw or ""),
@@ -133,10 +135,9 @@ class Item(ItemBase):
             count=tryfloatdefault(count_raw, 1.0),
             additional=additional,
         )
-        return item
 
 
-def total_table(table_input: List[List[str]], flash: Callable[[str], None]):
+def total_table(table_input: list[list[str]], flash: Callable[[str], None]):
     """Calculates total row for item tables."""
     try:
         if table_input[-1][0].lower() in Item.table_total:
@@ -161,5 +162,5 @@ def total_table(table_input: List[List[str]], flash: Callable[[str], None]):
         flash(
             "tabletotal failed for '"
             + ("\n".join("\t".join(row) for row in table_input).strip() + "':\n ")
-            + str(e.args)
+            + str(e.args),
         )

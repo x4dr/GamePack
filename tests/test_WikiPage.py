@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from gamepack.WikiPage import WikiPage, DescriptiveError
+from gamepack.WikiPage import DescriptiveError, WikiPage
 
 
 class TestWikiPage(unittest.TestCase):
@@ -27,34 +27,33 @@ class TestWikiPage(unittest.TestCase):
             "### Ranged\n"
             "Ranged skill details.\n"
             "## Background\n"
-            "Background text.\n"
+            "Background text.\n",
         )
         foldable_page = Path(cls.temp_dir) / "foldable_test.md"
         foldable_page.write_text(
-            "---\ntitle: Foldable Test\n---\n"
-            "# Main\n"
-            "## !Hidden\n"
-            "Hidden content\n"
+            "---\ntitle: Foldable Test\n---\n# Main\n## !Hidden\nHidden content\n",
         )
 
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.temp_dir)
-        WikiPage._wikipath = None  # noqa
+        WikiPage._wikipath = None
 
     def setUp(self):
         self.test_file = Path(self.temp_dir) / "test.md"
         self.test_file.write_text(
-            "---\ntitle: Test Page\ntags: [tag1, tag2]\n---\nBody content."
+            "---\ntitle: Test Page\ntags: [tag1, tag2]\n---\nBody content.",
         )
 
     def test_wikipath_not_set(self):
         with patch.object(WikiPage, "_wikipath", None):
             import os
 
-            with patch.dict(os.environ, clear=True):
-                with self.assertRaises(DescriptiveError):
-                    WikiPage.wikipath()
+            with (
+                patch.dict(os.environ, clear=True),
+                self.assertRaises(DescriptiveError),
+            ):
+                WikiPage.wikipath()
 
     def test_locate(self):
         path = WikiPage.locate("test")
@@ -91,7 +90,8 @@ class TestWikiPage(unittest.TestCase):
     def test_cacheclear(self):
         WikiPage.reload_cache(self.test_file)
         self.assertIn(
-            self.test_file, WikiPage.page_cache
+            self.test_file,
+            WikiPage.page_cache,
         )  # file should be loaded into cache
 
     def test_get_clock(self):

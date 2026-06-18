@@ -1,4 +1,4 @@
-from gamepack.endworld.System import to_heatformat, System
+from gamepack.endworld.System import System, to_heatformat
 
 
 def test_heatformat_positional():

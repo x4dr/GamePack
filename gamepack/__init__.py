@@ -13,7 +13,7 @@ def handle(res) -> Path:
 
 
 def dicecache_db() -> sqlite3.Connection:
-    """db connection singleton"""
+    """Db connection singleton."""
     if cache:
         return cache[0]
     dbpath = handle("dicecache.sqlite")
@@ -23,7 +23,7 @@ def dicecache_db() -> sqlite3.Connection:
         "create index if not exists sel on occurences (sel, mod);"
         "create table if not exists versus (sel1 TEXT, sel2 TEXT, mod1 INT, mod2 INT, res INT, occ BLOB, "
         "unique (sel1, sel2, mod1, mod2, res));"
-        "create index if not exists sel1 on versus (sel1, sel2, mod1, mod2);"
+        "create index if not exists sel1 on versus (sel1, sel2, mod1, mod2);",
     )
     cache[0].commit()
 

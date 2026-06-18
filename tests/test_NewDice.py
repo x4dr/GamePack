@@ -2,7 +2,7 @@ from unittest import TestCase
 
 import numpy
 
-from gamepack.NewDice import DiceInterpretation, Dice, DescriptiveError
+from gamepack.NewDice import DescriptiveError, Dice, DiceInterpretation
 
 
 # noinspection DuplicatedCode
@@ -47,7 +47,8 @@ class TestDice(TestCase):
 
     def test_empty_roll_v(self):
         self.assertEqual(
-            " ==> 0", DiceInterpretation("e6", Dice([], 4, explode=2)).roll_v()
+            " ==> 0",
+            DiceInterpretation("e6", Dice([], 4, explode=2)).roll_v(),
         )
 
     def test_empty_amt(self):
@@ -81,7 +82,7 @@ class TestDice(TestCase):
         )
 
     def test_another(self):
-        d1 = Dice(3, 10, True, 12, 9)
+        d1 = Dice(3, 10, sort=True, rerolls=12, explode=9)
         d2 = d1.another()
         self.assertEqual(d1.name, d2.name)
 

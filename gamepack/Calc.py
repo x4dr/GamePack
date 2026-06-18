@@ -2,19 +2,17 @@ import ast
 import operator
 import re
 from functools import lru_cache
-from typing import Any, Callable, Type, Tuple, Union
+from typing import TYPE_CHECKING, Any
 
-NodeTypes = Union[
-    ast.Expression,
-    ast.Constant,
-    ast.Name,
-    ast.BinOp,
-    ast.UnaryOp,
-]
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+NodeTypes = ast.Expression | ast.Constant | ast.Name | ast.BinOp | ast.UnaryOp
 
 
 def eval_node(
-    node: ast.expr | NodeTypes, variables: frozenset[Tuple[str, Any]]
+    node: ast.expr | NodeTypes,
+    variables: frozenset[tuple[str, Any]],
 ) -> float:
     for ast_type, evaluator in EVALUATORS.items():
         if isinstance(node, ast_type):
@@ -24,31 +22,33 @@ def eval_node(
 
 
 def eval_expression(
-    node: ast.Expression, variables: frozenset[Tuple[str, Any]]
+    node: ast.Expression,
+    variables: frozenset[tuple[str, Any]],
 ) -> float:
     return eval_node(node.body, variables)
 
 
 # noinspection PyUnusedLocal
-def eval_constant(node: ast.Constant, variables: frozenset[Tuple[str, Any]]) -> float:
+def eval_constant(node: ast.Constant, variables: frozenset[tuple[str, Any]]) -> float:  # noqa: ARG001
     val = node.value
     if isinstance(val, (int, float)):
         return float(val)
-    raise TypeError(f"Constant value {val} is not a number")
+    msg = f"Constant value {val} is not a number"
+    raise TypeError(msg)
 
 
-def eval_name(node: ast.Name, variables: frozenset[Tuple[str, Any]]) -> float:
-    return [x for x in variables if x[0] == node.id][0][1]
+def eval_name(node: ast.Name, variables: frozenset[tuple[str, Any]]) -> float:
+    return next(x for x in variables if x[0] == node.id)[1]
 
 
-def eval_binop(node: ast.BinOp, variables: frozenset[Tuple[str, Any]]) -> float:
+def eval_binop(node: ast.BinOp, variables: frozenset[tuple[str, Any]]) -> float:
     left_value = eval_node(node.left, variables)
     right_value = eval_node(node.right, variables)
     apply = BINARY_OPERATIONS[type(node.op)]
     return apply(left_value, right_value)
 
 
-def eval_unaryop(node: ast.UnaryOp, variables: frozenset[Tuple[str, Any]]) -> float:
+def eval_unaryop(node: ast.UnaryOp, variables: frozenset[tuple[str, Any]]) -> float:
     operand_value = eval_node(node.operand, variables)
     apply = UNARY_OPERATIONS[type(node.op)]
     return apply(operand_value)
@@ -61,11 +61,11 @@ EVALUATORS = {
     ast.BinOp: eval_binop,
     ast.UnaryOp: eval_unaryop,
 }
-UNARY_OPERATIONS: dict[Type, Callable[[Any], Any]] = {
+UNARY_OPERATIONS: dict[type, Callable[[Any], Any]] = {
     ast.USub: operator.neg,
     ast.UAdd: operator.pos,
 }
-BINARY_OPERATIONS: dict[Type, Callable[[Any, Any], Any]] = {
+BINARY_OPERATIONS: dict[type, Callable[[Any, Any], Any]] = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
     ast.Mult: operator.mul,
@@ -80,9 +80,8 @@ binary_whitespace_op = re.compile(r"(\w+)\s+(?=\w)+")
 
 
 @lru_cache(maxsize=1024)
-def evaluate(expression: str, variables: frozenset[Tuple[str, Any]]) -> float:
+def evaluate(expression: str, variables: frozenset[tuple[str, Any]]) -> float:
     expression = binary_whitespace_op.sub(r"\1+", expression)
     node = ast.parse(expression.strip(), "<string>", mode="eval")
     # turn the node back into code
-    result = eval_node(node, variables)
-    return result
+    return eval_node(node, variables)

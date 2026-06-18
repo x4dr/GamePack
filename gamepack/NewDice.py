@@ -1,6 +1,7 @@
-from typing import Optional, Tuple, List, Union, Self
-import numpy as np
 import logging
+from typing import ClassVar, Self
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -11,13 +12,19 @@ class DescriptiveError(Exception):
 
 # noinspection DuplicatedCode
 class DiceInterpretation:
-    __functions = {"g": "sum", "h": "max", "l": "min", "~": "none", "=": "id"}
+    __functions: ClassVar[dict[str, str]] = {
+        "g": "sum",
+        "h": "max",
+        "l": "min",
+        "~": "none",
+        "=": "id",
+    }
 
-    def __init__(self, function: str, dice: "Dice"):
+    def __init__(self, function: str, dice: Dice):
         if function in self.__functions:
             function = self.__functions[function]
         self.function: str = function
-        self.dice: "Dice" = dice
+        self.dice: Dice = dice
 
     def __repr__(self):
         return self.name
@@ -59,7 +66,8 @@ class DiceInterpretation:
             return int(np.sum(r) * dice.sign) if r.size else None
         if f == "id":
             return int(dice.amount)  # not flipped if negative
-        raise DescriptiveError(f"no valid returnfunction: {f}")
+        msg = f"no valid returnfunction: {f}"
+        raise DescriptiveError(msg)
 
     def roll_sel(self, sel: str):
         d, _ = self.process_rerolls()
@@ -96,7 +104,7 @@ class DiceInterpretation:
 
         return name
 
-    def process_rerolls(self) -> Tuple[List[int], str]:
+    def process_rerolls(self) -> tuple[list[int], str]:
         dice = self.dice
         if dice.r is None:
             return [], ""
@@ -111,10 +119,7 @@ class DiceInterpretation:
 
         # This logic seems slightly different from original Dice.py
         # but I'll try to keep it consistent with what's here.
-        if dice.rerolls > 0:
-            filtered = list(tempr[: dice.rerolls])
-        else:
-            filtered = list(tempr[dice.rerolls :])
+        filtered = list(tempr[:dice.rerolls]) if dice.rerolls > 0 else list(tempr[dice.rerolls:])
 
         if filtered:
             temp_filtered = list(filtered)
@@ -136,12 +141,11 @@ class DiceInterpretation:
 
     @staticmethod
     def botchformat(succ: int, antisucc: int) -> int:
-        if succ > 0:
-            if succ <= antisucc:
-                return 0
+        if succ > 0 and succ <= antisucc:
+            return 0
         return succ - antisucc
 
-    def roll_wodsuccesses(self) -> Tuple[int, str]:
+    def roll_wodsuccesses(self) -> tuple[int, str]:
         succ, antisucc = 0, 0
         log = ""
         dice = self.dice
@@ -192,7 +196,7 @@ class DiceInterpretation:
         return log_text
 
     @staticmethod
-    def drop_n(x: List[int], n: int) -> List[int]:
+    def drop_n(x: list[int], n: int) -> list[int]:
         if not n:
             return x
 
@@ -216,7 +220,7 @@ class DiceInterpretation:
 
         return x
 
-    def roll(self, truncate=True) -> "DiceInterpretation":
+    def roll(self, *, truncate=True) -> DiceInterpretation:
         if truncate or not self.dice.rolled:
             self.dice.roll()
         return self
@@ -225,14 +229,14 @@ class DiceInterpretation:
 class Dice:
     def __init__(
         self,
-        amount: Union[np.ndarray, List[int], float, int, None],
+        amount: np.ndarray | list[int] | float | None,
         sides: int,
-        sort: bool = False,
+        *, sort: bool = False,
         rerolls: int = 0,
         explode: int = 0,
     ):
         self.sign = 1
-        self.r: Optional[np.ndarray] = None
+        self.r: np.ndarray | None = None
         self.explosions = 0
         self.explode = explode
         self.literal = False
@@ -258,10 +262,7 @@ class Dice:
     @property
     def name(self):
         # amount_str logic matching Dice.py
-        if self.r is not None and self.r.size == 0:
-            amount_str = ""
-        else:
-            amount_str = str(self.amount or "")
+        amount_str = "" if self.r is not None and self.r.size == 0 else str(self.amount or "")
 
         name = amount_str
         name += "d" + str(self.max) if self.max else ""
@@ -277,7 +278,7 @@ class Dice:
             explode=self.explode,
         )
 
-    def roll(self, amount: Optional[int] = None) -> Self:
+    def roll(self, amount: int | None = None) -> Self:
         if amount is None:
             amount = self.amount
 
@@ -324,5 +325,5 @@ class Dice:
         return self
 
     @classmethod
-    def empty(cls) -> "Dice":
+    def empty(cls) -> Dice:
         return Dice(sides=0, amount=0)

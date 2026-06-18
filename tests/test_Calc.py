@@ -4,11 +4,11 @@ from typing import Any, cast
 
 # Import the code to test
 from gamepack.Calc import (
-    eval_node,
-    eval_expression,
-    eval_constant,
-    eval_name,
     eval_binop,
+    eval_constant,
+    eval_expression,
+    eval_name,
+    eval_node,
     eval_unaryop,
     evaluate,
 )
@@ -37,7 +37,9 @@ class TestEval(unittest.TestCase):
     def test_eval_node_binop(self):
         # Test eval_node with ast.BinOp
         node = ast.BinOp(
-            left=ast.Constant(value=3), op=ast.Add(), right=ast.Constant(value=4)
+            left=ast.Constant(value=3),
+            op=ast.Add(),
+            right=ast.Constant(value=4),
         )
         result = eval_node(node, frozenset())
         self.assertEqual(result, 7)
@@ -50,9 +52,9 @@ class TestEval(unittest.TestCase):
 
     def test_eval_node_unknown(self):
         # Test eval_node with an unknown node type
-        node = cast(Any, ast.Delete())
+        node = cast("Any", ast.Delete())
         with self.assertRaises(KeyError):
-            eval_node(node, frozenset())  # noqa, testing wrong usage
+            eval_node(node, frozenset())  # testing wrong usage
 
     def test_eval_expression(self):
         # Test eval_expression with a valid expression
@@ -83,7 +85,9 @@ class TestEval(unittest.TestCase):
     def test_eval_binop_addition(self):
         # Test eval_binop with addition
         node = ast.BinOp(
-            left=ast.Constant(value=3), op=ast.Add(), right=ast.Constant(value=4)
+            left=ast.Constant(value=3),
+            op=ast.Add(),
+            right=ast.Constant(value=4),
         )
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 7)
@@ -91,7 +95,9 @@ class TestEval(unittest.TestCase):
     def test_eval_binop_subtraction(self):
         # Test eval_binop with subtraction
         node = ast.BinOp(
-            left=ast.Constant(value=3), op=ast.Sub(), right=ast.Constant(value=4)
+            left=ast.Constant(value=3),
+            op=ast.Sub(),
+            right=ast.Constant(value=4),
         )
         result = eval_binop(node, frozenset())
         self.assertEqual(result, -1)
@@ -99,7 +105,9 @@ class TestEval(unittest.TestCase):
     def test_eval_binop_multiplication(self):
         # Test eval_binop with multiplication
         node = ast.BinOp(
-            left=ast.Constant(value=3), op=ast.Mult(), right=ast.Constant(value=4)
+            left=ast.Constant(value=3),
+            op=ast.Mult(),
+            right=ast.Constant(value=4),
         )
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 12)
@@ -107,7 +115,9 @@ class TestEval(unittest.TestCase):
     def test_eval_binop_division(self):
         # Test eval_binop with division
         node = ast.BinOp(
-            left=ast.Constant(value=3), op=ast.Div(), right=ast.Constant(value=4)
+            left=ast.Constant(value=3),
+            op=ast.Div(),
+            right=ast.Constant(value=4),
         )
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 0.75)
@@ -115,7 +125,9 @@ class TestEval(unittest.TestCase):
     def test_eval_binop_floor_division(self):
         # Test eval_binop with floor division
         node = ast.BinOp(
-            left=ast.Constant(value=3), op=ast.FloorDiv(), right=ast.Constant(value=4)
+            left=ast.Constant(value=3),
+            op=ast.FloorDiv(),
+            right=ast.Constant(value=4),
         )
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 0)
@@ -123,7 +135,9 @@ class TestEval(unittest.TestCase):
     def test_eval_binop_modulo(self):
         # Test eval_binop with modulo
         node = ast.BinOp(
-            left=ast.Constant(value=3), op=ast.Mod(), right=ast.Constant(value=4)
+            left=ast.Constant(value=3),
+            op=ast.Mod(),
+            right=ast.Constant(value=4),
         )
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 3)
@@ -131,7 +145,9 @@ class TestEval(unittest.TestCase):
     def test_eval_binop_power(self):
         # Test eval_binop with power
         node = ast.BinOp(
-            left=ast.Constant(value=3), op=ast.Pow(), right=ast.Constant(value=4)
+            left=ast.Constant(value=3),
+            op=ast.Pow(),
+            right=ast.Constant(value=4),
         )
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 81)
@@ -139,7 +155,9 @@ class TestEval(unittest.TestCase):
     def test_eval_binop_unknown(self):
         # Test eval_binop with an unknown operator
         node = ast.BinOp(
-            left=ast.Constant(value=3), op=ast.BitOr(), right=ast.Constant(value=4)
+            left=ast.Constant(value=3),
+            op=ast.BitOr(),
+            right=ast.Constant(value=4),
         )
         with self.assertRaises(KeyError):
             eval_binop(node, frozenset())

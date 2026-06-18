@@ -34,11 +34,12 @@ class TestDiceParser(TestCase):
         o = MDObj.from_md(
             "| Name | Anzahl | Gewicht | Preis | Beschreibung |\n"
             "| ---- | ------ | ------- | ----- | ------------ |\n"
-            "| test |      2 |     1kg |    1s |        testy |"
+            "| test |      2 |     1kg |    1s |        testy |",
         )
         c.process_inventory(o, print)
         self.assertEqual(
-            o.tables[0].headers, ["Name", "Anzahl", "Gewicht", "Preis", "Beschreibung"]
+            o.tables[0].headers,
+            ["Name", "Anzahl", "Gewicht", "Preis", "Beschreibung"],
         )
         table = c.inventory_table()
         self.assertEqual(
@@ -85,7 +86,8 @@ class TestDiceParser(TestCase):
         internal_penalty = [1, 1, 2, 3, 4]
         expected_result = 14
         self.assertEqual(
-            self.c.cost(att, internal_costs, internal_penalty), expected_result
+            self.c.cost(att, internal_costs, internal_penalty),
+            expected_result,
         )
 
     def test_cost_calc(self):
@@ -146,8 +148,8 @@ class TestDiceParser(TestCase):
                 "|key|value|\n|-|-|\n"
                 "|test1| A YO |\n"
                 "|test2| [incident1,incident2] X |\n"
-                "|test3| Ö(this doesnt, count) 3 |"
-            )
+                "|test3| Ö(this doesnt, count) 3 |",
+            ),
         )
         self.assertEqual(fc.get_xp_for("test1"), 3)
         self.assertEqual(fc.get_xp_for("test2"), 3)
@@ -192,7 +194,8 @@ class TestDiceParser(TestCase):
         # Compare the original and new objects
         self.assertEqual(self.c.Character["Name"], new_c.Character["Name"])
         self.assertEqual(
-            self.c.Meta["Experience"]["test"], new_c.Meta["Experience"]["test"]
+            self.c.Meta["Experience"]["test"],
+            new_c.Meta["Experience"]["test"],
         )
         self.assertDictEqual(self.c.Categories, new_c.Categories)
         self.assertEqual(self.c.Notes.to_md(), new_c.Notes.to_md())

@@ -26,9 +26,9 @@ class Dice:
         returnfun: str | None = None,
         explosion=0,
         minimum=1,
-        sort=False,
+        *, sort=False,
         rerolls=0,
-        **kwargs: dict,
+        **kwargs: dict,  # noqa: ARG002
     ):
         self.sign = 1
         self.r = []
@@ -67,10 +67,7 @@ class Dice:
 
     @property
     def name(self):
-        if len(self.r) == 0:
-            amount = ""
-        else:
-            amount = str(self.amount or len(self.r))
+        amount = "" if len(self.r) == 0 else str(self.amount or len(self.r))
         if self.returnfun == "id":
             return (amount or "0") + "="
 
@@ -97,17 +94,15 @@ class Dice:
 
     def another(self):
         return Dice(
-            **{
-                "sides": self.max,
-                "difficulty": self.difficulty,
-                "onebehaviour": self.subone,
-                "returnfun": self.returnfun,
-                "explosion": self.max - self.explodeon + 1,
-                "amount": self.amount or self.r,
-                "_min": self.min,
-                "sort": self.sort,
-                "rerolls": self.rerolls,
-            }
+            sides=self.max,
+            difficulty=self.difficulty,
+            onebehaviour=self.subone,
+            returnfun=self.returnfun,
+            explosion=self.max - self.explodeon + 1,
+            amount=self.amount or self.r,
+            _min=self.min,
+            sort=self.sort,
+            rerolls=self.rerolls,
         )
 
     def rolldie(self):
@@ -145,10 +140,9 @@ class Dice:
                         par = True
                         tempstr += "("
                     tofilter.remove(x)
-                else:
-                    if par:
-                        par = False
-                        tempstr = tempstr[:-2] + "), "
+                elif par:
+                    par = False
+                    tempstr = tempstr[:-2] + "), "
                 tempstr += str(x) + ", "
             tempstr = tempstr[:-2] + (")" if par else "")
             self.log += tempstr
@@ -180,18 +174,16 @@ class Dice:
         self.log = ", ".join(str(x) for x in self.r)
         if self.rerolls:
             self.process_rerolls()
-        else:
-            if self.sort:
-                self.log = ""
-                self.r = sorted(self.r)
-                self.log += ", ".join(str(x) for x in self.r)
+        elif self.sort:
+            self.log = ""
+            self.r = sorted(self.r)
+            self.log += ", ".join(str(x) for x in self.r)
         return self
 
     @staticmethod
     def botchformat(succ, antisucc):
-        if succ > 0:
-            if succ <= antisucc:
-                return 0
+        if succ > 0 and succ <= antisucc:
+            return 0
         return succ - antisucc
 
     def roll_wodsuccesses(self) -> int:
@@ -258,7 +250,8 @@ class Dice:
             return None
         if self.returnfun in ["id"]:
             return self.amount  # not flipped if negative
-        raise DescriptiveError(f"no valid returnfunction! {self.returnfun}")
+        msg = f"no valid returnfunction! {self.returnfun}"
+        raise DescriptiveError(msg)
 
     def roll(self, amount=None):
         if amount is None:
@@ -269,5 +262,5 @@ class Dice:
         return self.result
 
     @classmethod
-    def empty(cls) -> "Dice":
+    def empty(cls) -> Dice:
         return Dice(sides=0, amount=0, returnfun="")

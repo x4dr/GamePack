@@ -1,8 +1,11 @@
 import logging
 import math
-from typing import List, Dict, Tuple, Callable, Optional, Union, Any, Self, Set
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from gamepack.MDPack import MDObj, MDTable
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 log = logging.getLogger(__name__)
 
@@ -24,10 +27,10 @@ def tryfloatdefault(inp: Any, default: float = 0.0) -> float:
 
 def value_category(inp: str) -> str:
     """Gets the type of unit used: weight or money."""
-    for end in WEIGHTS.keys():
+    for end in WEIGHTS:
         if inp.endswith(end):
             return "weight"
-    for end in CURRENCIES.keys():
+    for end in CURRENCIES:
         if inp.endswith(end):
             return "money"
     return ""
@@ -37,8 +40,10 @@ def fenconvert(inp: str) -> float:
     """Converts numeric measurements with optional suffixes to floats."""
     conversions = {**WEIGHTS, **CURRENCIES}
     inp = str(inp).strip()
-    for k, length in sorted(
-        [(str(k), len(k)) for k in conversions.keys()], key=lambda x: x[1], reverse=True
+    for k, _length in sorted(
+        [(str(k), len(k)) for k in conversions],
+        key=lambda x: x[1],
+        reverse=True,
     ):
         if inp.lower().endswith(k):
             return tryfloatdefault(inp, 0.0) * conversions[k]
@@ -47,16 +52,15 @@ def fenconvert(inp: str) -> float:
 
 def fendeconvert(val: float, conv: str) -> str:
     """CHOOSES appropriate units and converts value back to string."""
-    conversions = {"weight": (10**3, WEIGHTS), "money": (10**2, CURRENCIES)}.get(
-        conv, None
-    )
+    conversions = {"weight": (10**3, WEIGHTS), "money": (10**2, CURRENCIES)}.get(conv)
     sign = 1 if val >= 0 else -1
     val = abs(val)
     if conversions:
         units = [
             x[1]
             for x in sorted(
-                [(v, k) for k, v in conversions[1].items()], key=lambda x: x[0]
+                [(v, k) for k, v in conversions[1].items()],
+                key=lambda x: x[0],
             )
         ]
         base = conversions[0]
@@ -66,12 +70,10 @@ def fendeconvert(val: float, conv: str) -> str:
     return f"{sign * val:g}"
 
 
-def extract(
-    headings: Tuple[str, ...], mdobj: MDObj
-) -> Tuple[Optional[str], Optional[str]]:
+def extract(headings: tuple[str, ...], mdobj: MDObj) -> tuple[str | None, str | None]:
     """Extracts content from MDObj matching one of the provided headings."""
     # Case-insensitive check for children
-    children_lower = {k.lower(): k for k in mdobj.children.keys()}
+    children_lower = {k.lower(): k for k in mdobj.children}
     for heading in headings:
         h_lower = heading.lower()
         if h_lower in children_lower:
@@ -97,9 +99,9 @@ class ItemBase:
     name: str
     description: str
     count: float
-    additional_info: Dict[str, str]
+    additional_info: dict[str, str]
 
-    item_cache: Dict[str, Any] = {}
+    item_cache: ClassVar[dict[str, Any]] = {}
 
     table_total = ("gesamt", "total", "summe", "sum")
     table_name = ("objekt", "object", "name", "gegenstand", "item")
@@ -107,14 +109,14 @@ class ItemBase:
     table_amount = ("zahl", "anzahl", "menge", "amount", "count", "stück", "quantity")
 
     # To be overridden by subclasses
-    table_all: Tuple[Tuple[str, ...], ...] = ()
+    table_all: tuple[tuple[str, ...], ...] = ()
 
     def __init__(
         self,
         name: str,
         description: str = "",
-        count: Union[float, str] = 1.0,
-        additional: Optional[Dict[str, str]] = None,
+        count: float | str = 1.0,
+        additional: dict[str, str] | None = None,
     ):
         self.name = name
         self.description = description
@@ -123,12 +125,13 @@ class ItemBase:
 
     @classmethod
     def process_offsets(
-        cls, headers: List[str]
-    ) -> Tuple[Dict[Any, int], List[Tuple[int, str]]]:
+        cls,
+        headers: list[str],
+    ) -> tuple[dict[Any, int], list[tuple[int, str]]]:
         """Maps table headers to standard item attributes."""
         offsets = {}
         # Pre-calculate all recognized header variations
-        recognized: Dict[str, Tuple[str, ...]] = {}
+        recognized: dict[str, tuple[str, ...]] = {}
         for t in cls.table_all:
             for variation in t:
                 recognized[variation.lower()] = t
@@ -153,9 +156,9 @@ class ItemBase:
     @classmethod
     def from_table_row(
         cls,
-        row: List[str],
-        offsets: Dict[Any, int],
-        temp_cache: Optional[Dict[str, Any]] = None,
+        row: list[str],
+        offsets: dict[Any, int],
+        temp_cache: dict[str, Any] | None = None,
     ) -> Self:
         """Creates an item from a table row. Implementation must be overridden."""
         raise NotImplementedError
@@ -167,8 +170,10 @@ class ItemBase:
 
     @classmethod
     def process_table(
-        cls, table: MDTable, temp_cache: Optional[Dict[str, Any]] = None
-    ) -> Tuple[List[Self], List[str]]:
+        cls,
+        table: MDTable,
+        temp_cache: dict[str, Any] | None = None,
+    ) -> tuple[list[Self], list[str]]:
         offsets, unknown_headers = cls.process_offsets(table.headers)
         if offsets.get(cls.table_name, -1) == -1:
             return [], [x[1] for x in unknown_headers]
@@ -190,10 +195,12 @@ class ItemBase:
 
     @classmethod
     def process_tree(
-        cls, mdobj: MDObj, flash: Callable[[str], None]
-    ) -> Tuple[List[Self], List[str]]:
+        cls,
+        mdobj: MDObj,
+        flash: Callable[[str], None],
+    ) -> tuple[list[Self], list[str]]:
         res = []
-        bonus_headers: Set[str] = set()
+        bonus_headers: set[str] = set()
 
         for name, child in mdobj.children.items():
             if child.plaintext.lstrip(" \t*-\n").lower().startswith("item"):
@@ -211,4 +218,4 @@ class ItemBase:
             res.extend(items)
             bonus_headers.update(headers)
 
-        return res, sorted(list(bonus_headers))
+        return res, sorted(bonus_headers)

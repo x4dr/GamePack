@@ -1,5 +1,8 @@
 import re
-from typing import Dict, Callable
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class DuplicateKeyException(Exception):
@@ -11,7 +14,7 @@ class PartialMatchException(Exception):
 
 
 class RegexRouter:
-    routes: Dict[re.Pattern, Callable]
+    routes: dict[re.Pattern, Callable]
 
     def __init__(self):
         self.routes = {}
@@ -26,7 +29,7 @@ class RegexRouter:
     def run(self, decide, require):
         result = {}
         unused = [x.strip() for x in decide]
-        for r in self.routes.keys():
+        for r in self.routes:
             m = r.search(decide)
             if m is None:
                 continue
@@ -34,30 +37,31 @@ class RegexRouter:
                 for x in range(*m.span()):
                     unused[x] = ""
             for k, v in self.routes[r](
-                {k: v for (k, v) in m.groupdict().items() if v}
+                {k: v for (k, v) in m.groupdict().items() if v},
             ).items():
                 if k in result:
-                    raise DuplicateKeyException(
+                    msg = (
                         f"registered function {self.routes[r].__name__} reused key {k} that was used elsewhere and "
-                        f"currently has the value {result[k]}",
+                        f"currently has the value {result[k]}"
+                    )
+                    raise DuplicateKeyException(
+                        msg,
                         self.routes[r],
                         k,
                         result[k],
                         v,
                     )
                 result[k] = v
-        if require:
-            if any(unused):
-                raise PartialMatchException(
-                    f"Not a Full match! leftover: {''.join(unused)}"
-                )
+        if require and any(unused):
+            msg = f"Not a Full match! leftover: {''.join(unused)}"
+            raise PartialMatchException(
+                msg,
+            )
         return result
 
 
 class DiceRegexRouter:
-    """
-    Utility class to provide the legacy regex-based dice parsing logic.
-    """
+    """Utility class to provide the legacy regex-based dice parsing logic."""
 
     @staticmethod
     def get_dice_router():
@@ -76,8 +80,7 @@ class DiceRegexRouter:
         def extract_reroll(matches):
             if matches.get("rerolls", ""):
                 return {"rerolls": int(matches["rerolls"].replace(" ", ""))}
-            else:
-                return {}
+            return {}
 
         @router.register(re.compile(r"(?<=[\d-])(?P<sort>s)"))
         def extract_sort(matches):
@@ -89,8 +92,8 @@ class DiceRegexRouter:
 
         @router.register(
             re.compile(
-                r"^([-\d,\s]*@)?(?P<literal>(\[(\s*-?\s*\d+\s*,?)+\s*])|-+)(?!\s*\d)"
-            )
+                r"^([-\d,\s]*@)?(?P<literal>(\[(\s*-?\s*\d+\s*,?)+\s*])|-+)(?!\s*\d)",
+            ),
         )
         def extract_literal(matches):
             literal = matches["literal"].strip()
@@ -99,7 +102,7 @@ class DiceRegexRouter:
                     literal
                     if literal and all(x == "-" for x in literal)
                     else [int(x) for x in literal[1:-1].split(",")]
-                )
+                ),
             }
 
         @router.register(re.compile(r"(?P<end>[g=~hl])!*$"))

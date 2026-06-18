@@ -1,16 +1,24 @@
-from typing import Dict, Any
+from typing import Any, ClassVar
+
 from gamepack.endworld.System import System
 
 
 class EnergySystem(System):
-    headers = ["Energy", "Mass", "Amount", "Heat", "Shutoff", "Enabled"]
+    headers: ClassVar[list[str]] = [
+        "Energy",
+        "Mass",
+        "Amount",
+        "Heat",
+        "Shutoff",
+        "Enabled",
+    ]
     systype = "energy"
     shutoff: int
     overdrive_energy: float
     overdrive_heat: float
     overdrive_active: bool
 
-    def __init__(self, name: str, data: Dict[str, Any]):
+    def __init__(self, name: str, data: dict[str, Any]):
         super().__init__(name, data)
         self.shutoff = int(self.extract("shutoff") or 0)
         e_raw = str(self.extract("energy"))

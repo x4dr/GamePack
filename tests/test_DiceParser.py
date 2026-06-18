@@ -4,11 +4,11 @@ from unittest.mock import Mock
 
 from gamepack.Dice import DescriptiveError
 from gamepack.DiceParser import (
+    DiceCodeError,
     DiceParser,
+    MessageReturn,
     Node,
     fullparenthesis,
-    DiceCodeError,
-    MessageReturn,
 )
 
 
@@ -141,7 +141,7 @@ class TestDiceParser(TestCase):
                 "Firearms": "4",
                 "gundamage": "4",
                 "sum": "d1g",
-            }
+            },
         )
 
         self.assertIn(
@@ -149,9 +149,9 @@ class TestDiceParser(TestCase):
                 "&param difficulty& "
                 "&values hit:shoot difficulty& "
                 "&if hit then gundamage $ -1 e6 else 0 done& "
-                "f6"
+                "f6",
             ).result,
-            range(0, 11),
+            range(11),
         )
 
     def test_ifthen(self):
@@ -160,7 +160,7 @@ class TestDiceParser(TestCase):
         dice.r = [10 for _ in dice.r]
         self.assertIn(
             dice.result,
-            range(0, 11),
+            range(11),
         )
 
     def test_resolvedefine(self):
@@ -187,11 +187,10 @@ class TestDiceParser(TestCase):
         self.assertRaises(DiceCodeError, p.do_roll, "a,b@5d10", 0)
 
     def test_explosion(self):
-        i = 0
-        for i in range(1000):
+        for _i in range(1000):
             if len(self.p.make_roll("100!").r) > 100:
                 break
-        self.assertLess(i, 1000, "in 1000 exploded rolls, not one exploded!")
+        self.assertLess(_i, 1000, "in 1000 exploded rolls, not one exploded!")
 
     def test_selection_sum(self):
         for _ in range(100):
@@ -250,7 +249,7 @@ class TestDiceParser(TestCase):
             fullparenthesis("f______(-----((^^^^)~~~~~)---)___"),
             "-----((^^^^)~~~~~)---",
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(DescriptiveError):
             fullparenthesis("_____(######")
 
     def test_sort(self):
@@ -267,12 +266,12 @@ class TestDiceParser(TestCase):
         from gamepack.RegexRouter import DiceRegexRouter
 
         router = DiceRegexRouter.get_dice_router()
-        params = router.run("3 ,4 @5 R2", True)
+        params = router.run("3 ,4 @5 R2", require=True)
         self.assertEqual(params["amount"], 5)
         self.assertEqual(params["rerolls"], 2)
         self.assertEqual(params["returnfun"], "3,4@")
 
-        params = router.run("10d10s!!e6", True)
+        params = router.run("10d10s!!e6", require=True)
         self.assertEqual(params["amount"], 10)
         self.assertEqual(params["sides"], 10)
         self.assertEqual(params["sort"], True)

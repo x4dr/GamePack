@@ -3,13 +3,13 @@ import os.path
 import re
 import threading
 import time
-from datetime import timedelta, datetime, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Self, List, Optional, Union, Any
+from typing import Any, ClassVar, Self
 
 import bleach
 import yaml
-from git import Repo, GitCommandError
+from git import GitCommandError, Repo
 
 from gamepack.Dice import DescriptiveError
 from gamepack.Item import Item
@@ -20,17 +20,15 @@ log = logging.getLogger(__name__)
 
 
 class WikiPage:
-    """
-    Class to represent a wiki page.
-    """
+    """Class to represent a wiki page."""
 
     live = False
-    page_cache: dict[Path, Self] = {}
-    wikicache: dict[str, dict[str, list[str]]] = {}
-    _wikipath: Optional[Path] = None
+    page_cache: ClassVar[dict[Path, Self]] = {}
+    wikicache: ClassVar[dict[str, dict[str, list[str]]]] = {}
+    _wikipath: Path | None = None
     wikistamp = 0
     clock_re = re.compile(
-        r"\[clock\|(?P<name>.*?)\|(?P<current>.*?)\|(?P<maximum>.*?)]"
+        r"\[clock\|(?P<name>.*?)\|(?P<current>.*?)\|(?P<maximum>.*?)]",
     )
 
     def __init__(
@@ -39,28 +37,24 @@ class WikiPage:
         tags: list[str],
         body: str,
         links: list[str],
-        meta: Union[dict, str],
-        modified: Optional[float] = None,
-        file: Optional[Path] = None,
+        meta: dict | str,
+        modified: float | None = None,
+        file: Path | None = None,
     ):
-        self.save_msg_queue: List[str] = []
+        self.save_msg_queue: list[str] = []
         if Item.item_cache is None:
             WikiPage.cache_items()
         self.title = title
         self.tags = set(tags)
         self.body = body
         self.links = links
-        if isinstance(meta, str):
-            meta_dict = yaml.safe_load(meta) or {}
-        else:
-            meta_dict = meta
+        meta_dict = yaml.safe_load(meta) or {} if isinstance(meta, str) else meta
         self.meta: dict = meta_dict
         self.last_modified = modified
         self.file = file
 
-    def md(self, sanitize: bool = False) -> MDObj:
-        """
-        :param sanitize: whether to sanitize the markdown
+    def md(self, *, sanitize: bool = False) -> MDObj:
+        """:param sanitize: whether to sanitize the markdown
         :return: markdown of page
         """
         if sanitize:
@@ -69,9 +63,7 @@ class WikiPage:
 
     @classmethod
     def wikipath(cls) -> Path:
-        """
-        :return: path to wiki directory
-        """
+        """:return: path to wiki directory"""
         if cls._wikipath is None:
             raise DescriptiveError("wikipath not set")
         return cls._wikipath
@@ -83,9 +75,8 @@ class WikiPage:
         cls._wikipath = path
 
     @classmethod
-    def locate(cls, pagename: Union[str, Path, None]) -> Optional[Path]:
-        """
-        Finds a page in the wiki. Accepts full or stem name.
+    def locate(cls, pagename: str | Path | None) -> Path | None:
+        """Finds a page in the wiki. Accepts full or stem name.
         Returns path relative to wiki root if found, else None.
         """
         if pagename is None:
@@ -100,26 +91,24 @@ class WikiPage:
         if "/" in pagename.as_posix():
             full = root / pagename
             return full.relative_to(root) if full.exists() else None
-        else:
-            for path in root.rglob(pagename.name):
-                if not any(part.startswith(".") for part in path.parts):
-                    return path.relative_to(root)
-            return None
+        for path in root.rglob(pagename.name):
+            if not any(part.startswith(".") for part in path.parts):
+                return path.relative_to(root)
+        return None
 
     @classmethod
-    def load_locate(cls, page: str, cache=True) -> Optional[Self]:
+    def load_locate(cls, page: str, *, cache=True) -> Self | None:
         path = cls.locate(page)
         if path is None:
             return None
-        return cls.load(path, cache)
+        return cls.load(path, cache=cache)
 
     @classmethod
-    def load(cls, page: Optional[Path], cache=True) -> Optional[Self]:
-        """
-        loads page from wiki
+    def load(cls, page: Path | None, *, cache=True) -> Self | None:
+        """Loads page from wiki
         :param page: path of page
         :param cache: whether to retrieve from cache
-        :return: WikiPage object or None
+        :return: WikiPage object or None.
         """
         if page is None:
             return None
@@ -128,7 +117,8 @@ class WikiPage:
                 rel = page.relative_to(cls.wikipath())
                 p = cls.wikipath() / rel
             except ValueError:
-                raise ValueError(f"Absolute path {page} is outside of the wiki!")
+                msg = f"Absolute path {page} is outside of the wiki!"
+                raise ValueError(msg) from None
         else:
             p = cls.wikipath() / page
         result = cls.page_cache.get(p) if cache else None
@@ -140,8 +130,7 @@ class WikiPage:
             return result
 
         def lineloader(file_obj):
-            for readline in file_obj.readlines():
-                yield readline
+            yield from file_obj.readlines()
 
         try:
             filetime = p.stat().st_mtime
@@ -180,9 +169,9 @@ class WikiPage:
                 cls.page_cache[p] = loaded_page
                 return loaded_page
         except FileNotFoundError:
-            raise DescriptiveError(str(page) + " not found in wiki.")
+            raise DescriptiveError(str(page) + " not found in wiki.") from None
 
-    def save(self, author: str, page: Optional[Path] = None, message=None):
+    def save(self, author: str, page: Path | None = None, message=None):
         if not page:
             page = self.file
         if not page:
@@ -203,14 +192,16 @@ class WikiPage:
                     default_flow_style=False,
                     encoding=None,
                     allow_unicode=True,
-                )
+                ),
             )
             f.write("---\n")
             f.write(self.body.replace("\r", ""))
         self.reload_cache(page)
 
         commit_and_push(
-            self.wikipath(), target_path, message or f"{page} edited by {author}\n"
+            self.wikipath(),
+            target_path,
+            message or f"{page} edited by {author}\n",
         )
 
     def save_overwrite(self, author, message=None):
@@ -228,14 +219,16 @@ class WikiPage:
                     default_flow_style=False,
                     encoding=None,
                     allow_unicode=True,
-                )
+                ),
             )
             f.write("---\n")
             f.write(self.body.replace("\r", ""))
         self.cacheupdate()
 
         commit_and_push(
-            self.wikipath(), self.file, message or f"{self.file} edited by {author}\n"
+            self.wikipath(),
+            self.file,
+            message or f"{self.file} edited by {author}\n",
         )
 
     def save_low_prio(self, message):
@@ -302,9 +295,7 @@ class WikiPage:
                         "links": p.links,
                     }
 
-        log.info(
-            f"index took: {str(1000 * (time.time() - cls.wikistamp))} milliseconds"
-        )
+        log.info(f"index took: {1000 * (time.time() - cls.wikistamp)!s} milliseconds")
 
     @classmethod
     def cache_items(cls):
@@ -329,7 +320,7 @@ class WikiPage:
 
             itemclass.item_cache = cache
 
-    def get_clock(self, name) -> Optional[re.Match]:
+    def get_clock(self, name) -> re.Match | None:
         for candidate in self.clock_re.finditer(self.body):
             if candidate.group("name") == name:
                 return candidate
@@ -352,10 +343,7 @@ class WikiPage:
         return self
 
     def tagcheck(self, tag):
-        for t in self.tags:
-            if t.lower() == tag.lower():
-                return True
-        return False
+        return any(t.lower() == tag.lower() for t in self.tags)
 
     def render(self) -> Any:
         return None
@@ -388,8 +376,8 @@ class WikiPage:
 
 
 def delayed_push(repo, pushtime: datetime):
-    pushtime_utc = pushtime.astimezone(timezone.utc)
-    now_utc = datetime.now(timezone.utc)
+    pushtime_utc = pushtime.astimezone(UTC)
+    now_utc = datetime.now(UTC)
     threading.Event().wait(max(0, int((pushtime_utc - now_utc).total_seconds())))
     try:
         commitfile = Path("commit_tmp")
@@ -407,7 +395,7 @@ def delayed_push(repo, pushtime: datetime):
         origin.push()
         log.info(f"Committed and pushed changes with message: '{commit_message}'")
     except GitCommandError:
-        log.error("Failed to push changes.")
+        log.exception("Failed to push changes.")
 
 
 saveat = None
@@ -431,7 +419,9 @@ def commit_and_push(wikipath_val, file, commit_message: str):
         next_push_time = last_commit + timedelta(hours=1)
         print("next push", next_push_time)
         saveat = threading.Thread(
-            target=delayed_push, args=(repo, next_push_time), daemon=True
+            target=delayed_push,
+            args=(repo, next_push_time),
+            daemon=True,
         )
         saveat.start()
 
@@ -445,7 +435,7 @@ def savequeue():
                 msgs = w.save_msg_queue[:]
                 w.save_msg_queue.clear()
                 log.info(
-                    f"queued overwriting {w.file} with message: '{' '.join(msgs)}'"
+                    f"queued overwriting {w.file} with message: '{' '.join(msgs)}'",
                 )
                 w.save_overwrite("system", "\n".join(msgs))
 

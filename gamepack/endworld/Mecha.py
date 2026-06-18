@@ -1,8 +1,10 @@
+import contextlib
 from itertools import product
-from typing import Dict, List, Optional, Any, Union, Tuple, Iterable, Callable
+from typing import TYPE_CHECKING, Any
 
 from gamepack.BaseCharacter import BaseCharacter
 from gamepack.MDPack import MDObj
+
 from .EnergySystem import EnergySystem
 from .HeatSystem import HeatSystem
 from .MovementSystem import MovementSystem
@@ -10,39 +12,42 @@ from .OffensiveSystem import OffensiveSystem
 from .SealSystem import SealSystem
 from .System import System
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
 
 class Mecha(BaseCharacter):
-    description: Dict[str, Any]
-    speeds_at_seconds: List[int]
+    description: dict[str, Any]
+    speeds_at_seconds: list[int]
     _totalmass: float
-    Movement: Dict[str, MovementSystem]
-    Energy: Dict[str, EnergySystem]
-    Heat: Dict[str, HeatSystem]
-    Offensive: Dict[str, OffensiveSystem]
-    Defensive: Dict[str, System]
-    Support: Dict[str, System]
-    Seal: Dict[str, SealSystem]
-    Sectors: Dict[str, Dict[str, Any]]
-    _categories: List[str]
-    loadouts: Dict[str, List[Union[System, str]]]
-    shutoff_counters: Dict[str, int]
+    Movement: dict[str, MovementSystem]
+    Energy: dict[str, EnergySystem]
+    Heat: dict[str, HeatSystem]
+    Offensive: dict[str, OffensiveSystem]
+    Defensive: dict[str, System]
+    Support: dict[str, System]
+    Seal: dict[str, SealSystem]
+    Sectors: dict[str, dict[str, Any]]
+    _categories: list[str]
+    loadouts: dict[str, list[System | str]]
+    shutoff_counters: dict[str, int]
 
     def __init__(self):
         super().__init__()
-        self.description: Dict[str, Any] = {}
-        self.speeds_at_seconds = list(range(16)) + [20, 30, 50, 100]
+        self.description: dict[str, Any] = {}
+        self.speeds_at_seconds = [*list(range(16)), 20, 30, 50, 100]
         self._totalmass = 0.0
-        self.Movement: Dict[str, MovementSystem] = {}
-        self.Energy: Dict[str, EnergySystem] = {}
-        self.Heat: Dict[str, HeatSystem] = {}
-        self.Offensive: Dict[str, OffensiveSystem] = {}
-        self.Defensive: Dict[str, System] = {}
-        self.Support: Dict[str, System] = {}
-        self.Seal: Dict[str, SealSystem] = {}
-        self.Sectors: Dict[str, Dict[str, Any]] = {}
+        self.Movement: dict[str, MovementSystem] = {}
+        self.Energy: dict[str, EnergySystem] = {}
+        self.Heat: dict[str, HeatSystem] = {}
+        self.Offensive: dict[str, OffensiveSystem] = {}
+        self.Defensive: dict[str, System] = {}
+        self.Support: dict[str, System] = {}
+        self.Seal: dict[str, SealSystem] = {}
+        self.Sectors: dict[str, dict[str, Any]] = {}
         self.shutoff_counters = {}
 
-        self._categories: List[str] = [
+        self._categories: list[str] = [
             "Movement",
             "Energy",
             "Heat",
@@ -55,7 +60,7 @@ class Mecha(BaseCharacter):
         self.pending_heat = 0.0
         self.fluxpool = 0.0
         self._turn = 0
-        self.loadouts: Dict[str, List[Union[System, str]]] = {}
+        self.loadouts: dict[str, list[System | str]] = {}
 
         self._current_speed = 0.0
         self._target_speed = 0.0
@@ -63,7 +68,7 @@ class Mecha(BaseCharacter):
         self._pending_heat = 0.0
 
     @staticmethod
-    def load_system_data(name: str, category: str) -> Dict[str, Any]:
+    def load_system_data(name: str, category: str) -> dict[str, Any]:
         """Load base system data from the wiki library."""
         from gamepack.WikiPage import WikiPage
 
@@ -72,17 +77,19 @@ class Mecha(BaseCharacter):
         page = WikiPage.load_locate(page_name)
         if page:
             mdobj = page.md()
-            tables, _ = mdobj.confine_to_tables(True)
+            tables, _ = mdobj.confine_to_tables(horizontal=True)
             # Return the first table found as a dict
-            for k, v in tables.items():
+            for _k, v in tables.items():
                 if isinstance(v, dict):
                     return v
         return {}
 
     @classmethod
     def from_mdobj(
-        cls, mdobj: MDObj, flash_func: Optional[Callable[[str], None]] = None
-    ) -> "Mecha":
+        cls,
+        mdobj: MDObj,
+        flash_func: Callable[[str], None] | None = None,
+    ) -> Mecha:
         instance = cls()
 
         def flash(err: str):
@@ -120,7 +127,7 @@ class Mecha(BaseCharacter):
 
         for key in instance._categories:
             sys_node: MDObj = systems_node.children.get(key, MDObj.empty())
-            tables, errs = sys_node.confine_to_tables(True)
+            tables, errs = sys_node.confine_to_tables(horizontal=True)
 
             for e in errs:
                 flash(e)
@@ -148,7 +155,7 @@ class Mecha(BaseCharacter):
                         instance.Support[k] = System(k, final_data)
 
         sectors_node: MDObj = mdobj.children.get("Sectors", MDObj.empty())
-        sectors, errs = sectors_node.confine_to_tables(True)
+        sectors, errs = sectors_node.confine_to_tables(horizontal=True)
         for e in errs:
             flash(e)
         for k, v in sectors.items():
@@ -158,10 +165,10 @@ class Mecha(BaseCharacter):
         loadouts_node: MDObj = mdobj.children.get("Loadouts", MDObj.empty())
         for loadout_name, loadout_node in loadouts_node.children.items():
             instance.loadouts[loadout_name] = instance.process_loadout(
-                loadout_node.plaintext
+                loadout_node.plaintext,
             )
         if "Default" not in instance.loadouts:
-            default_loadout: List[Union[System, str]] = []
+            default_loadout: list[System | str] = []
             default_loadout.extend(list(instance.Energy.values()))
             default_loadout.extend(list(instance.Movement.values()))
             default_loadout.extend(list(instance.Heat.values()))
@@ -192,7 +199,7 @@ class Mecha(BaseCharacter):
         return mass_sum
 
     @property
-    def systems(self) -> Dict[str, Dict[str, System]]:
+    def systems(self) -> dict[str, dict[str, System]]:
         return {
             "Movement": self.Movement,  # type: ignore
             "Energy": self.Energy,  # type: ignore
@@ -203,7 +210,7 @@ class Mecha(BaseCharacter):
             "Seal": self.Seal,  # type: ignore
         }
 
-    def get_system(self, name: str) -> Optional[System]:
+    def get_system(self, name: str) -> System | None:
         if name in self.Movement:
             return self.Movement[name]
         if name in self.Energy:
@@ -220,7 +227,7 @@ class Mecha(BaseCharacter):
             return self.Seal[name]
         return None
 
-    def speeds(self) -> Dict[str, Any]:
+    def speeds(self) -> dict[str, Any]:
         result = {}
         for mname, msys in self.Movement.items():
             if msys.is_active():
@@ -264,18 +271,21 @@ class Mecha(BaseCharacter):
                         name,
                         str(data.get("Damage", 0)),
                         str(data.get("Malfunctions", "")),
-                    ]
+                    ],
                 )
-            sectors.tables.append(MDTable(rows, [""] + headers))
+            sectors.tables.append(MDTable(rows, ["", *headers]))
 
         loadouts = MDObj.empty().with_header("Loadouts")
         for loadout_name, prio_list in self.loadouts.items():
             loadouts.add_child(
                 MDObj(
                     ", ".join(
-                        [x.name if isinstance(x, System) else str(x) for x in prio_list]
-                    )
-                ).with_header(loadout_name)
+                        [
+                            x.name if isinstance(x, System) else str(x)
+                            for x in prio_list
+                        ],
+                    ),
+                ).with_header(loadout_name),
             )
         mdo = MDObj("")
         mdo.add_child(description)
@@ -286,7 +296,7 @@ class Mecha(BaseCharacter):
 
     def systems_mdobj(self) -> MDObj:
         systems_mdo = MDObj.empty()
-        cat_data: List[Tuple[str, Iterable[System], type[System]]] = [
+        cat_data: list[tuple[str, Iterable[System], type[System]]] = [
             ("Movement", self.Movement.values(), MovementSystem),
             ("Energy", self.Energy.values(), EnergySystem),
             ("Heat", self.Heat.values(), HeatSystem),
@@ -311,8 +321,8 @@ class Mecha(BaseCharacter):
             systems_mdo.add_child(MDObj("", tables=[table], header=key))
         return systems_mdo
 
-    def process_loadout(self, plaintext: str) -> List[Union[System, str]]:
-        available_systems: Dict[str, System] = {}
+    def process_loadout(self, plaintext: str) -> list[System | str]:
+        available_systems: dict[str, System] = {}
         available_systems.update(self.Movement)
         available_systems.update(self.Energy)
         available_systems.update(self.Heat)
@@ -329,12 +339,12 @@ class Mecha(BaseCharacter):
             budgets.add(
                 sum(
                     e.energy * e.amount
-                    for e, flag in zip(energies, enabled_flags)
+                    for e, flag in zip(energies, enabled_flags, strict=False)
                     if flag
-                )
+                ),
             )
 
-        prio: List[Tuple[Union[System, str], float]] = []
+        prio: list[tuple[System | str, float]] = []
         for candidate in plaintext.split(","):
             candidate = candidate.strip()
             if not candidate:
@@ -343,16 +353,17 @@ class Mecha(BaseCharacter):
                 continue
             if candidate not in available_systems:
                 candidate_q = candidate + "?" * max(
-                    0, 3 - len(candidate) + len(candidate.rstrip("?"))
+                    0,
+                    3 - len(candidate) + len(candidate.rstrip("?")),
                 )
                 prio.append((candidate_q, 0.0))
             else:
                 sys = available_systems[candidate]
                 prio.append((sys, sys.energy))
 
-        budgets_list = sorted(list(budgets))
+        budgets_list = sorted(budgets)
 
-        result: List[Union[System, str]] = []
+        result: list[System | str] = []
         budget_iter = iter(budgets_list)
         try:
             current_budget = next(budget_iter)
@@ -365,10 +376,8 @@ class Mecha(BaseCharacter):
             if used + cost > current_budget:
                 result.append(f"[{current_budget:g}]")
                 used = 0.0
-                try:
+                with contextlib.suppress(StopIteration):
                     current_budget = next(budget_iter)
-                except StopIteration:
-                    pass
             result.append(item)
             used += cost
         result.append(f"[{current_budget:g}]")
@@ -389,7 +398,7 @@ class Mecha(BaseCharacter):
                     break
         return amt
 
-    def tick_heat(self) -> Dict[str, float]:
+    def tick_heat(self) -> dict[str, float]:
         thermals = {}
         for h in self.Heat.values():
             thermals[h.name] = h.tick()
@@ -401,10 +410,10 @@ class Mecha(BaseCharacter):
             target = self.Heat[target_name]
             amount_withdrawn = source.withdraw_heat(amount)
             overage = target.add_heat(amount_withdrawn)
-            final_overage = self.add_heat(overage)
-            return final_overage
+            return self.add_heat(overage)
+        msg = f"Transfer from {source_name} to {target_name} failed: Unknown System"
         raise KeyError(
-            f"Transfer from {source_name} to {target_name} failed: Unknown System"
+            msg,
         )
 
     def energy_budget(self) -> float:
@@ -428,18 +437,17 @@ class Mecha(BaseCharacter):
                 if sys.systype == "heat":
                     if sys.is_active():
                         total += sys.energy * sys.amount
-                elif sys.systype in ["movement", "generic", "seal"]:
-                    if sys.is_active() or sys.is_booting():
-                        total += sys.energy * sys.amount
+                elif sys.systype in ["movement", "generic", "seal"] and (
+                    sys.is_active() or sys.is_booting()
+                ):
+                    total += sys.energy * sys.amount
         return total
 
-    def energy_allocation(
-        self, loadout: Optional[str] = None
-    ) -> Tuple[List[System], int]:
+    def energy_allocation(self, loadout: str | None = None) -> tuple[list[System], int]:
         budget = self.energy_budget()
 
         if not self.loadouts:
-            all_systems: List[Union[System, str]] = []
+            all_systems: list[System | str] = []
             all_systems.extend(self.Energy.values())
             all_systems.extend(self.Movement.values())
             all_systems.extend(self.Heat.values())
@@ -453,7 +461,9 @@ class Mecha(BaseCharacter):
         if loadout is None:
             loadout_key = str(self.description.get("Loadout", ""))
             if loadout_key not in self.loadouts:
-                loadout = list(self.loadouts.keys())[0] if self.loadouts else "Default"
+                loadout = (
+                    next(iter(self.loadouts.keys())) if self.loadouts else "Default"
+                )
             else:
                 loadout = loadout_key
 
@@ -467,7 +477,7 @@ class Mecha(BaseCharacter):
             and not isinstance(x, EnergySystem)
         ]
 
-        active_systems: List[System] = []
+        active_systems: list[System] = []
         for s in loadout_systems:
             cost = s.energy * s.amount
             if budget - cost < 0:
@@ -478,9 +488,9 @@ class Mecha(BaseCharacter):
 
         return active_systems, activated
 
-    def get_syscat(self, name: str) -> Dict[str, System]:
+    def get_syscat(self, name: str) -> dict[str, System]:
         if name == "Generic":
-            res: Dict[str, System] = {}
+            res: dict[str, System] = {}
             res.update(self.Offensive)
             res.update(self.Defensive)
             res.update(self.Support)
@@ -506,7 +516,7 @@ class Mecha(BaseCharacter):
         """Sum of flux of all heat systems (including passive and active)."""
         return sum(h.flux for h in self.Heat.values())
 
-    def assign_heat(self, name: str, amount: float) -> Tuple[float, str]:
+    def assign_heat(self, name: str, amount: float) -> tuple[float, str]:
         """Assign heat from fluxpool to a specific heat system. Returns (taken, log_msg)."""
         if name not in self.Heat:
             return 0.0, ""
@@ -527,7 +537,7 @@ class Mecha(BaseCharacter):
             sys.add_heat(can_take)
             self.fluxpool -= can_take
             return can_take, f"Assigned {can_take:g} heat from fluxpool to {name}"
-        elif amount < 0:
+        if amount < 0:
             # Transfer back to pool
             can_give = min(abs(amount), sys.current)
             if can_give <= 0:
@@ -537,7 +547,7 @@ class Mecha(BaseCharacter):
             return -can_give, f"Assigned {can_give:g} heat from {name} to fluxpool"
         return 0.0, ""
 
-    def use_system(self, systemtype: str, name: str, parameter: Optional[Any]) -> float:
+    def use_system(self, systemtype: str, name: str, parameter: Any | None) -> float:
         syscat = self.get_syscat(systemtype.capitalize())
         sys = syscat.get(name)
         if not sys:
@@ -596,7 +606,7 @@ class Mecha(BaseCharacter):
     def pending_heat(self, value: float):
         self._pending_heat = value
 
-    def apply_event(self, event: Dict[str, Any]):
+    def apply_event(self, event: dict[str, Any]):
         """Apply a single delta event to the mecha state."""
         etype = event.get("type")
         if etype == "SYSTEM_TOGGLE":
@@ -648,7 +658,7 @@ class Mecha(BaseCharacter):
                 item.enabled = "[x]"
                 item.boot_progress = item.activation_rounds
 
-    def replay(self, events: List[Dict[str, Any]], turn_limit: Optional[int] = None):
+    def replay(self, events: list[dict[str, Any]], turn_limit: int | None = None):
         """Reconstitute state from a list of events."""
         print(f"DEBUG: Replaying {len(events)} events, turn_limit={turn_limit}")
         # Reset ephemeral state to base before replay
@@ -664,12 +674,15 @@ class Mecha(BaseCharacter):
                 sys.enabled = "[ ]"  # Default to everything off if it's ephemeral
 
         for event in events:
-            if turn_limit is not None and event.get("type") == "TURN_COMMIT":
-                if event.get("turn", 0) > turn_limit:
-                    break
+            if (
+                turn_limit is not None
+                and event.get("type") == "TURN_COMMIT"
+                and event.get("turn", 0) > turn_limit
+            ):
+                break
             self.apply_event(event)
 
-    def next_turn(self) -> Dict[str, Any]:
+    def next_turn(self) -> dict[str, Any]:
         """Process the transition to the next turn with Double-Flux and Shutoff logic."""
         self.turn += 1
         events = []
@@ -687,13 +700,11 @@ class Mecha(BaseCharacter):
             if target > old_speed:
                 # Accelerate towards target
                 new_speed = full_curve[min(5, len(full_curve) - 1)]
-                if new_speed > target:
-                    new_speed = target
+                new_speed = min(new_speed, target)
             elif target < old_speed:
                 # Decelerate (Braking Force)
                 new_speed = old_speed - (old_speed - target) * 0.5
-                if new_speed < target:
-                    new_speed = target
+                new_speed = max(new_speed, target)
         else:
             new_speed = old_speed * 0.5
             if new_speed < 0.1:
@@ -731,7 +742,7 @@ class Mecha(BaseCharacter):
                         {
                             "type": "SHUTOFF_DELAY",
                             "message": f"{sys.name} cooling... ({self.shutoff_counters[sys.name]} turns left)",
-                        }
+                        },
                     )
 
                 if gen > 0:
@@ -743,7 +754,7 @@ class Mecha(BaseCharacter):
                     sys.current_heat = 0.0
 
         events.append(
-            {"type": "HEAT_GEN", "value": total_flux_cap - remaining_inbound_flux}
+            {"type": "HEAT_GEN", "value": total_flux_cap - remaining_inbound_flux},
         )
 
         # Phase B: Outbound (Pool -> Sinks/Vents)
@@ -777,7 +788,7 @@ class Mecha(BaseCharacter):
         if self.fluxpool > total_flux_cap:
             overheated = True
             events.append(
-                {"type": "POOL_OVERFLOW", "value": self.fluxpool - total_flux_cap}
+                {"type": "POOL_OVERFLOW", "value": self.fluxpool - total_flux_cap},
             )
 
         # 4. Dissipation (Vents work on their internal heat)
@@ -812,14 +823,16 @@ class Mecha(BaseCharacter):
             for sys in self.get_syscat(cat).values():
                 # System will be active if it's already active OR if it's booting and will finish
                 will_be_active = sys.is_active()
-                if sys.is_booting():
-                    # Simplified logic: if it doesn't need a roll or has one, it will advance
-                    if (
+                # Simplified logic: if it doesn't need a roll or has one, it will advance
+                if (
+                    sys.is_booting()
+                    and (
                         not sys.needs_roll()
                         or sys.boot_progress < sys.activation_rounds - 1
-                    ):
-                        if sys.boot_progress + 1 >= sys.activation_rounds:
-                            will_be_active = True
+                    )
+                    and sys.boot_progress + 1 >= sys.activation_rounds
+                ):
+                    will_be_active = True
 
                 if will_be_active:
                     flux += sum(sys.heats.values()) * sys.amount
@@ -839,8 +852,7 @@ class Mecha(BaseCharacter):
         data = self.speeds()
         max_s = 0.0
         for sys_data in data.values():
-            if sys_data["topspeed"] > max_s:
-                max_s = sys_data["topspeed"]
+            max_s = max(max_s, sys_data["topspeed"])
         return max_s
 
     def projected_cooling(self) -> float:

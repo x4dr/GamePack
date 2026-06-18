@@ -1,8 +1,9 @@
 import unittest
+
 from gamepack.Item import Item, total_table
-from gamepack.PBTAItem import PBTAItem
-from gamepack.MDPack import MDObj, MDTable
 from gamepack.ItemBase import fenconvert, fendeconvert, tryfloatdefault, value_category
+from gamepack.MDPack import MDObj, MDTable
+from gamepack.PBTAItem import PBTAItem
 
 
 class TestItems(unittest.TestCase):
@@ -69,7 +70,7 @@ class TestItems(unittest.TestCase):
             "# Item2\nitem\n## Weight\n2kg\n## Price\n20s"
         )
         mdobj = MDObj.from_md(md_text)
-        items, bonus = Item.process_tree(mdobj, print)
+        items, _bonus = Item.process_tree(mdobj, print)
         # Should find Item1 from table and Item2 from mdobj
         self.assertEqual(len(items), 2)
         names = [i.name for i in items]
@@ -89,7 +90,7 @@ class TestItems(unittest.TestCase):
 
     def test_item_caching(self):
         Item.item_cache = {
-            "CachedItem": Item("CachedItem", 100, 100, "Old description")
+            "CachedItem": Item("CachedItem", 100, 100, "Old description"),
         }
         table = MDTable(headers=["Name", "Price"], rows=[["CachedItem", "200s"]])
         items, _ = Item.process_table(table)

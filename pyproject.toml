@@ -35,6 +35,19 @@ filename = "pyproject.toml"
 [tool.setuptools.packages.find]
 include = ["gamepack*"]
 
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+# PLY grammar rules use docstrings as grammar specifications.
+# D400/D415 would add trailing periods to docstrings, but in PLY
+# a period is valid grammar syntax (e.g. "NUMBER." means a symbol
+# named "NUMBER" followed by end-of-rule marker), not prose.
+# Dot *inside* a string-like grammar symbol would break PLY.
+# https://ply.readthedocs.io/en/latest/ply.html#grammar-rules
+"gamepack/DiceExpressionParser.py" = ["D400", "D415"]
+"gamepack/DiceLexer.py" = ["D400", "D415"]
+
 [dependency-groups]
 dev = [
     "black>=25.11.0",
@@ -44,3 +57,6 @@ dev = [
     "pytest-cov>=7.0.0",
     "ruff>=0.15.0",
 ]
+
+[tool.black]
+line-length = 120
