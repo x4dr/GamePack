@@ -43,9 +43,6 @@ uv run pre-commit run --all-files
 # Install all dependencies (including dev)
 uv sync
 
-# Install dev dependencies (legacy fallback)
-uv pip install -e ".[dev]"
-
 # Project uses Python 3.14+ (as specified in pyproject.toml)
 # Virtual environment is managed by uv in .venv/
 ```
