@@ -1,3 +1,5 @@
+"""Tests for the EWCharacter module."""
+
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -6,7 +8,10 @@ from gamepack.MDPack import MDObj
 
 
 class TestEWCharacter(unittest.TestCase):
+    """Test suite for EWCharacter."""
+
     def test_init(self):
+        """Test character initialization."""
         char = EWCharacter()
         self.assertIsNone(char.mecha)
 
@@ -19,6 +24,7 @@ class TestEWCharacter(unittest.TestCase):
         mock_locate,
         mock_mecha_from_md,
     ):
+        """Test from_mdobj with a mech link."""
         md_text = "# Mech\n(SomeMechLink)"
         mdobj = MDObj.from_md(md_text)
 
@@ -36,6 +42,7 @@ class TestEWCharacter(unittest.TestCase):
 
     @patch("gamepack.endworld.Mecha.Mecha.from_mdobj")
     def test_from_mdobj_with_inline_systems(self, mock_mecha_from_md):
+        """Test from_mdobj with inline systems."""
         md_text = "# Mech\n## Systems\nSystem content"
         mdobj = MDObj.from_md(md_text)
 

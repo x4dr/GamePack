@@ -1,3 +1,5 @@
+"""Tests for the fasthelpers module."""
+
 from unittest import TestCase
 
 from gamepack.fasthelpers import ascii_graph, montecarlo, plot
@@ -5,7 +7,10 @@ from gamepack.fasthelpers import ascii_graph, montecarlo, plot
 
 # a unittest for the above
 class TestDiceParser(TestCase):
+    """Test suite for dice parser helpers."""
+
     def test_ascii_graph(self):
+        """Test ascii_graph generates correct graph strings."""
         occurrences = {1: 10, 2: 5, 3: 15, 4: 20, 5: 25, 6: 5}
         mode = 0
         expected_output = (
@@ -47,12 +52,14 @@ class TestDiceParser(TestCase):
         self.assertEqual(graph, expected_output)
 
     def test_monte_carlo(self):
+        """Test montecarlo simulation returns expected keys."""
         res = montecarlo("3d10", 1)
         self.assertIn("from", res)
         self.assertIn("#", res)
         self.assertIn("%", res)
 
     def test_plot(self):
+        """Test plot generates correct output strings."""
         data = {-2: 2, 0: 1, 2: 6}
         expected_output = (
             "Of the 9 rolls, 6 were successes, 1 were failures and 2 were botches, averaging 0.89\n"

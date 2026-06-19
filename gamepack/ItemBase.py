@@ -1,3 +1,9 @@
+"""Base item classes and unit conversion utilities for inventory management.
+
+Provides shared definitions for weight/money units, conversion functions,
+and the abstract ItemBase class for table and tree processing.
+"""
+
 import logging
 import math
 from typing import TYPE_CHECKING, Any, ClassVar, Self
@@ -15,6 +21,16 @@ CURRENCIES = {"k": 1, "s": 10**2, "a": 10**4}
 
 
 def tryfloatdefault(inp: Any, default: float = 0.0) -> float:
+    """Try to convert a value to float, returning a default on failure.
+
+    Args:
+        inp: Value to convert.
+        default: Fallback value if conversion fails (default 0.0).
+
+    Returns:
+        The float value, or default if conversion is not possible.
+
+    """
     if not inp:
         return default
     try:
@@ -26,7 +42,7 @@ def tryfloatdefault(inp: Any, default: float = 0.0) -> float:
 
 
 def value_category(inp: str) -> str:
-    """Gets the type of unit used: weight or money."""
+    """Get the type of unit used: weight or money."""
     for end in WEIGHTS:
         if inp.endswith(end):
             return "weight"
@@ -37,7 +53,7 @@ def value_category(inp: str) -> str:
 
 
 def fenconvert(inp: str) -> float:
-    """Converts numeric measurements with optional suffixes to floats."""
+    """Convert numeric measurements with optional suffixes to floats."""
     conversions = {**WEIGHTS, **CURRENCIES}
     inp = str(inp).strip()
     for k, _length in sorted(
@@ -71,7 +87,7 @@ def fendeconvert(val: float, conv: str) -> str:
 
 
 def extract(headings: tuple[str, ...], mdobj: MDObj) -> tuple[str | None, str | None]:
-    """Extracts content from MDObj matching one of the provided headings."""
+    """Extract content from MDObj matching one of the provided headings."""
     # Case-insensitive check for children
     children_lower = {k.lower(): k for k in mdobj.children}
     for heading in headings:
@@ -118,6 +134,15 @@ class ItemBase:
         count: float | str = 1.0,
         additional: dict[str, str] | None = None,
     ):
+        """Initialise an ItemBase instance.
+
+        Args:
+            name: Item name.
+            description: Optional description text.
+            count: Number of items (default 1.0).
+            additional: Optional dictionary of extra metadata.
+
+        """
         self.name = name
         self.description = description
         self.count = tryfloatdefault(count, 1.0)
@@ -127,9 +152,9 @@ class ItemBase:
     def process_offsets(
         cls,
         headers: list[str],
-    ) -> tuple[dict[Any, int], list[tuple[int, str]]]:
-        """Maps table headers to standard item attributes."""
-        offsets = {}
+    ) -> tuple[dict[str | tuple[str, ...], int], list[tuple[int, str]]]:
+        """Map table headers to standard item attributes."""
+        offsets: dict[str | tuple[str, ...], int] = {}
         # Pre-calculate all recognized header variations
         recognized: dict[str, tuple[str, ...]] = {}
         for t in cls.table_all:
@@ -160,12 +185,12 @@ class ItemBase:
         offsets: dict[Any, int],
         temp_cache: dict[str, Any] | None = None,
     ) -> Self:
-        """Creates an item from a table row. Implementation must be overridden."""
+        """Create an item from a table row. Implementation must be overridden."""
         raise NotImplementedError
 
     @classmethod
     def from_mdobj(cls, name: str, mdobj: MDObj) -> Self:
-        """Creates an item from an MDObj. Implementation must be overridden."""
+        """Create an item from an MDObj. Implementation must be overridden."""
         raise NotImplementedError
 
     @classmethod
@@ -174,6 +199,18 @@ class ItemBase:
         table: MDTable,
         temp_cache: dict[str, Any] | None = None,
     ) -> tuple[list[Self], list[str]]:
+        """Process an MDTable into a list of items.
+
+        Uses from_table_row for each data row, skipping totals rows.
+
+        Args:
+            table: The MDTable to process.
+            temp_cache: Optional cache for cross-row field fallback.
+
+        Returns:
+            Tuple of (list_of_items, list_of_unknown_headers).
+
+        """
         offsets, unknown_headers = cls.process_offsets(table.headers)
         if offsets.get(cls.table_name, -1) == -1:
             return [], [x[1] for x in unknown_headers]
@@ -199,6 +236,19 @@ class ItemBase:
         mdobj: MDObj,
         flash: Callable[[str], None],
     ) -> tuple[list[Self], list[str]]:
+        """Recursively process an MDObj tree into a list of items.
+
+        Walks child nodes for "item" entries and processes embedded
+        tables in each node.
+
+        Args:
+            mdobj: Root MDObj node of the tree.
+            flash: Error reporting callback.
+
+        Returns:
+            Tuple of (list_of_items, sorted_list_of_bonus_headers).
+
+        """
         res = []
         bonus_headers: set[str] = set()
 

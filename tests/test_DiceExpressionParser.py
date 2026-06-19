@@ -1,3 +1,5 @@
+"""Tests for the DiceExpressionParser module."""
+
 import pytest
 
 from gamepack.DiceExpressionParser import DiceExpressionParser
@@ -5,7 +7,10 @@ from gamepack.DiceParser import DiceCodeError
 
 
 class TestDiceExpressionParser:
+    """Test suite for DiceExpressionParser."""
+
     def setUp(self):
+        """Set up test fixtures."""
         self.parser = DiceExpressionParser()
 
     def test_basic_dice(self):

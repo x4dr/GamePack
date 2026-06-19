@@ -1,3 +1,5 @@
+"""Tests for module import independency."""
+
 import importlib
 from pathlib import Path
 
@@ -10,7 +12,7 @@ BLACKLIST = [".venv"]
 
 
 def all_module_names():
-    """Scan directories and return importable module names (dot notation)."""
+    """Scan directories and return importable module names."""
     modules = []
     for subdir in ["Parser", "gamepack"]:
         for py_file in (ROOT / subdir).rglob("*.py"):
@@ -27,7 +29,7 @@ def all_module_names():
 
 @pytest.mark.parametrize("module_name", all_module_names())
 def test_module_importable(module_name):
-    """Each module should import successfully."""
+    """Verify each module imports without errors."""
     importlib.import_module(module_name)
 
 

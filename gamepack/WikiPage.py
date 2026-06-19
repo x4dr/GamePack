@@ -1,11 +1,18 @@
+"""Wiki page representation and management for wiki-based content.
+
+Provides the WikiPage class for loading, caching, saving, and rendering
+wiki pages from a git-backed markdown wiki directory.
+"""
+
 import logging
 import os.path
 import re
 import threading
 import time
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar, Self, TextIO, cast
 
 import bleach
 import yaml
@@ -13,6 +20,7 @@ from git import GitCommandError, Repo
 
 from gamepack.Dice import DescriptiveError
 from gamepack.Item import Item
+from gamepack.ItemBase import ItemBase
 from gamepack.MDPack import MDObj, traverse_md
 from gamepack.PBTAItem import PBTAItem
 
@@ -23,10 +31,10 @@ class WikiPage:
     """Class to represent a wiki page."""
 
     live = False
-    page_cache: ClassVar[dict[Path, Self]] = {}
+    page_cache: ClassVar[dict[Path, WikiPage]] = {}
     wikicache: ClassVar[dict[str, dict[str, list[str]]]] = {}
     _wikipath: Path | None = None
-    wikistamp = 0
+    wikistamp: float = 0.0
     clock_re = re.compile(
         r"\[clock\|(?P<name>.*?)\|(?P<current>.*?)\|(?P<maximum>.*?)]",
     )
@@ -37,10 +45,22 @@ class WikiPage:
         tags: list[str],
         body: str,
         links: list[str],
-        meta: dict | str,
+        meta: dict[str, Any] | str,
         modified: float | None = None,
         file: Path | None = None,
-    ):
+    ) -> None:
+        """Initialize a WikiPage instance.
+
+        Args:
+            title: The page title.
+            tags: List of tags associated with the page.
+            body: The markdown body of the page.
+            links: List of outgoing links from the page.
+            meta: Metadata dictionary or YAML front-matter string.
+            modified: Last modified timestamp, if available.
+            file: Path to the page file, if available.
+
+        """
         self.save_msg_queue: list[str] = []
         if Item.item_cache is None:
             WikiPage.cache_items()
@@ -49,13 +69,19 @@ class WikiPage:
         self.body = body
         self.links = links
         meta_dict = yaml.safe_load(meta) or {} if isinstance(meta, str) else meta
-        self.meta: dict = meta_dict
+        self.meta: dict[str, Any] = meta_dict
         self.last_modified = modified
         self.file = file
 
     def md(self, *, sanitize: bool = False) -> MDObj:
-        """:param sanitize: whether to sanitize the markdown
-        :return: markdown of page
+        """Parse the page body into an MDObj.
+
+        Args:
+            sanitize: Whether to sanitize the markdown.
+
+        Returns:
+            The parsed MDObj representation.
+
         """
         if sanitize:
             return MDObj.from_md(bleach.clean(self.body))
@@ -69,15 +95,29 @@ class WikiPage:
         return cls._wikipath
 
     @classmethod
-    def set_wikipath(cls, path: Path):
+    def set_wikipath(cls, path: Path) -> None:
+        """Set the wiki root directory path.
+
+        Args:
+            path: The filesystem path to the wiki root.
+
+        Raises:
+            DescriptiveError: If the wiki path has already been set.
+
+        """
         if cls._wikipath is not None:
             raise DescriptiveError("wikipath already set")
         cls._wikipath = path
 
     @classmethod
     def locate(cls, pagename: str | Path | None) -> Path | None:
-        """Finds a page in the wiki. Accepts full or stem name.
-        Returns path relative to wiki root if found, else None.
+        """Find a page in the wiki.
+
+        Accepts full or stem name.
+
+        Returns:
+            Path relative to wiki root if found, else None.
+
         """
         if pagename is None:
             return None
@@ -97,18 +137,33 @@ class WikiPage:
         return None
 
     @classmethod
-    def load_locate(cls, page: str, *, cache=True) -> Self | None:
+    def load_locate(cls, page: str, *, cache: bool = True) -> Self | None:
+        """Load a page by name, locating it first.
+
+        Args:
+            page: The page name to locate and load.
+            cache: Whether to use the page cache.
+
+        Returns:
+            The loaded WikiPage, or None if not found.
+
+        """
         path = cls.locate(page)
         if path is None:
             return None
         return cls.load(path, cache=cache)
 
     @classmethod
-    def load(cls, page: Path | None, *, cache=True) -> Self | None:
-        """Loads page from wiki
-        :param page: path of page
-        :param cache: whether to retrieve from cache
-        :return: WikiPage object or None.
+    def load(cls, page: Path | None, *, cache: bool = True) -> Self | None:
+        """Load a page from the wiki.
+
+        Args:
+            page: Path of the page.
+            cache: Whether to retrieve from cache.
+
+        Returns:
+            WikiPage object or None.
+
         """
         if page is None:
             return None
@@ -122,14 +177,10 @@ class WikiPage:
         else:
             p = cls.wikipath() / page
         result = cls.page_cache.get(p) if cache else None
-        if (
-            result
-            and result.file
-            and result.file.stat().st_mtime == result.last_modified
-        ):
-            return result
+        if result and result.file and result.file.stat().st_mtime == result.last_modified:
+            return cast(Self, result)
 
-        def lineloader(file_obj):
+        def lineloader(file_obj: TextIO) -> Iterator[str]:
             yield from file_obj.readlines()
 
         try:
@@ -149,7 +200,7 @@ class WikiPage:
                     lines = lineloader(f)
 
                 body = ""
-                preamble = {}
+                preamble: dict[str, Any] = {}
                 if preamble_text:
                     try:
                         preamble = yaml.safe_load(preamble_text) or {}
@@ -171,7 +222,23 @@ class WikiPage:
         except FileNotFoundError:
             raise DescriptiveError(str(page) + " not found in wiki.") from None
 
-    def save(self, author: str, page: Path | None = None, message=None):
+    def save(self, author: str, page: Path | None = None, message: str | None = None) -> None:
+        """Save the page to disk and commit to the git repository.
+
+        Writes the page body with YAML front-matter to a markdown file,
+        updates the cache, and triggers a git commit and push.
+
+        Args:
+            author: The author name for the commit.
+            page: The target file path. Defaults to the stored file path.
+            message: The commit message. Generated from page and author if
+                not provided.
+
+        Raises:
+            DescriptiveError: If no file path is set or the file is not
+                a .md file.
+
+        """
         if not page:
             page = self.file
         if not page:
@@ -204,7 +271,21 @@ class WikiPage:
             message or f"{page} edited by {author}\n",
         )
 
-    def save_overwrite(self, author, message=None):
+    def save_overwrite(self, author: str, message: str | None = None) -> None:
+        """Overwrite the current file and commit changes.
+
+        Differs from save() by always writing to the existing file path
+        and using a simpler commit flow.
+
+        Args:
+            author: The author name for the commit.
+            message: The commit message. Generated from file path and
+                author if not provided.
+
+        Raises:
+            DescriptiveError: If no file path is set.
+
+        """
         if not self.file:
             raise DescriptiveError("No file path set for overwriting.")
         log.info(f"overwriting '{self.title}' at {self.file} ...")
@@ -231,19 +312,42 @@ class WikiPage:
             message or f"{self.file} edited by {author}\n",
         )
 
-    def save_low_prio(self, message):
+    def save_low_prio(self, message: str) -> None:
+        """Queue a low-priority save message.
+
+        Adds the message to the save queue and updates the cache.
+        Actual saving is deferred to the save queue thread.
+
+        Args:
+            message: The save message to queue.
+
+        """
         if message and message not in self.save_msg_queue:
             self.save_msg_queue.append(message)
         self.cacheupdate()
 
     @classmethod
-    def reload_cache(cls, page: Path):
+    def reload_cache(cls, page: Path) -> None:
+        """Reload the cache for a specific page.
+
+        Removes the page from both wikicache and page_cache, then
+        triggers a full wiki cache update.
+
+        Args:
+            page: Path of the page to reload.
+
+        """
         canonical_name = page.as_posix().replace(page.name, page.stem)
         cls.wikicache.pop(canonical_name, None)
         cls.page_cache.pop(page, None)
         cls.updatewikicache()
 
-    def cacheupdate(self):
+    def cacheupdate(self) -> None:
+        """Update the cache entry for this page.
+
+        Refreshes the wikicache entry with current tags and links, and
+        updates the page_cache with the latest modification timestamp.
+        """
         page = self.file
         if not page:
             return
@@ -255,6 +359,15 @@ class WikiPage:
 
     @classmethod
     def wikindex(cls) -> list[Path]:
+        """List all markdown files in the wiki directory.
+
+        Excludes hidden files (those whose relative path starts with
+        a dot).
+
+        Returns:
+            Sorted list of Paths to markdown files.
+
+        """
         mds = []
         root = cls.wikipath()
         for p in root.glob("**/*.md"):
@@ -264,19 +377,37 @@ class WikiPage:
         return sorted(mds)
 
     @classmethod
-    def gettags(cls):
+    def gettags(cls) -> dict[str, list[str]]:
+        """Get all tags indexed in the wiki cache.
+
+        Returns:
+            A dict mapping canonical page names to their tag lists.
+
+        """
         if not cls.wikicache:
             cls.updatewikicache()
         return {k: v["tags"] for k, v in cls.wikicache.items()}
 
     @classmethod
-    def getlinks(cls):
+    def getlinks(cls) -> dict[str, list[str]]:
+        """Get all outgoing links indexed in the wiki cache.
+
+        Returns:
+            A dict mapping canonical page names to their link lists.
+
+        """
         if not cls.wikicache:
             cls.updatewikicache()
         return {k: v["links"] for k, v in cls.wikicache.items()}
 
     @classmethod
-    def updatewikicache(cls):
+    def updatewikicache(cls) -> None:
+        """Rebuild the wiki cache index.
+
+        Clears the cache if more than 60 seconds have elapsed since
+        the last index, then reloads all wiki pages and populates the
+        cache with tags and links.
+        """
         dt = time.time() - cls.wikistamp
         if dt > 6e4:
             cls.wikicache.clear()
@@ -298,14 +429,20 @@ class WikiPage:
         log.info(f"index took: {1000 * (time.time() - cls.wikistamp)!s} milliseconds")
 
     @classmethod
-    def cache_items(cls):
-        for itemclass in [Item, PBTAItem]:
+    def cache_items(cls) -> None:
+        """Cache all items from the wiki into the item cache.
+
+        Loads the home page and prices page for each item class
+        (Item and PBTAItem), processes them, and populates the
+        class-level item_cache.
+        """
+        for itemclass in (Item, PBTAItem):
             itemclass.item_cache = {}
             # cls.__caching = True # Unused?
 
             home_page = cls.load_locate(itemclass.home_md)
             if home_page:
-                items, _ = itemclass.process_tree(home_page.md(), print)
+                items: list[ItemBase] = [*itemclass.process_tree(home_page.md(), print)[0]]
             else:
                 items = []
 
@@ -320,13 +457,33 @@ class WikiPage:
 
             itemclass.item_cache = cache
 
-    def get_clock(self, name) -> re.Match | None:
+    def get_clock(self, name: str) -> re.Match[str] | None:
+        """Find a clock marker in the page body by name.
+
+        Args:
+            name: The clock name to search for.
+
+        Returns:
+            A regex Match object if found, or None.
+
+        """
         for candidate in self.clock_re.finditer(self.body):
             if candidate.group("name") == name:
                 return candidate
         return None
 
-    def change_clock(self, name, delta) -> Self:
+    def change_clock(self, name: str, delta: int) -> Self:
+        """Change a clock's current value by a delta.
+
+        Args:
+            name: The clock name to modify.
+            delta: The amount to add to the clock's current value
+                (can be negative).
+
+        Returns:
+            Self, for method chaining.
+
+        """
         c = self.get_clock(name)
         if not c:
             return self
@@ -336,20 +493,49 @@ class WikiPage:
             current = 0
         current += delta
         self.body = (
-            self.body[: c.start()]
-            + f"[clock|{c.group('name')}|{current}|{c.group('maximum')}]"
-            + self.body[c.end() :]
+            self.body[: c.start()] + f"[clock|{c.group('name')}|{current}|{c.group('maximum')}]" + self.body[c.end() :]
         )
         return self
 
-    def tagcheck(self, tag):
+    def tagcheck(self, tag: str) -> bool:
+        """Check if the page has a specific tag (case-insensitive).
+
+        Args:
+            tag: The tag to check for.
+
+        Returns:
+            True if the tag exists, False otherwise.
+
+        """
         return any(t.lower() == tag.lower() for t in self.tags)
 
     def render(self) -> Any:
+        """Render the page. Base implementation returns None.
+
+        Override this method in subclasses to provide custom rendering.
+
+        Returns:
+            The rendered output, or None by default.
+
+        """
         return None
 
     @classmethod
     def resolve_address(cls, address: str) -> str | None:
+        """Resolve a wiki address to page content.
+
+        Supports page names and fragment navigation
+        (e.g. "Page#Section").
+
+        Args:
+            address: The address string, optionally containing a
+                # fragment separator.
+
+        Returns:
+            The resolved page body (or fragment), or None if the page
+            is not found.
+
+        """
         parts = address.split("#", 1)
         page_name = parts[0]
 
@@ -375,7 +561,17 @@ class WikiPage:
         return body
 
 
-def delayed_push(repo, pushtime: datetime):
+def delayed_push(repo: Repo, pushtime: datetime) -> None:
+    """Push repository changes after a delay.
+
+    Waits until the specified push time, then commits staged changes
+    and pushes to the remote origin.
+
+    Args:
+        repo: The git repository object.
+        pushtime: The datetime at which to perform the push.
+
+    """
     pushtime_utc = pushtime.astimezone(UTC)
     now_utc = datetime.now(UTC)
     threading.Event().wait(max(0, int((pushtime_utc - now_utc).total_seconds())))
@@ -401,7 +597,19 @@ def delayed_push(repo, pushtime: datetime):
 saveat = None
 
 
-def commit_and_push(wikipath_val, file, commit_message: str):
+def commit_and_push(wikipath_val: Path | str, file: Path | str, commit_message: str) -> None:
+    """Stage, commit, and push changes to the wiki repository.
+
+    If WikiPage.live is False, the operation is skipped. Stages the
+    file, writes the commit message to a temporary file, and schedules
+    a delayed push.
+
+    Args:
+        wikipath_val: Path to the wiki repository.
+        file: The file to stage.
+        commit_message: The commit message.
+
+    """
     global saveat
     if not WikiPage.live:
         log.info("Not live, not pushing.")
@@ -426,7 +634,12 @@ def commit_and_push(wikipath_val, file, commit_message: str):
         saveat.start()
 
 
-def savequeue():
+def savequeue() -> None:
+    """Background thread that periodically flushes queued saves.
+
+    Every 5 seconds, iterates over cached pages and saves any that
+    have pending save messages.
+    """
     log.info("starting save queue thread")
     while True:
         time.sleep(5)
@@ -440,7 +653,8 @@ def savequeue():
                 w.save_overwrite("system", "\n".join(msgs))
 
 
-def start_savequeue():
+def start_savequeue() -> None:
+    """Start the background save queue thread as a daemon."""
     t = threading.Thread(target=savequeue)
     t.daemon = True
     t.start()

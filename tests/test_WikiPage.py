@@ -1,3 +1,5 @@
+"""Tests for the WikiPage module."""
+
 import shutil
 import tempfile
 import unittest
@@ -8,8 +10,11 @@ from gamepack.WikiPage import DescriptiveError, WikiPage
 
 
 class TestWikiPage(unittest.TestCase):
+    """Test suite for WikiPage class."""
+
     @classmethod
     def setUpClass(cls):
+        """Set up temporary directory with wiki test files."""
         cls.temp_dir = tempfile.mkdtemp()
         WikiPage.set_wikipath(Path(cls.temp_dir))
         (Path(cls.temp_dir) / "items.md").touch()
@@ -36,16 +41,19 @@ class TestWikiPage(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        """Clean up temporary directory."""
         shutil.rmtree(cls.temp_dir)
         WikiPage._wikipath = None
 
     def setUp(self):
+        """Set up a test wiki page file."""
         self.test_file = Path(self.temp_dir) / "test.md"
         self.test_file.write_text(
             "---\ntitle: Test Page\ntags: [tag1, tag2]\n---\nBody content.",
         )
 
     def test_wikipath_not_set(self):
+        """Test error when wikipath is not set."""
         with patch.object(WikiPage, "_wikipath", None):
             import os
 
@@ -56,20 +64,24 @@ class TestWikiPage(unittest.TestCase):
                 WikiPage.wikipath()
 
     def test_locate(self):
+        """Test locating a wiki page by name."""
         path = WikiPage.locate("test")
         self.assertEqual(path, Path("test.md"))
 
     def test_load(self):
+        """Test loading a wiki page from file."""
         page = WikiPage.load(self.test_file)
         self.assertEqual(page.title, "Test Page")
         self.assertEqual(page.tags, {"tag1", "tag2"})
         self.assertEqual(page.body, "Body content.")
 
     def test_load_not_found(self):
+        """Test error when loading a non-existent page."""
         with self.assertRaises(DescriptiveError):
             WikiPage.load(Path(self.temp_dir) / "missing.md")
 
     def test_save(self):
+        """Test saving a wiki page."""
         page = WikiPage.load(self.test_file)
         page.title = "Updated Title"
         page.save("tester", self.test_file, "Updated content")
@@ -77,6 +89,7 @@ class TestWikiPage(unittest.TestCase):
         self.assertIn("Updated Title", saved_content)
 
     def test_save_overwrite(self):
+        """Test overwriting a wiki page."""
         page = WikiPage.load(self.test_file)
         page.title = "Overwritten Title"
         page.save_overwrite("tester")
@@ -84,10 +97,12 @@ class TestWikiPage(unittest.TestCase):
         self.assertIn("Overwritten Title", saved_content)
 
     def test_md(self):
+        """Test converting a wiki page to markdown."""
         page = WikiPage.load(self.test_file)
         self.assertEqual(page.md().to_md(), "Body content.\n")
 
     def test_cacheclear(self):
+        """Test reloading cache for a page."""
         WikiPage.reload_cache(self.test_file)
         self.assertIn(
             self.test_file,
@@ -95,17 +110,20 @@ class TestWikiPage(unittest.TestCase):
         )  # file should be loaded into cache
 
     def test_get_clock(self):
+        """Test getting a clock from a wiki page."""
         page = WikiPage("Title", [], "[clock|task|1|10]", [], {})
         match = page.get_clock("task")
         self.assertIsNotNone(match)
         self.assertEqual(match.group("current"), "1")
 
     def test_change_clock(self):
+        """Test changing a clock value."""
         page = WikiPage("Title", [], "[clock|task|1|10]", [], {})
         page.change_clock("task", 2)
         self.assertIn("[clock|task|3|10]", page.body)
 
     def test_resolve_address_full_page(self):
+        """Test resolving an address to a full page."""
         result = WikiPage.resolve_address("resolve_test")
         self.assertIsNotNone(result)
         self.assertIn("# Main", result)
@@ -113,6 +131,7 @@ class TestWikiPage(unittest.TestCase):
         self.assertIn("## Background", result)
 
     def test_resolve_address_section(self):
+        """Test resolving an address to a section."""
         result = WikiPage.resolve_address("resolve_test#Skills")
         self.assertIsNotNone(result)
         self.assertIn("## Skills", result)
@@ -121,6 +140,7 @@ class TestWikiPage(unittest.TestCase):
         self.assertNotIn("## Background", result)
 
     def test_resolve_address_subsection(self):
+        """Test resolving an address to a subsection."""
         result = WikiPage.resolve_address("resolve_test#Skills:Melee")
         self.assertIsNotNone(result)
         self.assertIn("### Melee", result)
@@ -128,14 +148,17 @@ class TestWikiPage(unittest.TestCase):
         self.assertNotIn("### Ranged", result)
 
     def test_resolve_address_nonexistent_page(self):
+        """Test resolving an address to a non-existent page."""
         result = WikiPage.resolve_address("no_such_page")
         self.assertIsNone(result)
 
     def test_resolve_address_nonexistent_section(self):
+        """Test resolving an address to a non-existent section."""
         result = WikiPage.resolve_address("resolve_test#NoSuchHeading")
         self.assertIsNone(result)
 
     def test_resolve_address_foldable_section(self):
+        """Test resolving an address to a foldable section."""
         result = WikiPage.resolve_address("foldable_test#Hidden")
         self.assertIsNotNone(result)
         self.assertIn("Hidden content", result)

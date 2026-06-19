@@ -1,3 +1,9 @@
+"""Endworld game system package.
+
+Provides character, mecha, and system management for the Endworld
+tabletop RPG setting.
+"""
+
 # flake8: noqa: F401
 from .EnergySystem import EnergySystem
 from .EWCharacter import EWCharacter

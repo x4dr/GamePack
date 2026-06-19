@@ -1,3 +1,5 @@
+"""Tests for the fengraph module."""
+
 import io
 import unittest
 from unittest.mock import MagicMock, patch
@@ -14,7 +16,10 @@ from gamepack.fengraph import (
 
 
 class TestFengraph(unittest.TestCase):
+    """Test suite for fengraph module."""
+
     def test_modify_dmg_stechen(self):
+        """Test modify_dmg with Stechen damage type."""
         # damage_instance <= armor
         dmg = [[0], [5], [0]]
         res = modify_dmg([1], dmg, "Stechen", 10)
@@ -26,11 +31,13 @@ class TestFengraph(unittest.TestCase):
         self.assertEqual(res, 6)  # ceil(12/2)
 
     def test_modify_dmg_schlagen(self):
+        """Test modify_dmg with Schlagen damage type."""
         dmg = [[0], [10], [0]]
         res = modify_dmg([1], dmg, "Schlagen", 4)
         self.assertEqual(res, 8)  # 10 - 4/2
 
     def test_modify_dmg_schneiden(self):
+        """Test modify_dmg with Schneiden damage type."""
         # effective_dmg > 0
         dmg = [[0], [10], [0]]
         res = modify_dmg([1], dmg, "Schneiden", 4)
@@ -42,11 +49,13 @@ class TestFengraph(unittest.TestCase):
         self.assertEqual(res, 0)
 
     def test_modify_dmg_other(self):
+        """Test modify_dmg with unknown damage type."""
         dmg = [[0], [10], [0]]
         res = modify_dmg([1], dmg, "Other", 4)
         self.assertEqual(res, 6)  # 10 - 4
 
     def test_modify_dmg_complex(self):
+        """Test modify_dmg with complex damage instance."""
         # damage_instance len > 1
         # effective_dmg = instance[0] - max(0, armor - instance[1])
         dmg = [[0], [10, 5], [0]]
@@ -62,6 +71,7 @@ class TestFengraph(unittest.TestCase):
     @patch("gamepack.fengraph.dicecache_db")
     @patch("gamepack.fengraph.freq_dicts", {0: {(1, 2): 1}})
     def test_fastdata_cache_hit(self, mock_db):
+        """Test fastdata returns cached data on hit."""
         mock_conn = MagicMock()
         mock_db.return_value = mock_conn
         mock_conn.execute.return_value.fetchall.return_value = [(10, 100)]
@@ -71,6 +81,7 @@ class TestFengraph(unittest.TestCase):
 
     @patch("gamepack.fengraph.dicecache_db")
     def test_fastdata_invalid_mod(self, _mock_db):
+        """Test fastdata returns empty dict for invalid modifier."""
         res = fastdata((1, 2), 100)
         self.assertEqual(res, {})
 
@@ -92,6 +103,7 @@ class TestFengraph(unittest.TestCase):
         },
     )
     def test_fastdata_cache_update(self, mock_db):
+        """Test fastdata updates cache on miss."""
         mock_conn = MagicMock()
         mock_db.return_value = mock_conn
         mock_conn.execute.return_value.fetchall.return_value = []
@@ -102,6 +114,7 @@ class TestFengraph(unittest.TestCase):
 
     @patch("gamepack.fengraph.fastdata")
     def test_chances_ascii(self, mock_fast):
+        """Test chances returns ascii graph tuple."""
         mock_fast.return_value = {10: 1}
         res = chances((1, 2), 0)
         # res should be a tuple from ascii_graph
@@ -109,6 +122,7 @@ class TestFengraph(unittest.TestCase):
 
     @patch("gamepack.fengraph.fastdata")
     def test_chances_plot(self, mock_fast):
+        """Test chances returns plot BytesIO in different modes."""
         mock_fast.return_value = {10: 1, 11: 2}
         # mode 0
         res0 = chances((1, 2), 0, number_of_quantiles=4, mode=0)
@@ -123,21 +137,25 @@ class TestFengraph(unittest.TestCase):
         self.assertIsInstance(res_m1, io.BytesIO)
 
     def test_chances_no_selectors(self):
+        """Test chances raises DescriptiveError without selectors."""
         with self.assertRaises(DescriptiveError):
             chances((6, 7), 0)
 
     @patch("gamepack.fengraph.fastversus")
     def test_versus(self, mock_fv):
+        """Test versus returns a tuple."""
         mock_fv.return_value = {0: 1}
         res = versus((1,), (1,))
         self.assertIsInstance(res, tuple)
 
     def test_count_sorted_rolls(self):
+        """Test counting sorted dice rolls."""
         # 1 die, 2 sides: { (1,): 1, (2,): 1 }
         res = count_sorted_rolls(1, 2)
         self.assertEqual(res, {(1,): 1, (2,): 1})
 
     def test_count_lowest_rolls(self):
+        """Test counting lowest rolls from roll counts."""
         counts = {(1, 2): 1, (1, 1): 1}
         # select 1 lowest
         res = count_lowest_rolls(counts, -1)

@@ -1,3 +1,5 @@
+"""Tests for the WikiCharacterSheet module."""
+
 import shutil
 import tempfile
 import unittest
@@ -10,8 +12,11 @@ from gamepack.WikiPage import WikiPage
 
 
 class TestWikiCharacterSheet(unittest.TestCase):
+    """Test suite for WikiCharacterSheet class."""
+
     @classmethod
     def setUpClass(cls):
+        """Set up temporary directory and wiki files."""
         cls.temp_dir = tempfile.mkdtemp()
         WikiPage.set_wikipath(Path(cls.temp_dir))
         (Path(cls.temp_dir) / "fen_character.md").touch()
@@ -22,10 +27,12 @@ class TestWikiCharacterSheet(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        """Clean up temporary directory."""
         shutil.rmtree(cls.temp_dir)
         WikiPage._wikipath = None
 
     def setUp(self):
+        """Set up test character files."""
         self.fen_file = Path(self.temp_dir) / "fen_character.md"
         self.pbta_file = Path(self.temp_dir) / "pbta_character.md"
 
@@ -37,28 +44,34 @@ class TestWikiCharacterSheet(unittest.TestCase):
         )
 
     def test_init_fen(self):
+        """Test initializing a FenCharacter sheet."""
         sheet = WikiCharacterSheet.from_wikipage(WikiPage.load(self.fen_file))
         self.assertIsInstance(sheet.char, FenCharacter)
 
     def test_init_pbta(self):
+        """Test initializing a PBTACharacter sheet."""
         sheet = WikiCharacterSheet.from_wikipage(WikiPage.load(self.pbta_file))
         self.assertIsInstance(sheet.char, PBTACharacter)
 
     def test_from_wikipage(self):
+        """Test creating a WikiCharacterSheet from a WikiPage."""
         page = WikiPage.load(self.fen_file)
         sheet = WikiCharacterSheet.from_wikipage(page)
         self.assertEqual(sheet.title, "Fen Character")
         self.assertEqual(sheet.tags, {"fen"})
 
     def test_load_fen(self):
+        """Test loading a FenCharacter sheet from file."""
         sheet = WikiCharacterSheet.load(self.fen_file)
         self.assertIsInstance(sheet.char, FenCharacter)
 
     def test_load_pbta(self):
+        """Test loading a PBTACharacter sheet from file."""
         sheet = WikiCharacterSheet.load(self.pbta_file)
         self.assertIsInstance(sheet.char, PBTACharacter)
 
     def test_save(self):
+        """Test saving a character sheet."""
         sheet = WikiCharacterSheet.load(self.fen_file)
         sheet.title = "Updated Fen Character"
         sheet.save("tester", self.fen_file, "Updated content")

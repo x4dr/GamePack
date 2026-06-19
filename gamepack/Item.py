@@ -1,4 +1,11 @@
+"""Item class for tabletop RPG inventory management.
+
+Provides a concrete implementation of ItemBase with weight and
+price tracking, unit conversion, and table/Markdown parsing.
+"""
+
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
 from gamepack.ItemBase import (
@@ -43,24 +50,39 @@ class Item(ItemBase):
         count: float | str = 1.0,
         additional: dict[str, str] | None = None,
     ):
+        """Initialise an Item with weight and price.
+
+        Args:
+            name: Item name.
+            weight: Item weight (supports unit suffixes).
+            price: Item price (supports unit suffixes).
+            description: Optional description text.
+            count: Number of items (default 1.0).
+            additional: Optional dictionary of extra metadata.
+
+        """
         super().__init__(name, description, count, additional)
         self.weight = tryfloatdefault(weight)
         self.price = tryfloatdefault(price)
 
     @property
-    def singular_weight(self):
+    def singular_weight(self) -> str:
+        """Return the weight of a single item as a formatted string."""
         return fendeconvert(self.weight, "weight")
 
     @property
-    def singular_price(self):
+    def singular_price(self) -> str:
+        """Return the price of a single item as a formatted string."""
         return fendeconvert(self.price, "money")
 
     @property
-    def total_weight(self):
+    def total_weight(self) -> str:
+        """Return the total weight (weight * count) as a formatted string."""
         return fendeconvert(self.weight * self.count, "weight")
 
     @property
-    def total_price(self):
+    def total_price(self) -> str:
+        """Return the total price (price * count) as a formatted string."""
         return fendeconvert(self.price * self.count, "money")
 
     @classmethod
@@ -69,7 +91,20 @@ class Item(ItemBase):
         row: list[str],
         offsets: dict[Any, int],
         temp_cache: dict[str, Any] | None = None,
-    ):
+    ) -> Self:
+        """Create an Item from a table row using offset mapping.
+
+        Falls back to cached values for missing fields.
+
+        Args:
+            row: List of cell values from the table row.
+            offsets: Mapping of attribute tuples to column indices.
+            temp_cache: Optional temporary cache for cross-row lookups.
+
+        Returns:
+            A new Item instance.
+
+        """
         if not temp_cache:
             temp_cache = {}
 
@@ -90,11 +125,7 @@ class Item(ItemBase):
             additional={
                 k: row[v]
                 for k, v in offsets.items()
-                if v >= 0
-                and k
-                not in (
-                    item for t in cls.table_all if isinstance(t, tuple) for item in t
-                )
+                if v >= 0 and k not in (item for t in cls.table_all if isinstance(t, tuple) for item in t)
             },
         )
 
@@ -112,6 +143,19 @@ class Item(ItemBase):
 
     @classmethod
     def from_mdobj(cls, name: str, mdobj: MDObj) -> Self:
+        """Create an Item from an MDObj (Markdown object) node.
+
+        Extracts weight, price, count, description, and additional
+        fields from the MDObj's children.
+
+        Args:
+            name: Item name.
+            mdobj: The MDObj node containing item data.
+
+        Returns:
+            A new Item instance.
+
+        """
         used = []
         weight_raw, u = extract(cls.table_weight, mdobj)
         used.append(u)
@@ -137,27 +181,33 @@ class Item(ItemBase):
         )
 
 
-def total_table(table_input: list[list[str]], flash: Callable[[str], None]):
-    """Calculates total row for item tables."""
+def total_table(table_input: list[list[str]], flash: Callable[[str], None]) -> None:
+    """Calculate a total row for item tables."""
+
+    @dataclass
+    class _Tracker:
+        """Running total and value category for a table column."""
+
+        total: float
+        category: str
+
     try:
         if table_input[-1][0].lower() in Item.table_total:
-            trackers = [[0.0, ""] for _ in range(len(table_input[0]) - 1)]
-            table_input[-1] = table_input[-1] + (
-                len(table_input[0]) - len(table_input[-1])
-            ) * [""]
+            trackers = [_Tracker(0.0, "") for _ in range(len(table_input[0]) - 1)]
+            table_input[-1] = table_input[-1] + (len(table_input[0]) - len(table_input[-1])) * [""]
             for row in table_input[1:-1]:
                 for i in range(len(trackers)):
                     r = row[i + 1].strip().lower().replace(",", "")
                     if r:
                         # noinspection PyBroadException
                         try:
-                            if not trackers[i][1]:
-                                trackers[i][1] = value_category(r)
-                            trackers[i][0] += fenconvert(r)
+                            if not trackers[i].category:
+                                trackers[i].category = value_category(r)
+                            trackers[i].total += fenconvert(r)
                         except Exception:
                             pass  # skip non-numeric columns
             for i, t in enumerate(trackers):
-                table_input[-1][i + 1] = fendeconvert(t[0], t[1])
+                table_input[-1][i + 1] = fendeconvert(t.total, t.category)
     except Exception as e:
         flash(
             "tabletotal failed for '"

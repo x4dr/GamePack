@@ -1,9 +1,19 @@
+"""Heat management system for EndWorld.
+
+Handles heat generation, dissipation, and capacity tracking per ship system.
+"""
+
 from typing import Any, ClassVar
 
 from gamepack.endworld.System import System
 
 
 class HeatSystem(System):
+    """A system that can absorb, dissipate, and generate heat.
+
+    Tracks current heat, capacity, passive/active cooling rates, and flux.
+    """
+
     headers: ClassVar[list[str]] = [
         "Energy",
         "Mass",
@@ -27,6 +37,14 @@ class HeatSystem(System):
     passive_flux: float
 
     def __init__(self, name: str, data: dict[str, Any]):
+        """Initialise a HeatSystem from parsed configuration data.
+
+        Args:
+            name: Human-readable system name.
+            data: Raw configuration dictionary with keys such as
+                ``capacity``, ``passive``, ``active``, ``flux``, and ``current``.
+
+        """
         super().__init__(name, data)
         self.capacity = self.number(self.extract("capacity"))
         self.passive = str(self.extract("passive"))
@@ -46,6 +64,7 @@ class HeatSystem(System):
 
     @property
     def flux(self) -> float:
+        """Return the total available flux combining passive and active contributions."""
         res = 0.0
         if not self.is_disabled():
             res += self.passive_flux
@@ -54,20 +73,34 @@ class HeatSystem(System):
         return res
 
     @flux.setter
-    def flux(self, value: float):
+    def flux(self, value: float) -> None:
+        """Set the active flux to a given value."""
         self.active_flux = value
 
     @property
     def flux_remaining(self) -> float:
+        """Return the unused flux capacity for the current tick."""
         return max(0.0, self.flux - self.flux_used)
 
-    def reset_ephemeral(self):
+    def reset_ephemeral(self) -> None:
         """Reset ephemeral state for replay."""
         super().reset_ephemeral()
         self.current = 0.0
         self.flux_used = 0.0
 
     def unpack(self, inp: str) -> tuple[float, float]:
+        """Parse a cooling string into relative and absolute components.
+
+        Components separated by ``+`` — entries ending with ``%`` are
+        treated as relative (fraction of current heat), others as absolute.
+
+        Args:
+            inp: Cooling specification string (e.g. ``"10%+5"``).
+
+        Returns:
+            tuple[float, float]: Relative and absolute cooling amounts.
+
+        """
         r, a = 0.0, 0.0
         for part in inp.split("+"):
             part = part.strip()
@@ -79,6 +112,16 @@ class HeatSystem(System):
         return r, a
 
     def use(self, parameter: str | None) -> float:
+        """Toggle or set the enabled state of the heat system.
+
+        Args:
+            parameter: ``None`` or ``""`` toggles; ``"enable"`` or
+                ``"disable"`` sets state explicitly.
+
+        Returns:
+            float: Always ``0.0`` for heat systems.
+
+        """
         param = parameter.lower() if parameter else ""
         if not param:  # default is toggle
             self.enabled = "[ ]" if self.is_active() else "[x]"
@@ -86,7 +129,8 @@ class HeatSystem(System):
             self.enabled = "[ ]" if "-" in self.enabled else "-"
         return 0.0
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, str]:
+        """Serialise the heat system to a dictionary for table rendering."""
         return {
             **super().to_dict(),
             "Capacity": f"{self.capacity:g}",
@@ -97,9 +141,19 @@ class HeatSystem(System):
         }
 
     def spare_capacity(self) -> float:
+        """Return the available headroom before the heat system reaches capacity."""
         return self.capacity - self.current
 
     def add_heat(self, amt: float) -> float:
+        """Add heat to the system, capping at capacity.
+
+        Args:
+            amt: Amount of heat to add.
+
+        Returns:
+            float: Overage (heat exceeding capacity), or ``0.0``.
+
+        """
         self.current += amt
         if self.current > self.capacity:
             overage = self.current - self.capacity
@@ -119,6 +173,15 @@ class HeatSystem(System):
         return 0.0
 
     def tick(self) -> float:
+        """Apply passive and active cooling for one tick.
+
+        Active cooling is applied first (when the system is active),
+        followed by passive cooling (when the system is not disabled).
+
+        Returns:
+            float: Total amount of heat removed this tick.
+
+        """
         total_removed = 0.0
         if self.is_active():
             relative, absolute = self.unpack(self.active)

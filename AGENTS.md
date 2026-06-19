@@ -135,6 +135,18 @@ from gamepack.DiceParser import fullparenthesis
 - this project is intended to be used with uv only
 - do not commit autonomously, just ready things for the commit and stage them
 
+## Type Stubs (.pyi)
+
+`.pyi` stub files are generated alongside source for downstream consumers that resolve types via stubs.
+
+### Regenerating Stubs
+```bash
+./scripts/gen-stubs.sh
+```
+
+### Caveat: PEP 758 + mypy 2.1.0
+Python 3.14 via PEP 758 allows `except ValueError, TypeError:` without parentheses. mypy 2.1.0's parser (used by stubgen) doesn't support this yet — see [mypy#20788](https://github.com/python/mypy/issues/20788). The `--parse-only` flag avoids the semantic analysis pass that triggers the error. This will be unnecessary once a mypy release >2.1.0 ships the fix.
+
 ## Performance Considerations
 
 - Use caching for expensive operations (see `item_cache` patterns)

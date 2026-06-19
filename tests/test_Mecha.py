@@ -1,3 +1,5 @@
+"""Tests for the Mecha module."""
+
 import pytest
 
 from gamepack.endworld import EnergySystem, MovementSystem, SealSystem, System
@@ -9,12 +11,14 @@ from gamepack.WikiPage import WikiPage
 
 @pytest.fixture(autouse=True, scope="session")
 def setup_wikipath(tmp_path_factory):
+    """Set up wiki path for all tests."""
     tmp_path = tmp_path_factory.mktemp("wiki")
     WikiPage._wikipath = tmp_path
 
 
 @pytest.fixture
 def basic_heat():
+    """Create a basic HeatSystem fixture."""
     # minimal dummy data for constructor
     data = {"capacity": 10, "passive": "1", "active": "2", "flux": 3, "current": 0}
     return HeatSystem("H1", data)
@@ -22,12 +26,14 @@ def basic_heat():
 
 @pytest.fixture
 def basic_energy():
+    """Create a basic EnergySystem fixture."""
     data = {"mass": 10, "amount": 1, "energy": 2, "heat": 3}
     return EnergySystem("E1", data)
 
 
 @pytest.fixture
 def basic_movement():
+    """Create a basic MovementSystem fixture."""
     data = {
         "mass": 100,
         "amount": 1,
@@ -43,11 +49,13 @@ def basic_movement():
 
 @pytest.fixture
 def basic_seal():
+    """Create a basic SealSystem fixture."""
     data = {"Level": 2, "Test": "Yes"}
     return SealSystem("S1", data)
 
 
 def test_sealsystem_to_dict_and_headers(basic_seal):
+    """Test SealSystem to_dict and get_headers methods."""
     s = basic_seal
     d = s.to_dict()
     assert d["Level"] == "2"
@@ -55,6 +63,7 @@ def test_sealsystem_to_dict_and_headers(basic_seal):
 
 
 def test_heat_add_and_withdraw(basic_heat):
+    """Test adding and withdrawing heat from HeatSystem."""
     h = basic_heat
     # add less than capacity
     assert h.add_heat(5) == 0
@@ -72,12 +81,14 @@ def test_heat_add_and_withdraw(basic_heat):
 
 
 def test_heat_spare_capacity(basic_heat):
+    """Test spare_capacity calculation."""
     h = basic_heat
     h.current = 4
     assert h.spare_capacity() == h.capacity - 4
 
 
 def test_heat_unpack(basic_heat):
+    """Test unpacking heat string expressions."""
     h = basic_heat
     r, a = h.unpack("10+5")
     assert (r, a) == (0, 15)
@@ -87,6 +98,7 @@ def test_heat_unpack(basic_heat):
 
 
 def test_heat_use_toggle_and_disable(basic_heat):
+    """Test toggling and disabling a HeatSystem."""
     h = basic_heat
     h.enabled = "[ ]"
     h.use(None)
@@ -98,6 +110,7 @@ def test_heat_use_toggle_and_disable(basic_heat):
 
 
 def test_heat_tick_passive_and_active(basic_heat):
+    """Test tick heat generation for active system."""
     h = basic_heat
     h.current = 5
     h.enabled = "[x]"  # active
@@ -107,6 +120,7 @@ def test_heat_tick_passive_and_active(basic_heat):
 
 @pytest.fixture
 def mecha_with_heat():
+    """Create a Mecha with a HeatSystem fixture."""
     m = Mecha()
     # attach a real HeatSystem
     h = HeatSystem(
@@ -120,6 +134,7 @@ def mecha_with_heat():
 
 
 def test_mecha_fluxmax_and_add_heat(mecha_with_heat):
+    """Test Mecha fluxmax and add_heat methods."""
     m = mecha_with_heat
     assert m.fluxmax() == m.Heat["H1"].flux
     # add heat less than capacity
@@ -130,6 +145,7 @@ def test_mecha_fluxmax_and_add_heat(mecha_with_heat):
 
 
 def test_mecha_tick_heat(mecha_with_heat):
+    """Test Mecha tick_heat method."""
     m = mecha_with_heat
     m.add_heat(10)
     result = m.tick_heat()
@@ -138,6 +154,7 @@ def test_mecha_tick_heat(mecha_with_heat):
 
 
 def test_mecha_move_heat(mecha_with_heat):
+    """Test moving heat between HeatSystems."""
     m = mecha_with_heat
     # add a target HeatSystem
     h2 = HeatSystem(
@@ -157,15 +174,18 @@ def test_mecha_move_heat(mecha_with_heat):
 
 @pytest.fixture
 def empty_mdobj():
+    """Create an empty MDObj fixture."""
     return MDObj.empty()
 
 
 @pytest.fixture
 def basic_mecha():
+    """Create a basic Mecha fixture."""
     return Mecha()
 
 
 def test_constructor(basic_mecha):
+    """Test Mecha constructor initializes empty systems."""
     m = basic_mecha
     assert isinstance(m.Movement, dict)
     assert isinstance(m.Energy, dict)
@@ -174,22 +194,26 @@ def test_constructor(basic_mecha):
 
 
 def test_from_mdobj_creates_mecha(empty_mdobj):
+    """Test creating a Mecha from an MDObj."""
     m = Mecha.from_mdobj(empty_mdobj)
     assert isinstance(m, Mecha)
     assert isinstance(m.loadouts, dict)
 
 
 def test_total_mass_property(basic_mecha):
+    """Test total_mass property returns 0 for empty Mecha."""
     # empty systems → mass = 0
     assert basic_mecha.total_mass == 0
 
 
 def test_speeds_empty_systems(basic_mecha):
+    """Test speeds returns empty dict with no Movement systems."""
     # with no Movement systems → speeds = {}
     assert basic_mecha.speeds() == {}
 
 
 def test_fluxmax_and_add_heat(basic_mecha, basic_heat):
+    """Test fluxmax and add_heat with a dummy HeatSystem."""
     # Add dummy HeatSystem
     h1 = basic_heat
     h1.enabled = "[x]"
@@ -203,11 +227,13 @@ def test_fluxmax_and_add_heat(basic_mecha, basic_heat):
 
 
 def test_move_heat_fail(basic_mecha):
+    """Test move_heat raises KeyError for unknown system."""
     with pytest.raises(KeyError):
         basic_mecha.move_heat("unknown", "H2", 5)
 
 
 def test_energy_methods(basic_mecha, basic_energy):
+    """Test energy_budget, energy_total, and energy_allocation."""
     e = basic_energy
     e.energy = 10
     e.provide = lambda: 5
@@ -224,6 +250,7 @@ def test_energy_methods(basic_mecha, basic_energy):
 
 
 def test_to_mdobj_and_process_loadout(basic_mecha):
+    """Test to_mdobj and process_loadout methods."""
     # Ensure methods run without error
     mdobj = basic_mecha.to_mdobj()
     assert isinstance(mdobj, MDObj)
@@ -234,6 +261,7 @@ def test_to_mdobj_and_process_loadout(basic_mecha):
 
 @pytest.fixture
 def mecha_with_systems(basic_heat, basic_energy, basic_movement):
+    """Create a Mecha with Heat, Energy, and Movement systems fixture."""
     m = Mecha()
 
     h = basic_heat
@@ -252,6 +280,7 @@ def mecha_with_systems(basic_heat, basic_energy, basic_movement):
 
 
 def test_loadouts_persistence(mecha_with_systems):
+    """Test loadouts persist through round-trip conversion."""
     m = Mecha.from_mdobj(MDObj.from_md(mecha_with_systems.to_md()))
     # initially Default exists automatically
     assert "Default" in m.loadouts
@@ -264,6 +293,7 @@ def test_loadouts_persistence(mecha_with_systems):
 
 
 def test_get_syscat_and_use_system(mecha_with_systems):
+    """Test get_syscat and use_system methods."""
     m = mecha_with_systems
     # get_syscat
     cat = m.get_syscat("Generic")
@@ -276,6 +306,7 @@ def test_get_syscat_and_use_system(mecha_with_systems):
 
 
 def test_flux_baseload(basic_mecha):
+    """Test flux_baseload calculation."""
     m = basic_mecha
 
     o1 = System("O1", {"heat": 5, "enabled": "[x]", "amount": 1})
@@ -295,6 +326,7 @@ def test_flux_baseload(basic_mecha):
 
 
 def test_energy_allocation_budget_loop(mecha_with_systems):
+    """Test energy allocation respects budget."""
     m = mecha_with_systems
     e = m.Energy["E1"]
     e.energy = 3
@@ -315,6 +347,7 @@ def test_energy_allocation_budget_loop(mecha_with_systems):
 
 
 def test_process_loadout_bracket_skipping(mecha_with_systems):
+    """Test process_loadout skips bracketed entries."""
     m = mecha_with_systems
     # include brackets in plaintext
     result = m.process_loadout("[5], A, [10], M1")
@@ -323,6 +356,7 @@ def test_process_loadout_bracket_skipping(mecha_with_systems):
 
 
 def test_calculate_speeds(mecha_with_systems):
+    """Test speeds calculation for Movement systems."""
     m = mecha_with_systems
     speeds = m.speeds()
     assert "M1" in speeds

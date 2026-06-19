@@ -1,3 +1,5 @@
+"""Tests for the Wiki module."""
+
 import unittest
 from pathlib import Path
 from typing import cast
@@ -9,7 +11,10 @@ from gamepack.WikiPage import DescriptiveError, WikiPage
 
 
 class TestWiki(unittest.TestCase):
+    """Test suite for Wiki functionality."""
+
     def setUp(self):
+        """Set up a temporary wiki root for testing."""
         # Setup a temporary wiki root
         self.wiki_root = Path("test_wiki").absolute()
         self.wiki_root.mkdir(exist_ok=True)
@@ -18,6 +23,7 @@ class TestWiki(unittest.TestCase):
         WikiPage.wikicache.clear()
 
     def tearDown(self):
+        """Clean up temporary wiki root."""
         import shutil
 
         if self.wiki_root.exists():
@@ -25,6 +31,7 @@ class TestWiki(unittest.TestCase):
         WikiPage._wikipath = None
 
     def test_wikipath_errors(self):
+        """Test errors when wikipath is not set or reset."""
         WikiPage._wikipath = None
         with self.assertRaises(DescriptiveError):
             WikiPage.wikipath()
@@ -34,6 +41,7 @@ class TestWiki(unittest.TestCase):
             WikiPage.set_wikipath(Path("another"))
 
     def test_locate(self):
+        """Test locating wiki pages by name."""
         (self.wiki_root / "test.md").touch()
         (self.wiki_root / "subdir").mkdir()
         (self.wiki_root / "subdir" / "nested.md").touch()
@@ -44,6 +52,7 @@ class TestWiki(unittest.TestCase):
         self.assertIsNone(WikiPage.locate(None))
 
     def test_load_and_save(self):
+        """Test loading and saving a wiki page."""
         page_path = self.wiki_root / "page1.md"
         content = "---\ntitle: Page 1\ntags: [tag1]\n---\nBody text"
         page_path.write_text(content)
@@ -65,12 +74,14 @@ class TestWiki(unittest.TestCase):
         self.assertIn("title: Updated Title", saved_content)
 
     def test_md_conversion(self):
+        """Test converting WikiPage to MDObj."""
         page = WikiPage("Title", [], "# Header\nText", [], {})
         mdo = page.md()
         self.assertIsInstance(mdo, MDObj)
         self.assertIn("Header", mdo.children)
 
     def test_clocks(self):
+        """Test clock tracking in wiki pages."""
         body = "Some text [clock|Task|2|4] more text"
         page = WikiPage("Title", [], body, [], {})
 
@@ -83,6 +94,7 @@ class TestWiki(unittest.TestCase):
         self.assertIn("[clock|Task|3|4]", page.body)
 
     def test_wikindex(self):
+        """Test listing all wiki pages."""
         (self.wiki_root / "a.md").touch()
         (self.wiki_root / "b.md").touch()
         (self.wiki_root / ".hidden.md").touch()
@@ -92,6 +104,7 @@ class TestWiki(unittest.TestCase):
         self.assertEqual(index[0].name, "a.md")
 
     def test_character_sheet_loading(self):
+        """Test loading a character sheet from a wiki page."""
         page_path = self.wiki_root / "char.md"
         # Content that looks like a FenCharacter
         content = (
@@ -122,6 +135,7 @@ class TestWiki(unittest.TestCase):
 
     @patch("gamepack.WikiPage.WikiPage.load_locate")
     def test_cache_items(self, mock_load):
+        """Test caching items from wiki pages."""
         # Mock load_locate to return pages with tables
         mock_page = MagicMock()
         mock_page.md.return_value = MDObj.from_md(

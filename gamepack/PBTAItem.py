@@ -1,3 +1,9 @@
+"""PBTAItem module for managing Powered-by-the-Apocalypse game items.
+
+Provides the PBTAItem class for representing inventory items with load,
+maximum quantity, and additional metadata in PbtA-style game systems.
+"""
+
 import logging
 from typing import Any, Self
 
@@ -37,15 +43,38 @@ class PBTAItem(ItemBase):
         maximum: int | str = 1,
         additional: dict[str, str] | None = None,
     ):
+        """Initialize a PBTAItem with name, load, and optional attributes.
+
+        Args:
+            name: The item name.
+            load: The item's load/weight value.
+            description: Optional item description.
+            count: Optional quantity (default 1.0).
+            maximum: Optional maximum stack size (default 1).
+            additional: Optional dictionary of extra metadata fields.
+
+        """
         super().__init__(name, description, count, additional)
         self.load = tryfloatdefault(load, 1.0)
         self.maximum = int(tryfloatdefault(maximum or 1, 1.0))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return a string representation of the item.
+
+        Returns:
+            String in the format "<count> <name>".
+
+        """
         return f"{self.count:g} {self.name}"
 
     @property
-    def total_load(self):
+    def total_load(self) -> float:
+        """Calculate the total load of all items in this stack.
+
+        Returns:
+            Total load as load multiplied by count.
+
+        """
         return self.load * self.count
 
     @classmethod
@@ -54,7 +83,21 @@ class PBTAItem(ItemBase):
         row: list[str],
         offsets: dict[Any, int],
         temp_cache: dict[str, Any] | None = None,
-    ):
+    ) -> Self:
+        """Construct a PBTAItem from a markdown table row.
+
+        Uses column offsets to extract name, load, description, count,
+        and maximum, falling back to cached defaults where available.
+
+        Args:
+            row: List of string values from a table row.
+            offsets: Mapping of field names to column indices.
+            temp_cache: Optional temporary item cache for fallback values.
+
+        Returns:
+            A new PBTAItem instance.
+
+        """
         if not temp_cache:
             temp_cache = {}
 
@@ -75,11 +118,7 @@ class PBTAItem(ItemBase):
             additional={
                 k: row[v]
                 for k, v in offsets.items()
-                if v >= 0
-                and k
-                not in (
-                    item for t in cls.table_all if isinstance(t, tuple) for item in t
-                )
+                if v >= 0 and k not in (item for t in cls.table_all if isinstance(t, tuple) for item in t)
             },
         )
         if cached := (temp_cache.get(name) or cls.item_cache.get(name)):
@@ -94,6 +133,19 @@ class PBTAItem(ItemBase):
 
     @classmethod
     def from_mdobj(cls, name: str, mdobj: MDObj) -> Self:
+        """Construct a PBTAItem from a named MDObj node.
+
+        Extracts load, amount, description, and any additional fields
+        from the MDObj tree.
+
+        Args:
+            name: The item name.
+            mdobj: The MDObj node containing item data.
+
+        Returns:
+            A new PBTAItem instance.
+
+        """
         used = []
         load_raw, u = extract(cls.table_load, mdobj)
         used.append(u)

@@ -1,13 +1,13 @@
 [project]
 dependencies = [
     "pyyaml>=6.0.3",
-    "numpy>=2.2.6",
     "matplotlib>=3.10.7",
     "requests>=2.32.5",
     "bleach>=6.3.0",
     "gitpython>=3.1.45",
     "beautifulsoup4>=4.14.2",
     "ply>=3.11",
+    "numpy>=2.4.6",
 ]
 license = "GPL-3.0-or-later"
 name = "gamepack"
@@ -36,7 +36,13 @@ filename = "pyproject.toml"
 include = ["gamepack*"]
 
 [tool.ruff]
+target-version = "py314"
 line-length = 120
+exclude = ["build/"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "D", "UP", "B", "SIM", "ARG", "RUF"]
+ignore = ["N999", "N815", "D203", "D213"]
 
 [tool.ruff.lint.per-file-ignores]
 # PLY grammar rules use docstrings as grammar specifications.
@@ -45,8 +51,16 @@ line-length = 120
 # named "NUMBER" followed by end-of-rule marker), not prose.
 # Dot *inside* a string-like grammar symbol would break PLY.
 # https://ply.readthedocs.io/en/latest/ply.html#grammar-rules
-"gamepack/DiceExpressionParser.py" = ["D400", "D415"]
-"gamepack/DiceLexer.py" = ["D400", "D415"]
+"gamepack/DiceExpressionParser.py" = ["D", "N802", "N815"]
+"gamepack/DiceExpressionParser.pyi" = ["D", "N802", "N815"]
+"gamepack/DiceLexer.py" = ["D", "N802", "N815"]
+"gamepack/DiceLexer.pyi" = ["D", "N802", "N815"]
+"*.pyi" = ["E501"]
+
+[tool.mypy]
+strict = true
+explicit_package_bases = true
+exclude = ["gamepack/.*\\.pyi$"]
 
 [dependency-groups]
 dev = [
@@ -55,7 +69,10 @@ dev = [
     "pre-commit>=4.5.0",
     "pytest>=9.0.1",
     "pytest-cov>=7.0.0",
-    "ruff>=0.15.0",
+    "ruff>=0.15.16",
+    "types-bleach>=6.4.0.20260607",
+    "types-pyyaml>=6.0.12.20260518",
+    "types-requests>=2.33.0.20260518",
 ]
 
 [tool.black]

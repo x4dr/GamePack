@@ -1,28 +1,46 @@
+"""Fast helper utilities for dice-roll analysis and visualisation.
+
+Provides Monte Carlo simulation, text-based histogram plotting,
+ASCII graphing, and average/deviation calculations for dice pools.
+"""
+
 import math
 import time
 
 from gamepack.DiceParser import DiceParser
 
 
-def montecarlo(roll, run_for=10):
+def montecarlo(roll: str, run_for: int = 10) -> str:
+    """Run a Monte Carlo simulation of a dice roll for a given duration.
+
+    Args:
+        roll: Dice notation string to evaluate.
+        run_for: Maximum number of seconds to run (default 10).
+
+    Returns:
+        Formatted string with result counts and a histogram.
+
+    """
     p = DiceParser()
-    occurences = {}
+    occurences: dict[int, int] = {}
     time0 = time.time()
     while time.time() - time0 < run_for:
         for _ in range(1000):
             r = p.do_roll(roll).result
-            occurences[r] = occurences.get(r, 0) + 1
+            if r is not None:
+                occurences[r] = occurences.get(r, 0) + 1
     return f"from {sum(occurences.values())} results:\n{plot(occurences)}"
 
 
 def plot(
     data: dict[int, int],
-    *, showsucc: bool = False,
+    *,
+    showsucc: bool = False,
     showgraph: bool = True,
     showdmgmods: bool = False,
     grouped: int = 1,
 ) -> str:
-    """Plots data as a text-based histogram.
+    """Plot data as a text-based histogram.
 
     Args:
         data (dict): Dictionary with integer keys representing the rolls and
@@ -43,7 +61,7 @@ def plot(
     total = sum(data.values())
     result = ""
     percent_total = total / 100
-    width = 1
+    width: float = 1.0
     highest = 0
     if showsucc:
         result += (
@@ -54,18 +72,11 @@ def plot(
         bar_portion_success = int((success / percent_total) / width)
         bar_portion_botch = int((botches / percent_total) / width)
         bar_portion_neutral = int(100 / width - bar_portion_success - bar_portion_botch)
-        result += (
-            "+" * bar_portion_success
-            + "0" * bar_portion_neutral
-            + "-" * bar_portion_botch
-            + "\n"
-        )
+        result += "+" * bar_portion_success + "0" * bar_portion_neutral + "-" * bar_portion_botch + "\n"
     if showgraph:
         lowest = min(data.keys())
         highest = max(data.keys())
-        width = (1 / 60) * max(
-            int(data.get(i, 0) / percent_total) for i in range(lowest, highest + 1)
-        )
+        width = (1 / 60) * max(int(data.get(i, 0) / percent_total) for i in range(lowest, highest + 1))
         for i in range(lowest // grouped, highest // grouped + 1):
             if i == 0 and showsucc:
                 result += "\n"
@@ -82,14 +93,22 @@ def plot(
                 result += "\n"
     if showdmgmods:
         result += "damage modifiers (adjusted):\n"
-        result += (
-            ", ".join(str(data.get(i, 0) / success) for i in range(1, highest + 1))
-            + "\n"
-        )
+        result += ", ".join(str(data.get(i, 0) / success) for i in range(1, highest + 1)) + "\n"
     return result
 
 
-def ascii_graph(occurrences: dict, mode: int) -> tuple[str, float, float]:
+def ascii_graph(occurrences: dict[int, int], mode: int) -> tuple[str, float, float]:
+    """Generate an ASCII graph from a dictionary of occurrences.
+
+    Args:
+        occurrences: Dictionary mapping values to their occurrence counts.
+        mode: Graph mode — 0 for histogram, positive for cumulative
+            ascending, negative for cumulative descending.
+
+    Returns:
+        Tuple of (graph_string, average, standard_deviation).
+
+    """
     res = ""
     mode = int(mode)
     max_val = max(list(occurrences.values()))
@@ -97,33 +116,33 @@ def ascii_graph(occurrences: dict, mode: int) -> tuple[str, float, float]:
     if not mode:
         for k in sorted(int(x) for x in occurrences):
             if occurrences[k]:
-                res += (
-                    f"{int(k):5d} {100 * occurrences[k] / total: >5.2f} "
-                    f"{'#' * int(40 * occurrences[k] / max_val)}\n"
-                )
+                res += f"{int(k):5d} {100 * occurrences[k] / total: >5.2f} {'#' * int(40 * occurrences[k] / max_val)}\n"
     elif mode > 0:
         runningsum = 0
         for k in sorted(occurrences):
             if occurrences[k]:
                 runningsum += occurrences[k]
-                res += (
-                    f"{k:5d} {100 * runningsum / total: >5.2f} "
-                    f"{'#' * int(40 * runningsum / total)}\n"
-                )
+                res += f"{k:5d} {100 * runningsum / total: >5.2f} {'#' * int(40 * runningsum / total)}\n"
     elif mode < 0:
         runningsum = sum(occurrences.values())
         for k in sorted(occurrences):
             if occurrences[k]:
-                res += (
-                    f"{k:5d} {100 * runningsum / total: >5.2f} "
-                    f"{'#' * int(40 * runningsum / total)}\n"
-                )
+                res += f"{k:5d} {100 * runningsum / total: >5.2f} {'#' * int(40 * runningsum / total)}\n"
                 runningsum -= occurrences[k]
     avg, dev = avgdev(occurrences)
     return res, avg, dev
 
 
-def avgdev(occurrences) -> tuple[float, float]:
+def avgdev(occurrences: dict[int, int]) -> tuple[float, float]:
+    """Compute the average and standard deviation of a distribution.
+
+    Args:
+        occurrences: Dictionary mapping values to their occurrence counts.
+
+    Returns:
+        Tuple of (average, standard_deviation).
+
+    """
     total = sum(occurrences.values())
     avg = sum(int(k) * int(v) for k, v in occurrences.items()) / total
     dev = math.sqrt(

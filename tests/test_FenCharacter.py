@@ -1,3 +1,5 @@
+"""Tests for the FenCharacter module."""
+
 import random
 from unittest import TestCase
 
@@ -7,11 +9,15 @@ from gamepack.MDPack import MDObj
 
 
 class TestDiceParser(TestCase):
+    """Test suite for FenCharacter."""
+
     def setUp(self) -> None:
+        """Set up test fixtures."""
         self.c: FenCharacter = FenCharacter()
         random.seed(0)
 
     def test_xp_parse(self):
+        """Test XP string parsing."""
         self.assertEqual(5, self.c.parse_xp("abcde"))
         self.assertEqual(3, self.c.parse_xp("3/5 6/9"))
         self.assertEqual(4, self.c.parse_xp("4"))
@@ -21,6 +27,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(11, self.c.parse_xp("10a"))
 
     def test_xp_add(self):
+        """Test adding XP values."""
         self.c.Meta["Experience"] = MDObj.from_md("|key|value|\n|-|-|\n|test| SSS |")
         self.c.headings_used["xp"] = "Experience"
         self.c.add_xp("test", 5)
@@ -29,6 +36,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(-2, self.c.get_xp_for("test"))
 
     def test_inventory_table(self):
+        """Test inventory table generation."""
         c = FenCharacter()
         Item.item_cache = {}
         o = MDObj.from_md(
@@ -68,6 +76,7 @@ class TestDiceParser(TestCase):
         )
 
     def test_stat_definitions(self):
+        """Test stat_definitions returns correct stats."""
         # test if stat_definitions returns the correct dictionary of stats and their values
         self.c.Categories = {
             "category1": {
@@ -80,6 +89,7 @@ class TestDiceParser(TestCase):
         self.assertDictEqual(self.c.stat_definitions(), expected_result)
 
     def test_cost(self):
+        """Test XP cost calculation."""
         # test if cost function returns the correct xp cost
         att = (1, 5, 3)
         internal_costs = [1, 2, 3, 4, 5]
@@ -91,6 +101,7 @@ class TestDiceParser(TestCase):
         )
 
     def test_cost_calc(self):
+        """Test cost_calc function."""
         # test if cost_calc function returns the correct result
         inputstring = "1,2,3"
         expected_result = 10
@@ -101,6 +112,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(self.c.cost_calc(inputstring), expected_result)
 
     def test_magicwidth(self):
+        """Test magic width calculation."""
         # test if magicwidth function returns the correct result
         self.c.Categories = {
             "category1": {
@@ -115,6 +127,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(self.c.magicwidth(name), expected_result)
 
     def test_points(self):
+        """Test points calculation."""
         self.c.Categories = {
             "category1": {
                 "section1": {"stat1": "1", "stat2": "2"},  # doesn't count
@@ -142,6 +155,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(self.c.points(name), expected_result)
 
     def test_xp(self):
+        """Test XP processing from markdown."""
         fc = FenCharacter()
         fc.process_xp(
             MDObj.from_md(
@@ -156,6 +170,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(fc.get_xp_for("test3"), 3)
 
     def test_from_md(self):
+        """Test loading FenCharacter from markdown."""
         import pathlib
 
         test_file = pathlib.Path(__file__).parent / "test_chr.md"
@@ -169,6 +184,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(fc.Categories["Mental"]["Attributes"]["Wits"], "2")
 
     def test_round_trip(self):
+        """Test markdown round-trip conversion."""
         self.c = FenCharacter()
         self.c.Character["Name"] = "Testname"
         self.c.Meta["Experience"] = MDObj.from_md("|key|value|\n|-|-|\n|test| 5 |")

@@ -1,3 +1,10 @@
+"""Frequency graph and probability analysis for dice pools.
+
+Provides cached frequency-table lookups, versus comparisons,
+damage modification, and matplotlib-based quantile plotting
+for 5d10-style dice systems.
+"""
+
 import collections
 import io
 import logging
@@ -18,6 +25,18 @@ log = logging.Logger("fengraph")
 
 
 def fastdata(selector: tuple[int, ...], mod: int) -> dict[int, int]:
+    """Retrieve or compute frequency data for a selector/modifier pair.
+
+    Results are cached in the SQLite database for subsequent calls.
+
+    Args:
+        selector: Tuple of die-face indices to sum (1-based, 1-5).
+        mod: Reroll modifier (-5 to 5).
+
+    Returns:
+        Dictionary mapping summed results to their occurrence counts.
+
+    """
     if mod not in freq_dicts or not all(0 < s < 6 for s in selector):
         return {}
     selector = tuple(
@@ -49,6 +68,23 @@ def fastversus(
     mod1: int,
     mod2: int,
 ) -> dict[int, int]:
+    """Retrieve or compute versus frequency data for two selector/modifier pairs.
+
+    Results are cached in the SQLite database.
+
+    Args:
+        selector1: Die-face indices for the first pool.
+        selector2: Die-face indices for the second pool.
+        mod1: Reroll modifier for the first pool.
+        mod2: Reroll modifier for the second pool.
+
+    Returns:
+        Dictionary mapping difference results to occurrence counts.
+
+    Raises:
+        ValueError: If any selector index is outside 0-6.
+
+    """
     db = dicecache_db()
     res = db.execute(
         "SELECT res, occ FROM versus WHERE sel1 = ? AND sel2 = ? AND mod1 = ? AND mod2 = ?",
@@ -63,9 +99,7 @@ def fastversus(
     occ: dict[int, int] = collections.defaultdict(int)
     for roll1, frequency1 in freq_dicts[mod1].items():
         for roll2, frequency2 in freq_dicts[mod2].items():
-            k = sum(roll1[s - 1] for s in selector1) - sum(
-                roll2[s - 1] for s in selector2
-            )
+            k = sum(roll1[s - 1] for s in selector1) - sum(roll2[s - 1] for s in selector2)
             occ[int(k)] += int(frequency1 * frequency2)
     for result, occurrence in occ.items():
         db.execute(
@@ -89,13 +123,42 @@ def versus(
     mod1: int = 0,
     mod2: int = 0,
     mode: int = 0,
-):
+) -> tuple[str, float, float]:
+    """Compute and graph the versus distribution of two dice pools.
+
+    Args:
+        selectors1: Die-face indices for the first pool.
+        selectors2: Die-face indices for the second pool.
+        mod1: Reroll modifier for the first pool.
+        mod2: Reroll modifier for the second pool.
+        mode: Graph mode (passed to ascii_graph).
+
+    Returns:
+        Tuple of (graph_string, average, standard_deviation).
+
+    """
     occurences = fastversus(selectors1, selectors2, mod1, mod2)
     return ascii_graph(occurences, mode)
 
 
-def modify_dmg(specific_modifiers, dmg, damage_type, armor):
-    total_damage = 0
+def modify_dmg(specific_modifiers: list[float], dmg: list[list[int]], damage_type: str, armor: float) -> float:
+    """Apply armour and damage-type modifiers to a damage roll.
+
+    Supports damage types: Stechen (piercing), Schlagen (blunt),
+    Schneiden (slashing), and a default type.
+
+    Args:
+        specific_modifiers: Per-damage-instance multipliers.
+        dmg: List of damage instances, each either a single value or
+            (damage, armour_penetration) pair.
+        damage_type: String identifier for the damage type.
+        armor: Armour value to reduce damage.
+
+    Returns:
+        Total modified damage.
+
+    """
+    total_damage = 0.0
     effectivedmg = []
     dmg = dmg[1:-1]  # first and last should be 0
     for damage_instance in dmg:
@@ -103,47 +166,75 @@ def modify_dmg(specific_modifiers, dmg, damage_type, armor):
             effective_dmg = damage_instance[0] - max(0, armor - damage_instance[1])
             effectivedmg.append(max(0, effective_dmg))
         else:
-            damage_instance = damage_instance[0]
+            val = damage_instance[0]
             if damage_type == "Stechen":
                 effectivedmg.append(
-                    0 if damage_instance <= armor else math.ceil(damage_instance / 2),
+                    0 if val <= armor else math.ceil(val / 2),
                 )
             elif damage_type == "Schlagen":
-                effective_dmg = damage_instance - int(armor / 2)
+                effective_dmg = val - int(armor / 2)
                 effectivedmg.append(max(0, effective_dmg))
             elif damage_type == "Schneiden":
-                effective_dmg = damage_instance - armor
+                effective_dmg = val - armor
                 effectivedmg.append(
-                    effective_dmg + ceil(effective_dmg / 5) * 3
-                    if effective_dmg > 0
-                    else 0,
+                    effective_dmg + ceil(effective_dmg / 5) * 3 if effective_dmg > 0 else 0,
                 )
             else:
-                effective_dmg = damage_instance - armor
+                effective_dmg = val - armor
                 effectivedmg.append(max(0, effective_dmg))
 
-    for i, damage_instance in enumerate(effectivedmg):
-        total_damage += damage_instance * specific_modifiers[i]
+    for i, effective_damage in enumerate(effectivedmg):
+        total_damage += effective_damage * specific_modifiers[i]
     return total_damage
 
 
-def rawload(page) -> str:
+def rawload(page: str) -> str:
+    """Load the raw Markdown content of a wiki page.
+
+    Attempts to read from the local filesystem first; falls back to
+    fetching from the NossiNet wiki web endpoint.
+
+    Args:
+        page: Wiki page name (without extension).
+
+    Returns:
+        Raw Markdown content of the page.
+
+    """
     try:
         with pathlib.Path.expanduser(pathlib.Path(f"~/wiki/{page}.md")).open() as f:
             return f.read()
     except Exception as e:
         r = requests.get(f"https://nossinet.cc/wiki/{page}/raw")
         logging.exception(f"loaded {page}.md via web, because", e)
-        return r.content.decode()
+        return str(r.content.decode())
 
 
 def chances(
     selector: tuple[int, ...],
-    modifier=0,
-    number_of_quantiles=None,
-    mode=0,
-    *, interactive=False,
-):
+    modifier: int = 0,
+    number_of_quantiles: int | None = None,
+    mode: int = 0,
+    *,
+    interactive: bool = False,
+) -> tuple[str, float, float] | io.BytesIO:
+    """Compute and optionally plot probability distributions for a dice pool.
+
+    Args:
+        selector: Die-face indices to sum (filtered to 1-5).
+        modifier: Reroll modifier.
+        number_of_quantiles: If set, generates a matplotlib bar chart
+            instead of ASCII output.
+        mode: Graph mode for ASCII output.
+        interactive: If True, calls plt.show() after saving the plot.
+
+    Returns:
+        ASCII graph string or BytesIO buffer with PNG plot data.
+
+    Raises:
+        DescriptiveError: If no valid selectors are provided.
+
+    """
     selector = tuple(sorted(x for x in selector if 0 < int(x) < 6))
     if not selector:
         raise DescriptiveError("No Selectors!")
@@ -174,9 +265,7 @@ def chances(
     plt.ylim(ymin=0.0)
     plt.xlim(xmin=0.0)
     plt.title(
-        ", ".join(str(x) for x in selector)
-        + "@5"
-        + (("R" + str(modifier)) if modifier else ""),
+        ", ".join(str(x) for x in selector) + "@5" + (("R" + str(modifier)) if modifier else ""),
     )
     plt.ylabel("%")
     plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
@@ -188,7 +277,19 @@ def chances(
     return buf
 
 
-def count_sorted_rolls(num_dice, num_sides):
+def count_sorted_rolls(num_dice: int, num_sides: int) -> dict[tuple[int, ...], int]:
+    """Count the number of ways to roll each sorted combination.
+
+    Uses combinations with replacement and the multinomial formula.
+
+    Args:
+        num_dice: Number of dice rolled.
+        num_sides: Number of sides per die.
+
+    Returns:
+        Dictionary mapping sorted roll tuples to occurrence counts.
+
+    """
     counts = {}
     for roll in combinations_with_replacement(range(1, num_sides + 1), num_dice):
         c = Counter(roll)
@@ -199,7 +300,17 @@ def count_sorted_rolls(num_dice, num_sides):
     return counts
 
 
-def count_lowest_rolls(counts, subselection):
+def count_lowest_rolls(counts: dict[tuple[int, ...], int], subselection: int) -> dict[tuple[int, ...], int]:
+    """Aggregate roll counts by keeping only the lowest/highest N dice.
+
+    Args:
+        counts: Dictionary of sorted roll tuples to occurrence counts.
+        subselection: Positive to keep lowest N, negative to keep highest N.
+
+    Returns:
+        New dictionary with aggregated counts for the sub-selected rolls.
+
+    """
     new_counts = {}
     k = -subselection
     for roll, count in counts.items():
@@ -212,7 +323,4 @@ def count_lowest_rolls(counts, subselection):
 
 # takes about half a second
 basesets = {i: count_sorted_rolls(i, 10) for i in range(5, 11)}
-freq_dicts = {
-    i: count_lowest_rolls(basesets[5 + abs(i)], 5 if i > 0 else -5)
-    for i in range(-5, 6)
-}
+freq_dicts = {i: count_lowest_rolls(basesets[5 + abs(i)], 5 if i > 0 else -5) for i in range(-5, 6)}

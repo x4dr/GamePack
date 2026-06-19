@@ -1,12 +1,38 @@
+"""Core dice rolling engine with support for complex dice notation.
+
+Provides the Dice class that handles rolling, rerolls, explosions,
+threshold-based success counting (WoD-style), and various return
+functions (sum, max, min, id, selectors).
+"""
+
 import logging
 import random
+from typing import Any, TypedDict
+
+
+class DiceParams(TypedDict, total=False):
+    """Typed parameters for constructing a Dice instance from parsed input."""
+
+    amount: list[int] | int | None
+    sides: int
+    difficulty: int | None
+    onebehaviour: int
+    returnfun: str | None
+    explosion: int
+    minimum: int
+    sort: bool
+    rerolls: int
 
 
 class DescriptiveError(Exception):
+    """Raised when a descriptive error occurs during dice operations."""
+
     pass
 
 
 class DiceCodeError(Exception):
+    """Raised when dice notation parsing fails."""
+
     pass
 
 
@@ -14,6 +40,12 @@ logger = logging.getLogger(__name__)
 
 
 class Dice:
+    """Represents a single dice roll with full notation support.
+
+    Handles complex dice notation including rerolls, explosions,
+    threshold success checks, selectors, and multiple return functions.
+    """
+
     returnfun: str | None
 
     # noinspection PyUnusedLocal
@@ -22,14 +54,30 @@ class Dice:
         amount: list[int] | int | None,
         sides: int,
         difficulty: int | None = None,
-        onebehaviour=0,
+        onebehaviour: int = 0,
         returnfun: str | None = None,
-        explosion=0,
-        minimum=1,
-        *, sort=False,
-        rerolls=0,
-        **kwargs: dict,  # noqa: ARG002
+        explosion: int = 0,
+        minimum: int = 1,
+        *,
+        sort: bool = False,
+        rerolls: int = 0,
+        **kwargs: Any,  # noqa: ARG002
     ):
+        """Initialise a Dice instance.
+
+        Args:
+            amount: Number of dice, a literal list of values, or None.
+            sides: Number of sides per die.
+            difficulty: Difficulty threshold for success checks.
+            onebehaviour: If True, ones subtract from successes.
+            returnfun: Return function (sum, max, min, id, threshhold, or selectors).
+            explosion: Number of faces above max that trigger explosion.
+            minimum: Minimum die face value.
+            sort: If True, sort the results.
+            rerolls: Number of rerolls (positive=drop lowest, negative=drop highest).
+            **kwargs: Additional keyword arguments (ignored).
+
+        """
         self.sign = 1
         self.r = []
         self.min = minimum
@@ -59,14 +107,30 @@ class Dice:
             self.max = 1
         self.roll_next()
 
-    def resonance(self, resonator: int):
+    def resonance(self, resonator: int) -> int:
+        """Count resonances of a specific value in the roll.
+
+        Args:
+            resonator: The value to count.
+
+        Returns:
+            Count of resonator occurrences minus 1.
+
+        """
         return self.r.count(resonator) - 1
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return repr string."""
         return self.name
 
     @property
-    def name(self):
+    def name(self) -> str:
+        """Generate a human-readable notation string for this Dice roll.
+
+        Returns:
+            Dice notation string (e.g. '3d10g', '5d6R2e8!!').
+
+        """
         amount = "" if len(self.r) == 0 else str(self.amount or len(self.r))
         if self.returnfun == "id":
             return (amount or "0") + "="
@@ -76,9 +140,7 @@ class Dice:
         name += "d" + str(self.max) if self.max else ""
         name += "R" + str(self.rerolls) if self.rerolls != 0 else ""
         if self.returnfun == "threshhold":
-            name += (
-                "f" if self.subone == 1 else "e" if self.subone == 0 else "-"
-            ) + str(self.difficulty)
+            name += ("f" if self.subone == 1 else "e" if self.subone == 0 else "-") + str(self.difficulty)
         elif self.returnfun == "max":
             name += "h"
         elif self.returnfun == "min":
@@ -92,7 +154,13 @@ class Dice:
 
         return name
 
-    def another(self):
+    def another(self) -> Dice:
+        """Create a copy of this Dice with the same configuration.
+
+        Returns:
+            A new Dice instance with identical parameters.
+
+        """
         return Dice(
             sides=self.max,
             difficulty=self.difficulty,
@@ -105,15 +173,35 @@ class Dice:
             rerolls=self.rerolls,
         )
 
-    def rolldie(self):
+    def rolldie(self) -> int:
+        """Roll a single die and return the result.
+
+        Returns:
+            A random integer between self.min and self.max.
+
+        """
         if self.max <= self.min:
             return self.max
         return random.randint(self.min, self.max)
 
-    def modified_amount(self, amount):
+    def modified_amount(self, amount: int) -> int:
+        """Calculate the effective number of dice to roll including rerolls and explosions.
+
+        Args:
+            amount: Base number of dice.
+
+        Returns:
+            Modified amount including rerolls and explosions.
+
+        """
         return amount + abs(self.rerolls) + self.explosions
 
-    def process_rerolls(self):
+    def process_rerolls(self) -> None:
+        """Apply reroll logic: drop lowest (positive rerolls) or highest (negative rerolls).
+
+        Updates self.r in place and generates a log string showing
+        which dice were dropped (enclosed in parentheses).
+        """
         self.log = ""
         direction = int(self.rerolls / abs(self.rerolls))
         filtered = []
@@ -132,10 +220,7 @@ class Dice:
             par = False
             for i in range(len(self.r)):
                 x = self.r[i]
-                if x in tofilter and (
-                    (direction < 0 and self.r[i:].count(x) <= tofilter.count(x))
-                    or direction > 0
-                ):
+                if x in tofilter and ((direction < 0 and self.r[i:].count(x) <= tofilter.count(x)) or direction > 0):
                     if not par:
                         par = True
                         tempstr += "("
@@ -149,7 +234,19 @@ class Dice:
         for sel in filtered:
             self.r.remove(sel)
 
-    def roll_next(self, amount=None):
+    def roll_next(self, amount: int | None = None) -> Dice:
+        """Perform the actual dice roll, populating self.r with results.
+
+        Handles explosions by re-rolling dice that meet the explosion
+        threshold. Does not apply rerolls (use process_rerolls for that).
+
+        Args:
+            amount: Number of dice to roll (defaults to self.amount).
+
+        Returns:
+            self for method chaining.
+
+        """
         if amount is None:
             amount = self.amount
         self.rolled = True
@@ -165,10 +262,7 @@ class Dice:
             self.r = [1] * amount
             return self
         while len(self.r) < self.modified_amount(amount):
-            nextr = [
-                self.rolldie()
-                for _ in range(self.modified_amount(amount) - len(self.r))
-            ]
+            nextr = [self.rolldie() for _ in range(self.modified_amount(amount) - len(self.r))]
             self.explosions += sum(self.explodeon <= x for x in nextr)
             self.r += nextr
         self.log = ", ".join(str(x) for x in self.r)
@@ -181,12 +275,31 @@ class Dice:
         return self
 
     @staticmethod
-    def botchformat(succ, antisucc):
+    def botchformat(succ: int, antisucc: int) -> int:
+        """Apply botch formatting: if successes <= antisuccesses, return 0.
+
+        Args:
+            succ: Number of successes.
+            antisucc: Number of antisuccesses.
+
+        Returns:
+            Adjusted success count, or 0 on botch.
+
+        """
         if succ > 0 and succ <= antisucc:
             return 0
         return succ - antisucc
 
     def roll_wodsuccesses(self) -> int:
+        """Count WoD-style threshold successes with optional ones subtraction.
+
+        Returns:
+            Adjusted success count multiplied by sign.
+
+        Raises:
+            DescriptiveError: If no difficulty threshold is set.
+
+        """
         succ, antisucc = 0, 0
         self.log = ""
         if self.difficulty is None:
@@ -206,6 +319,12 @@ class Dice:
         return (self.botchformat(succ, antisucc)) * self.sign
 
     def roll_v(self) -> str:  # verbose
+        """Generate a verbose log of the dice roll and its result.
+
+        Returns:
+            Verbose result string showing individual dice and total.
+
+        """
         log_text = ""
         if self.max == 0:
             return log_text
@@ -221,21 +340,35 @@ class Dice:
             log_text += " ==> " + str(res)
         return log_text
 
-    def roll_sel(self):
+    def roll_sel(self) -> int:
+        """Compute the sum of selected die faces using the returnfun selectors.
+
+        Returns:
+            The sum of selected dice values, adjusted by sign.
+
+        """
         if self.returnfun is None:
             return 0
-        selectors = [
-            max(min(int(x), len(self.r)), 0) for x in self.returnfun[:-1].split(",")
-        ]
+        selectors = [max(min(int(x), len(self.r)), 0) for x in self.returnfun[:-1].split(",")]
         selectors_indices = [x - 1 if x > 0 else None for x in selectors]
         sorted_r = sorted(self.r)
         return sum(sorted_r[s] for s in selectors_indices if s is not None) * self.sign
 
     def __int__(self) -> int:
+        """Return the integer result of the roll (0 if None)."""
         return self.result or 0
 
     @property
     def result(self) -> int | None:
+        """Evaluate the dice roll according to the configured return function.
+
+        Returns:
+            The interpreted result, or None if no valid interpretation.
+
+        Raises:
+            DescriptiveError: If no valid return function is set.
+
+        """
         if self.returnfun is not None and self.returnfun.endswith("@"):
             return self.roll_sel()
         if self.returnfun == "threshhold":
@@ -253,7 +386,16 @@ class Dice:
         msg = f"no valid returnfunction! {self.returnfun}"
         raise DescriptiveError(msg)
 
-    def roll(self, amount=None):
+    def roll(self, amount: int | None = None) -> int | None:
+        """Roll the dice and return the interpreted result.
+
+        Args:
+            amount: Number of dice to roll (defaults to self.amount).
+
+        Returns:
+            The interpreted result of the roll.
+
+        """
         if amount is None:
             amount = self.amount
         if not self.literal:
@@ -263,4 +405,10 @@ class Dice:
 
     @classmethod
     def empty(cls) -> Dice:
+        """Create an empty Dice instance with no sides and zero amount.
+
+        Returns:
+            A no-op Dice instance.
+
+        """
         return Dice(sides=0, amount=0, returnfun="")

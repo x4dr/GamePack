@@ -1,7 +1,14 @@
-from typing import TYPE_CHECKING, ClassVar, Self
+"""PBTACharacter module for managing Powered-by-the-Apocalypse game characters.
+
+Provides the PBTACharacter class for parsing, processing, and serializing
+PbtA-style character sheets from Markdown, including stats, moves, health,
+inventory, and notes.
+"""
+
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from gamepack.BaseCharacter import BaseCharacter
-from gamepack.Item import tryfloatdefault
+from gamepack.ItemBase import tryfloatdefault
 from gamepack.MDPack import MDChecklist, MDObj, MDTable
 from gamepack.PBTAItem import PBTAItem
 
@@ -10,18 +17,39 @@ if TYPE_CHECKING:
 
 
 class PBTACharacter(BaseCharacter):
+    """Powered-by-the-Apocalypse character sheet parser and serializer.
+
+    Parses Markdown character sheets into structured data, supporting
+    stats with attribute groups, health tracking, moves checklists,
+    inventory management, and notes.
+    """
+
     def __init__(
         self,
         info: dict[str, str],
         moves: list[tuple[str, bool]],
-        health: dict[str, dict | list],
-        stats: dict[str, dict],
+        health: dict[str, dict[str, Any] | list[str]],
+        stats: dict[str, dict[str, str]],
         inventory: list[PBTAItem] | None = None,
         inventory_bonus_headers: set[str] | None = None,
         notes: str = "",
         meta: dict[str, MDObj] | None = None,
         errors: list[str] | None = None,
     ):
+        """Initialize a PBTACharacter with all character data.
+
+        Args:
+            info: Dictionary of basic character information (name, look, etc.).
+            moves: List of (move_name, is_checked) tuples.
+            health: Dictionary of health/damage data (current, max, wounds).
+            stats: Nested dictionary of stats organized by attribute category.
+            inventory: Optional list of PBTAItem instances.
+            inventory_bonus_headers: Optional set of extra inventory column names.
+            notes: Optional plain-text notes string.
+            meta: Optional dictionary of additional MDObj metadata sections.
+            errors: Optional list of error strings to append.
+
+        """
         super().__init__()
         self.info = info
         self.moves = moves
@@ -57,7 +85,16 @@ class PBTACharacter(BaseCharacter):
         "verletzungen",
     ]
 
-    def post_process(self, flash: Callable[[str], None]):
+    def post_process(self, flash: Callable[[str], None]) -> None:
+        """Post-process metadata sections after initial parsing.
+
+        Extracts inventory items and notes from the meta dictionary,
+        removing them from meta and storing them in the dedicated attributes.
+
+        Args:
+            flash: Callback for reporting non-fatal errors.
+
+        """
         # tally inventory
         for k in list(self.meta.keys()):
             if k.lower() in self.inventory_headings:
@@ -67,7 +104,17 @@ class PBTACharacter(BaseCharacter):
                 self.notes = self.meta[k].plaintext
                 del self.meta[k]
 
-    def process_inventory(self, node: MDObj, flash: Callable[[str], None]):
+    def process_inventory(self, node: MDObj, flash: Callable[[str], None]) -> None:
+        """Extract inventory items from an MDObj node recursively.
+
+        Parses all tables within the node tree, converting rows to
+        PBTAItem instances and collecting bonus header names.
+
+        Args:
+            node: The MDObj node (or subtree) to process.
+            flash: Callback for reporting non-fatal errors.
+
+        """
         for table in node.tables:
             items, headers = PBTAItem.process_table(table)
             self.inventory.extend(items)
@@ -81,14 +128,27 @@ class PBTACharacter(BaseCharacter):
         mdobj: MDObj,
         flash_func: Callable[[str], None] | None = None,
     ) -> Self:
-        errors = []
+        """Construct a PBTACharacter from a parsed Markdown object.
+
+        Extracts info, moves, stats, health, and metadata from the
+        MDObj tree according to PbtA section headings.
+
+        Args:
+            mdobj: The parsed Markdown object tree.
+            flash_func: Optional callback for reporting non-fatal errors.
+
+        Returns:
+            A new PBTACharacter instance populated from the MDObj tree.
+
+        """
+        errors: list[str] = []
         if not flash_func:
             flash_func = errors.append
 
-        info = {}
-        health = {}
-        moves = []
-        stats = {}
+        info: dict[str, str] = {}
+        health: dict[str, dict[str, Any] | list[str]] = {}
+        moves: list[tuple[str, bool]] = []
+        stats: dict[str, dict[str, str]] = {}
         meta = {}
 
         for k, v in mdobj.children.items():
@@ -135,6 +195,15 @@ class PBTACharacter(BaseCharacter):
         return character
 
     def health_get(self, key: str) -> tuple[int, int]:
+        """Get the current and maximum health values for a given key.
+
+        Args:
+            key: The health attribute name (e.g. "hp", "stress").
+
+        Returns:
+            Tuple of (current, maximum) health values, defaulting to (1, 1).
+
+        """
         h = self.health.get(key.title())
         if not h or not isinstance(h, dict):
             return 1, 1
@@ -154,16 +223,44 @@ class PBTACharacter(BaseCharacter):
 
     @classmethod
     def from_md(cls, body: str, flash: Callable[[str], None] | None = None) -> Self:
+        """Construct a PBTACharacter from a raw Markdown string.
+
+        Args:
+            body: Markdown string containing the character sheet.
+            flash: Optional callback for reporting non-fatal errors.
+
+        Returns:
+            A new PBTACharacter instance.
+
+        """
         sheet_parts = MDObj.from_md(body)
         return cls.from_mdobj(sheet_parts, flash)
 
     def to_md(self) -> str:
+        """Serialize the character to a Markdown string.
+
+        Returns:
+            Markdown string representation of the character sheet.
+
+        """
         return self.to_mdobj().to_md()
 
     def to_mdobj(self, error_handler: Callable[[str], None] | None = None) -> MDObj:
+        """Serialize the character back into an MDObj tree.
+
+        Constructs sections for info, health, moves, stats, inventory,
+        and notes from the character data.
+
+        Args:
+            error_handler: Optional callback for reporting non-fatal errors.
+
+        Returns:
+            MDObj tree representing the full character sheet.
+
+        """
         if not error_handler:
 
-            def default_error_handler(error):
+            def default_error_handler(error: str) -> None:
                 self.errors.append(error)
 
             error_handler = default_error_handler
@@ -235,10 +332,7 @@ class PBTACharacter(BaseCharacter):
     def _create_stats_section(self) -> MDObj:
         result = MDObj("", header=self.stats_headings[0].title())
         for category, skills in self.stat_structure.items():
-            data = [
-                [skill, str(self.stats.get(category, {}).get(skill, "0"))]
-                for skill in skills
-            ]
+            data = [[skill, str(self.stats.get(category, {}).get(skill, "0"))] for skill in skills]
             result.add_child(
                 MDObj(
                     "",
@@ -283,6 +377,15 @@ class PBTACharacter(BaseCharacter):
         )
 
     def inventory_get(self, name: str) -> PBTAItem | None:
+        """Look up an inventory item by name.
+
+        Args:
+            name: The name of the item to find.
+
+        Returns:
+            The matching PBTAItem, or None if not found.
+
+        """
         for i in self.inventory:
             if i.name == name:
                 return i

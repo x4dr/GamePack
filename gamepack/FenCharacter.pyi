@@ -1,0 +1,63 @@
+from collections import OrderedDict
+from collections.abc import Callable
+from typing import ClassVar, Self
+
+from _typeshed import Incomplete
+
+from gamepack.BaseCharacter import BaseCharacter
+from gamepack.Item import Item as Item
+from gamepack.MDPack import MDObj
+
+__author__: str
+
+class FenCharacter(BaseCharacter):
+    Inventory: list[Item]
+    description_headings: ClassVar[list[str]]
+    value_headings: ClassVar[list[str]]
+    inventory_headings: ClassVar[list[str]]
+    halfpoint_sections: ClassVar[list[str]]
+    fullpoint_sections: ClassVar[list[str]]
+    onepoint_sections: ClassVar[list[str]]
+    experience_headings: ClassVar[list[str]]
+    wound_headings: ClassVar[list[str]]
+    note_headings: ClassVar[list[str]]
+    concept_headings: ClassVar[list[str]]
+    Inventory_Bonus_Headers: set[str]
+    definitions: Incomplete
+    Tags: str
+    Character: Incomplete
+    Meta: OrderedDict[str, MDObj]
+    Categories: Incomplete
+    Notes: MDObj
+    Storage: str
+    Timestamp: Incomplete
+    xp_cache: Incomplete
+    headings_used: Incomplete
+    def __init__(self) -> None: ...
+    def stat_definitions(self) -> dict: ...
+    @staticmethod
+    def cost(att: tuple[int, ...], internal_costs: list[int], internal_penalty: list[int]) -> int: ...
+    @staticmethod
+    def cost_calc(inputstring, width: int = 3): ...
+    def magicwidth(self, name) -> int: ...
+    def points(self, name) -> int: ...
+    def get_xp_for(self, name) -> int: ...
+    @staticmethod
+    def parse_xp(s) -> None: ...
+    def add_xp(self, name, value) -> int: ...
+    @staticmethod
+    def recursive_category_handle(category: MDObj) -> tuple[dict, dict | list[str]]: ...
+    @classmethod
+    def from_mdobj(cls, mdobj: MDObj, flash_func: Callable[[str], None] | None = None) -> Self: ...
+    @classmethod
+    def construct_mdobj_from_category(
+        cls, category_dict: dict, headings: dict | list[str], flash_func: Callable[[str], None]
+    ) -> MDObj: ...
+    def to_mdobj(self, flash_func: Callable[[str], None] | None = None): ...
+    @classmethod
+    def from_md(cls, body, flash=None) -> None: ...
+    def to_md(self, flash=None) -> None: ...
+    def post_process(self, flash) -> None: ...
+    def process_inventory(self, node: MDObj, flash): ...
+    def process_xp(self, node: MDObj): ...
+    def inventory_table(self) -> None: ...
