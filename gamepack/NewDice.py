@@ -141,6 +141,8 @@ class DiceInterpretation:
         """
         f = self.function
 
+        if f == "id":
+            return str(self.dice.amount) + "="
         name = f if f and "@" in f else ""
         name += self.dice.name
         if f and f[0] in ["e", "f"]:

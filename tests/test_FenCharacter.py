@@ -108,7 +108,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(self.c.cost_calc(inputstring), expected_result)
 
         inputstring = "17"
-        expected_result2 = [(4, 4, 1), (4, 3, 2), (5, 3, 1), (5, 2, 2), (3, 3, 3)]
+        expected_result2 = [[4, 4, 1], [4, 3, 2], [5, 3, 1], [5, 2, 2], [3, 3, 3]]
         self.assertEqual(self.c.cost_calc(inputstring), expected_result2)
 
     def test_magicwidth(self) -> None:

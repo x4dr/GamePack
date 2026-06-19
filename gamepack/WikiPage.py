@@ -26,7 +26,7 @@ from gamepack.PBTAItem import PBTAItem
 
 log = logging.getLogger(__name__)
 
-__all__ = ["DescriptiveError", "WikiPage"]
+__all__ = ["DescriptiveError", "WikiPage", "savequeue", "start_savequeue"]
 
 
 class WikiPage:

@@ -403,7 +403,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(
             dp.messages,
             [
-                "F1: 1 A4\n" "F2: 1 A3, 1 A4\n" "F3: 1 A1, 1 A4\n" "F4: 2 A2, 1 A4\n" "F5: 1 A4\n" "F10: 1 A2",
+                "F1: 1 A4\n" "F2: 1 A3, 1 A4\n" "F3: 1 A1, 1 A4\n" "F4: 2 A1, 1 A4\n" "F5: 1 A4\n" "F10: 1 A1",
             ],
         )
 

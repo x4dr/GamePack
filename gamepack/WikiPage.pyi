@@ -7,7 +7,7 @@ from _typeshed import Incomplete
 from gamepack.Dice import DescriptiveError as DescriptiveError
 from gamepack.MDPack import MDObj
 
-__all__ = ["DescriptiveError", "WikiPage"]
+__all__ = ["DescriptiveError", "WikiPage", "savequeue", "start_savequeue"]
 
 class WikiPage:
     live: bool
@@ -67,3 +67,6 @@ class WikiPage:
     def render(self) -> Any: ...
     @classmethod
     def resolve_address(cls, address: str) -> str | None: ...
+
+def savequeue() -> None: ...
+def start_savequeue() -> None: ...

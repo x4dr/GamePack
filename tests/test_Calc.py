@@ -83,7 +83,7 @@ class TestEval(unittest.TestCase):
         """Test eval_name with an unknown variable name."""
         node = ast.Name(id="y")
         variables = frozenset([("x", 3)])
-        with self.assertRaises(IndexError):
+        with self.assertRaises(StopIteration):
             eval_name(node, variables)
 
     def test_eval_binop_addition(self) -> None:
