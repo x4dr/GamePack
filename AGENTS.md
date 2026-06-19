@@ -147,6 +147,16 @@ from gamepack.DiceParser import fullparenthesis
 ### Caveat: PEP 758 + mypy 2.1.0
 Python 3.14 via PEP 758 allows `except ValueError, TypeError:` without parentheses. mypy 2.1.0's parser (used by stubgen) doesn't support this yet — see [mypy#20788](https://github.com/python/mypy/issues/20788). The `--parse-only` flag avoids the semantic analysis pass that triggers the error. This will be unnecessary once a mypy release >2.1.0 ships the fix.
 
+### Staging stubs after regeneration
+
+After `./scripts/gen-stubs.sh`, re-stage all `.pyi` files so the index matches the formatted worktree:
+
+```bash
+git add gamepack/*.pyi gamepack/endworld/*.pyi
+```
+
+If you see Black or Ruff fail during commit on `.pyi` files with `AM` status in `git status`, it means the index has unformatted stubs while the worktree is formatted. Run the `git add` above to sync them before committing.
+
 ## Performance Considerations
 
 - Use caching for expensive operations (see `item_cache` patterns)
