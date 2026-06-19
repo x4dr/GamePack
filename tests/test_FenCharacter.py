@@ -5,7 +5,7 @@ from unittest import TestCase
 
 from gamepack.FenCharacter import FenCharacter
 from gamepack.Item import Item
-from gamepack.MDPack import MDObj
+from gamepack.MDPack import MDObj, MDTable
 
 
 class TestDiceParser(TestCase):
@@ -215,3 +215,114 @@ class TestDiceParser(TestCase):
         )
         self.assertDictEqual(self.c.Categories, new_c.Categories)
         self.assertEqual(self.c.Notes.to_md(), new_c.Notes.to_md())
+
+    def test_stat_definitions_caching(self) -> None:
+        """Test stat_definitions returns cached result on subsequent calls."""
+        self.c.Categories = {"cat": {"sec": {"stat1": "1"}}}
+        self.c.stat_definitions()
+        self.c.Categories = {}
+        result2 = self.c.stat_definitions()
+        self.assertDictEqual(result2, {"stat1": "1"})
+
+    def test_cost_calc_all_attrs_below_two(self) -> None:
+        """Test cost_calc returns 0 when all attributes are below 2."""
+        self.assertEqual(self.c.cost_calc("1,1,1"), 0)
+
+    def test_cost_calc_wrong_param_count(self) -> None:
+        """Test cost_calc returns 0 when comma-separated count != width and != 1."""
+        self.assertEqual(self.c.cost_calc("1,2"), 0)
+
+    def test_add_xp_creates_table_and_appends(self) -> None:
+        """Test add_xp creates a new XP table and appends rows for new stats."""
+        self.c.Meta["Experience"] = MDObj("")
+        self.c.headings_used["xp"] = "Experience"
+        # Creates a new table when none exists (line 244)
+        self.c.add_xp("new_stat", 7)
+        self.assertEqual(self.c.get_xp_for("new_stat"), 7)
+        # Appends a new row for a different stat (line 258)
+        self.c.add_xp("other_stat", 3)
+        self.assertEqual(self.c.get_xp_for("other_stat"), 3)
+
+    def test_add_xp_skips_empty_rows(self) -> None:
+        """Test add_xp skips empty rows in the XP table (line 248)."""
+        xp_mdo = MDObj("")
+        t = MDTable([], ["Skill", "XP"])
+        t.rows.append([])  # Empty row — will be skipped
+        t.rows.append(["magic", "2"])
+        xp_mdo.tables.append(t)
+        self.c.Meta["Experience"] = xp_mdo
+        self.c.headings_used["xp"] = "Experience"
+        self.c.add_xp("magic", 5)
+        self.assertEqual(self.c.get_xp_for("magic"), 7)
+
+    def test_recursive_category_handle_single_cell_row(self) -> None:
+        """Test recursive_category_handle with a single-column table (lines 279-280)."""
+        cat = MDObj("", {}, None, [MDTable([["only_key"]], ["key"])])
+        data, _ = FenCharacter.recursive_category_handle(cat)
+        self.assertIn("only_key", data)
+        self.assertEqual(data["only_key"], "")
+
+    def test_from_mdobj_loose_tables(self) -> None:
+        """Test from_mdobj flashes loose top-level tables (lines 317-318)."""
+        errors: list[str] = []
+        mdobj = MDObj.from_md("|Loose|Table|\n|---|---|\n|a|b|\n")
+        FenCharacter.from_mdobj(mdobj, errors.append)
+        self.assertTrue(any("Loose Table:" in e for e in errors))
+
+    def test_from_mdobj_character_errors(self) -> None:
+        """Test from_mdobj flashes errors from character section (line 333)."""
+        errors: list[str] = []
+        md = MDObj.from_md(
+            "## Character\n" "|Name|Value|\n" "|---|---|\n" "|Key1|Val1|\n" "Extra text\n",
+        )
+        FenCharacter.from_mdobj(md, errors.append)
+        self.assertTrue(any("Extraneous" in e for e in errors))
+
+    def test_construct_from_category_nonempty_dict_headings(self) -> None:
+        """Test construct_mdobj_from_category with non-empty dict headings (lines 373-375)."""
+        errors: list[str] = []
+        result = FenCharacter.construct_mdobj_from_category(
+            {"stat1": "1"},
+            {"Name": "Value"},
+            errors.append,
+        )
+        self.assertEqual(result.tables[0].headers, ["Name", "Value"])
+
+    def test_construct_from_category_empty_dict_headings(self) -> None:
+        """Test construct_mdobj_from_category with empty dict headings (lines 376-377)."""
+        errors: list[str] = []
+        result = FenCharacter.construct_mdobj_from_category(
+            {"stat1": "1"},
+            {},
+            errors.append,
+        )
+        self.assertEqual(result.tables[0].headers, ["Stat", "Value"])
+
+    def test_construct_from_category_list_headings(self) -> None:
+        """Test construct_mdobj_from_category with list headings (line 379)."""
+        errors: list[str] = []
+        result = FenCharacter.construct_mdobj_from_category(
+            {"stat1": "1", "stat2": "2"},
+            ["Skill", "XP"],
+            errors.append,
+        )
+        self.assertEqual(result.tables[0].headers, ["Skill", "XP"])
+
+    def test_to_mdobj_wraps_string_meta(self) -> None:
+        """Test to_mdobj wraps string Meta values in MDObj (line 422)."""
+        fc = FenCharacter()
+        fc.Meta["SomeSection"] = MDObj("plain string")
+        result = fc.to_mdobj()
+        self.assertIn("SomeSection", result.children)
+
+    def test_process_xp_recursive_with_short_rows(self) -> None:
+        """Test process_xp with nested children (line 514) and handling of short rows (line 509)."""
+        fc = FenCharacter()
+        # Main table with proper key-value rows
+        md = MDObj("", {}, None, [MDTable([["test1", "5"]], ["key", "value"])])
+        # Child table to trigger recursion
+        child = MDObj("", {}, None, [MDTable([["sub1", "3"]], ["subkey", "subval"])])
+        md.children["Sub"] = child
+        fc.process_xp(md)
+        self.assertEqual(fc.get_xp_for("test1"), 5)
+        self.assertEqual(fc.get_xp_for("sub1"), 3)

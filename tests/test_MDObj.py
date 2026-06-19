@@ -488,3 +488,193 @@ testask
         list_pos = serialized.find("- Item 1")
         self.assertTrue(table_pos < list_pos)
         self.assertIn("Middle", serialized)
+
+    def test_mdtable_update_rows(self) -> None:
+        """Test MDTable.update_rows bulk update."""
+        table = MDTable(rows=[["1", "2"]], headers=["A", "B"])
+        table.update_rows([["3", "4"], ["5", "6"]])
+        self.assertEqual(table.rows, [["3", "4"], ["5", "6"]])
+
+    def test_mdtable_clear_rows(self) -> None:
+        """Test MDTable.clear_rows removes all data rows."""
+        table = MDTable(rows=[["1", "2"], ["3", "4"]], headers=["A", "B"])
+        table.clear_rows()
+        self.assertEqual(table.rows, [])
+
+    def test_mdtable_canonize(self) -> None:
+        """Test MDTable.canonize normalises cells and trims trailing empty rows."""
+        table = MDTable(
+            rows=[["1", "2"], ["", ""], ["3", "4"], ["", ""]],
+            headers=["A", "B"],
+        )
+        table.canonize()
+        self.assertEqual(table.rows, [["1", "2"], ["", ""], ["3", "4"]])
+        self.assertEqual(table.headers, ["A", "B"])
+
+    def test_mdtable_get_and_getitem(self) -> None:
+        """Test MDTable dict-style get and __getitem__."""
+        table = MDTable(rows=[["name", "Alice"], ["age", "30"]], headers=["Key", "Val"])
+        self.assertEqual(table.get("name"), "Alice")
+        self.assertEqual(table.get("missing", "default"), "default")
+        self.assertEqual(table["name"], "Alice")
+
+    def test_mdtable_column(self) -> None:
+        """Test MDTable.column extracts values by header."""
+        table = MDTable(rows=[["1", "10"], ["2", "20"]], headers=["ID", "Score"])
+        self.assertEqual(table.column("Score"), ["10", "20"])
+        self.assertEqual(table.column("Missing"), [])
+
+    def test_mdtable_header_pos(self) -> None:
+        """Test MDTable.header_pos finds first matching header."""
+        table = MDTable(rows=[], headers=["Name", "Weight", "Price"])
+        self.assertEqual(table.header_pos(["weight", "masse"]), 1)
+        self.assertEqual(table.header_pos(["missing"], -1), -1)
+
+    def test_mdtable_from_md_edge_cases(self) -> None:
+        """Test MDTable.from_md with edge cases."""
+        empty = MDTable.from_md("")
+        self.assertEqual(empty.headers, [])
+        self.assertEqual(empty.rows, [])
+
+        no_data = MDTable.from_md("| A | B |\n|---|---|")
+        self.assertEqual(no_data.headers, ["A", "B"])
+        self.assertEqual(no_data.rows, [])
+
+    def test_mdobj_confine_to_tables_non_horizontal(self) -> None:
+        """Test confine_to_tables in key-value (non-horizontal) mode."""
+        mdtext = "# Gear\n| Name | Cost |\n| Sword | 50s |\n| Shield | 20s |\n"
+        mdobj = MDObj.from_md(mdtext)
+        result, errors = mdobj.confine_to_tables(horizontal=False)
+        self.assertEqual(result["Gear"]["Sword"], "50s")
+        self.assertEqual(result["Gear"]["Shield"], "20s")
+        self.assertEqual(errors, [])
+
+    def test_mdobj_search_checklist_with_path(self) -> None:
+        """Test searching for checklists by item text with path tracking."""
+        md_text = "# Tasks\n- [ ] Buy milk\n- [x] Finish report\n## Chores\n- [ ] Clean garage"
+        mdobj = MDObj.from_md(md_text)
+        results = mdobj.search_checklist_with_path("Buy milk")
+        self.assertEqual(results, [["Tasks"]])
+        results = mdobj.search_checklist_with_path("Clean garage")
+        self.assertEqual(results, [["Tasks", "Chores"]])
+        results = mdobj.search_checklist_with_path("Nonexistent")
+        self.assertEqual(results, [])
+        results = mdobj.search_checklist_with_path("Finish report")
+        self.assertEqual(results, [["Tasks"]])
+
+    def test_mdobj_search_tables_nested(self) -> None:
+        """Test MDObj.search_tables finds tables in child nodes."""
+        md_text = "# Root\n| K | V |\n|---|---|\n| a | 1 |\n## Sub\n| X | Y |\n|---|---|\n| foo | bar |"
+        mdobj = MDObj.from_md(md_text)
+        found = mdobj.search_tables("foo")
+        self.assertIsNotNone(found)
+        assert found is not None
+        row = found.row("foo")
+        assert row is not None
+        self.assertEqual(row["Y"], "bar")
+        not_found = mdobj.search_tables("nope")
+        self.assertIsNone(not_found)
+
+    def test_mdobj_get_content_by_path(self) -> None:
+        """Test MDObj.get_content_by_path traverses child hierarchy."""
+        md_text = "# A\n## B\n### C\ncontent"
+        mdobj = MDObj.from_md(md_text)
+        node = mdobj.get_content_by_path(["A", "B", "C"])
+        self.assertEqual(node.header, "C")
+        self.assertIn("content", node.plaintext)
+
+    def test_mdobj_replace_content_by_path(self) -> None:
+        """Test MDObj.replace_content_by_path replaces a subtree."""
+        md_text = "# Outer\n## Inner\nold content"
+        mdobj = MDObj.from_md(md_text)
+        mdobj.replace_content_by_path(["Outer"], "# Outer\n## Inner\nreplaced content")
+        self.assertIn("replaced content", mdobj.children["Outer"].children["Outer"].children["Inner"].plaintext)
+
+    def test_mdobj_getitem_keyerror(self) -> None:
+        """Test MDObj.__getitem__ raises KeyError for missing keys."""
+        mdobj = MDObj("no children or tables")
+        with self.assertRaises(KeyError):
+            _ = mdobj["nonexistent"]
+
+    def test_mdobj_add_children(self) -> None:
+        """Test MDObj.add_children adds multiple children."""
+        mdobj = MDObj("root")
+        children = [
+            MDObj("child1 content", header="C1", level=2),
+            MDObj("child2 content", header="C2", level=2),
+        ]
+        result = mdobj.add_children(children)
+        self.assertIs(result, mdobj)
+        self.assertIn("C1", mdobj.children)
+        self.assertIn("C2", mdobj.children)
+
+    def test_mdobj_empty_factory(self) -> None:
+        """Test MDObj.empty creates an empty node."""
+        empty = MDObj.empty()
+        self.assertEqual(empty.plaintext, "")
+        self.assertEqual(empty.children, {})
+        self.assertEqual(empty.tables, [])
+        self.assertEqual(empty.lists, [])
+
+    def test_mdlist_item_repr(self) -> None:
+        """Test MDListItem.__repr__ output."""
+        from gamepack.MDPack import MDListItem
+
+        item = MDListItem("hello", checked=False, level=1)
+        self.assertIn("hello", repr(item))
+        self.assertIn("False", repr(item))
+        self.assertIn("level=1", repr(item))
+
+    def test_mdtable_row_as_dict_out_of_range(self) -> None:
+        """Test row_as_dict raises IndexError for out-of-range row."""
+        table = MDTable(rows=[["1", "2"]], headers=["A", "B"])
+        with self.assertRaises(IndexError):
+            table.row_as_dict(5)
+
+    def test_mdtable_to_simple(self) -> None:
+        """Test MDTable.to_simple serialisation."""
+        table = MDTable(rows=[["1", "2"]], headers=["X", "Y"])
+        simple = table.to_simple()
+        self.assertEqual(simple["rows"], [["1", "2"]])
+        self.assertEqual(simple["headers"], ["X", "Y"])
+
+    def test_mdlist_insert_lists_fallback(self) -> None:
+        """Test insert_lists handles out-of-range positions by appending."""
+        text = "preamble\n"
+        mlist = MDList.from_md("- item")
+        mlist.position = 999
+        restored = MDList.insert_lists(text, [mlist])
+        self.assertIn("- item", restored)
+
+    def test_mdlist_extract_lists_trailing(self) -> None:
+        """Test extract_lists handles trailing list at end of input."""
+        text = "text\n- item 1\n- item 2"
+        _, lists = MDList.extract_lists(text)
+        self.assertEqual(len(lists), 1)
+        self.assertIn("- item 1", lists[0].to_md())
+        self.assertIn("- item 2", lists[0].to_md())
+
+    def test_search_tables_module_not_found(self) -> None:
+        """Test module-level search_tables returns empty for no match."""
+        md = "| A | B |\n|---|---|\n| 1 | 2 |"
+        self.assertEqual(search_tables(md, "no_match"), "")
+
+    def test_table_row_edit_no_match(self) -> None:
+        """Test table_row_edit returns original when key not found."""
+        md = "| A | B |\n|---|---|\n| 1 | 2 |"
+        self.assertEqual(table_row_edit(md, "nope", "x"), md)
+
+    def test_table_remove_no_match(self) -> None:
+        """Test table_remove returns original when key not found."""
+        md = "| A | B |\n|---|---|\n| 1 | 2 |"
+        self.assertEqual(table_remove(md, "nope"), md)
+
+    def test_traverse_md_case_insensitive(self) -> None:
+        """Test traverse_md is case-insensitive."""
+        md = "# SKILLS\nsome content\n## SUBSKILL\nmore"
+        self.assertIn("SKILLS", traverse_md(md, "skills"))
+
+    def test_mdtable_line_align_center(self) -> None:
+        """Test MDTable line_align applies center alignment."""
+        table = MDTable(rows=[["1"]], headers=["A"], style=["c"])
+        self.assertEqual(table.line_align("hello", "c", 11), "   hello   ")

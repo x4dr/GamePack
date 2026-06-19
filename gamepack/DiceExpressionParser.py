@@ -39,10 +39,7 @@ class DiceExpressionParser:
 
     def p_selector_neg(self, p: Any) -> None:
         """selector : MINUS_SEQUENCE NUMBER"""
-        if p[1] == "-":
-            p[0] = -p[2]
-        else:
-            p[0] = -p[2]
+        p[0] = -p[2]
 
     def p_dice_expr_with_suffix(self, p: Any) -> None:
         """dice_expr : amount dice_suffix"""
@@ -59,10 +56,7 @@ class DiceExpressionParser:
 
     def p_amount_neg_num(self, p: Any) -> None:
         """amount : MINUS_SEQUENCE NUMBER"""
-        if p[1] == "-":
-            p[0] = -p[2]
-        else:
-            p[0] = -p[2]
+        p[0] = -p[2]
 
     def p_amount_minus_seq(self, p: Any) -> None:
         """amount : MINUS_SEQUENCE"""

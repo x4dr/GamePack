@@ -1,6 +1,7 @@
 """Tests for the DiceParser module."""
 
 import random
+import re
 from unittest import TestCase
 from unittest.mock import Mock
 
@@ -11,6 +12,7 @@ from gamepack.DiceParser import (
     Node,
     fullparenthesis,
 )
+from gamepack.RegexRouter import DiceRegexRouter, DuplicateKeyError, RegexRouter
 
 
 class TestDiceParser(TestCase):
@@ -458,3 +460,103 @@ class TestDiceParser(TestCase):
         with self.assertRaises(DescriptiveError) as cm:
             self.assertEqual(self.p.triggerswitch("project", "(3 2"), "")
         self.assertEqual(str(cm.exception), "unmatched '(' in text: (3")
+
+    def test_fullparenthesis_closing_before_opening(self) -> None:
+        """Test fullparenthesis when a closing paren appears before any opening one (line 601)."""
+        with self.assertRaises(DescriptiveError):
+            fullparenthesis(")abc(123")
+
+    def test_node_recursion_depth(self) -> None:
+        """Test Node raises DescriptiveError when depth exceeds 100 (line 69)."""
+        with self.assertRaises(DescriptiveError):
+            Node("test", 101)
+
+    def test_extract_diceparams_empty(self) -> None:
+        """Test extract_diceparams raises DiceCodeError for empty input (line 202)."""
+        with self.assertRaises(DiceCodeError):
+            DiceParser.extract_diceparams("")
+
+    def test_trigger_if_else_branch(self) -> None:
+        """Test the else branch in if-trigger when condition is false (line 449)."""
+        p = DiceParser()
+        r = p.do_roll("&if 0 then 5 else 10 done& d1g")
+        self.assertEqual(r.result, 10)
+
+    def test_gettriggers_unmatched(self) -> None:
+        """Test gettriggers raises DescriptiveError for unmatched & (line 467)."""
+        with self.assertRaises(DescriptiveError):
+            self.p.do_roll("&unmatched")
+        with self.assertRaises(DescriptiveError):
+            DiceParser.gettriggers("&unmatched")
+
+    def test_pretrigger_trigger_without_body(self) -> None:
+        """Test pretrigger ValueError branch when trigger has no body (lines 493-494)."""
+        p = DiceParser()
+        r = p.do_roll("&resonances& 5d10g")
+        self.assertIsNotNone(r)
+        self.assertIsNotNone(r.result)
+
+    def test_param_with_parenthesized_value(self) -> None:
+        """Test param trigger evaluates parenthesized values as dice rolls (line 509)."""
+        p = DiceParser()
+        p.do_roll("&param x& (5d10g)")
+        self.assertIn("x", p.defines)
+        val = str(p.defines["x"])
+        self.assertTrue(val.lstrip("-").isdigit())
+
+    def test_param_unmatched_parens(self) -> None:
+        """Test param trigger raises DescriptiveError for unmatched ) (lines 503-506)."""
+        with self.assertRaises(DescriptiveError):
+            self.p.do_roll("&param x& )")
+
+    def test_resonances_with_explicit_rolls(self) -> None:
+        """Test resonances with explicit rolls list (line 313 else branch)."""
+        result = self.p.resonances([])
+        self.assertEqual(result, [{} for _ in range(10)])
+
+    def test_triggerswitch_values_malformed(self) -> None:
+        """Test values trigger raises DescriptiveError when a key has no colon (lines 413-414)."""
+        with self.assertRaises(DescriptiveError):
+            self.p.triggerswitch("values", "keywithoutcolon")
+
+    def test_defaultselector(self) -> None:
+        """Test defaultselector substitution in pretrigger (lines 524-529)."""
+        p = DiceParser({"defaultselector": "@5d10"})
+        r = p.do_roll("3,4")
+        self.assertIsNotNone(r)
+
+    def test_duplicate_key_error(self) -> None:
+        """Test DuplicateKeyError when two routes return the same key."""
+        router = RegexRouter()
+
+        @router.register(re.compile(r"(?P<first>\d+)"))
+        def first_handler(_matches: dict[str, str]) -> dict[str, str]:
+            return {"key": "value1"}
+
+        @router.register(re.compile(r"(?P<second>\w+)"))
+        def second_handler(_matches: dict[str, str]) -> dict[str, str]:
+            return {"key": "value2"}
+
+        with self.assertRaises(DuplicateKeyError):
+            router.run("123abc", require=False)
+
+    def test_regex_router_minus_literal(self) -> None:
+        """Test DiceRegexRouter extract_literal with minus sequences."""
+        router = DiceRegexRouter.get_dice_router()
+        params = router.run("-", require=True)
+        self.assertEqual(params["amount"], "-")
+
+        params = router.run("---", require=True)
+        self.assertEqual(params["amount"], "---")
+
+    def test_regex_router_base_functions(self) -> None:
+        """Test DiceRegexRouter extract_base_functions handles g/h/l/~/=."""
+        router = DiceRegexRouter.get_dice_router()
+        params = router.run("3d6g", require=True)
+        self.assertEqual(params["returnfun"], "sum")
+        self.assertEqual(params["amount"], 3)
+        self.assertEqual(params["sides"], 6)
+
+        params = router.run("5h", require=True)
+        self.assertEqual(params["returnfun"], "max")
+        self.assertEqual(params["amount"], 5)

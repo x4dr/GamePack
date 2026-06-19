@@ -163,3 +163,9 @@ class TestDiceExpressionParser:
 
         with pytest.raises(DiceCodeError):
             self.parser.parse("[1,2")  # Unclosed bracket
+
+    def test_empty_string(self) -> None:
+        """Test parse with empty string returns empty DiceParams."""
+        parser = DiceExpressionParser()
+        result = parser.parse("")
+        assert result == {}

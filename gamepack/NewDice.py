@@ -68,8 +68,6 @@ class DiceInterpretation:
         """
         if self.dice.r is None:
             return -1
-        if self.dice.r is None:
-            return -1
         return int(np.count_nonzero(self.dice.r == resonator) - 1)
 
     @property
