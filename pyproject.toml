@@ -60,7 +60,7 @@ ignore = ["N999", "N815", "D203", "D213"]
 [tool.mypy]
 strict = true
 explicit_package_bases = true
-exclude = ["gamepack/.*\\.pyi$"]
+exclude = ["build/", "gamepack/.*\\.pyi$"]
 
 [dependency-groups]
 dev = [

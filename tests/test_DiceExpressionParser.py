@@ -9,11 +9,11 @@ from gamepack.DiceParser import DiceCodeError
 class TestDiceExpressionParser:
     """Test suite for DiceExpressionParser."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Set up test fixtures."""
         self.parser = DiceExpressionParser()
 
-    def test_basic_dice(self):
+    def test_basic_dice(self) -> None:
         """Test basic dice expressions."""
         self.parser = DiceExpressionParser()
 
@@ -29,7 +29,7 @@ class TestDiceExpressionParser:
         assert result["amount"] == 99
         assert result["sides"] == 7
 
-    def test_literal_dice(self):
+    def test_literal_dice(self) -> None:
         """Test literal dice expressions."""
         self.parser = DiceExpressionParser()
 
@@ -40,7 +40,7 @@ class TestDiceExpressionParser:
         assert result["amount"] == [3, 2]
         assert result["returnfun"] == "min"
 
-    def test_functions(self):
+    def test_functions(self) -> None:
         """Test function modifiers."""
         self.parser = DiceExpressionParser()
 
@@ -62,7 +62,7 @@ class TestDiceExpressionParser:
         assert result["amount"] == 3
         assert result["returnfun"] == "id"
 
-    def test_thresholds(self):
+    def test_thresholds(self) -> None:
         """Test threshold functions."""
         self.parser = DiceExpressionParser()
 
@@ -78,7 +78,7 @@ class TestDiceExpressionParser:
         assert result["difficulty"] == 6
         assert result["onebehaviour"] == 1
 
-    def test_explosions(self):
+    def test_explosions(self) -> None:
         """Test explosion modifiers."""
         self.parser = DiceExpressionParser()
 
@@ -90,7 +90,7 @@ class TestDiceExpressionParser:
         result = self.parser.parse("3d6!!")
         assert result["explosion"] == 2
 
-    def test_rerolls(self):
+    def test_rerolls(self) -> None:
         """Test reroll modifiers."""
         self.parser = DiceExpressionParser()
 
@@ -99,7 +99,7 @@ class TestDiceExpressionParser:
         assert result["sides"] == 6
         assert result["rerolls"] == 2
 
-    def test_sort(self):
+    def test_sort(self) -> None:
         """Test sort modifier."""
         self.parser = DiceExpressionParser()
 
@@ -108,7 +108,7 @@ class TestDiceExpressionParser:
         assert result["sides"] == 6
         assert result["sort"] is True
 
-    def test_selectors(self):
+    def test_selectors(self) -> None:
         """Test selector expressions."""
         self.parser = DiceExpressionParser()
 
@@ -122,17 +122,17 @@ class TestDiceExpressionParser:
         assert result["amount"] == 3
         assert result["sides"] == 6
 
-    def test_minus_sequence(self):
+    def test_minus_sequence(self) -> None:
         """Test minus sequence."""
         self.parser = DiceExpressionParser()
 
         result = self.parser.parse("-")
-        assert result["amount"] == "-"
+        assert result["amount"] == "-"  # type: ignore[comparison-overlap]
 
         result = self.parser.parse("---")
-        assert result["amount"] == "---"
+        assert result["amount"] == "---"  # type: ignore[comparison-overlap]
 
-    def test_complex_expressions(self):
+    def test_complex_expressions(self) -> None:
         """Test complex expressions with multiple modifiers."""
         self.parser = DiceExpressionParser()
 
@@ -151,7 +151,7 @@ class TestDiceExpressionParser:
         assert result["onebehaviour"] == 0
         assert result["explosion"] == 2
 
-    def test_invalid_expressions(self):
+    def test_invalid_expressions(self) -> None:
         """Test error handling for invalid expressions."""
         self.parser = DiceExpressionParser()
 

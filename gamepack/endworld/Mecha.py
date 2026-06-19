@@ -404,7 +404,7 @@ class Mecha(BaseCharacter):
                 enabled_idx = table.headers.index("Enabled")
                 for row in table.rows:
                     row[enabled_idx] = "[ ]"
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 pass
 
             systems_mdo.add_child(MDObj("", tables=[table], header=key))

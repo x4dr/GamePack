@@ -13,10 +13,10 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: uv run mypy --strict gamepack/
+        entry: uv run mypy --strict .
         language: system
         pass_filenames: false
-        files: ^gamepack/.*\.py$
+        files: \.py$
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

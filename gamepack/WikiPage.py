@@ -26,6 +26,8 @@ from gamepack.PBTAItem import PBTAItem
 
 log = logging.getLogger(__name__)
 
+__all__ = ["DescriptiveError", "WikiPage"]
+
 
 class WikiPage:
     """Class to represent a wiki page."""

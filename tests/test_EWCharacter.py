@@ -10,7 +10,7 @@ from gamepack.MDPack import MDObj
 class TestEWCharacter(unittest.TestCase):
     """Test suite for EWCharacter."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test character initialization."""
         char = EWCharacter()
         self.assertIsNone(char.mecha)
@@ -18,12 +18,12 @@ class TestEWCharacter(unittest.TestCase):
     @patch("gamepack.endworld.Mecha.Mecha.from_mdobj")
     @patch("gamepack.WikiPage.WikiPage.locate")
     @patch("gamepack.WikiPage.WikiPage.load")
-    def test_from_mdobj_with_mech_link(
+    def test_from_mdobj_with_mech_link(  # type: ignore[no-untyped-def]
         self,
         mock_load,
         mock_locate,
         mock_mecha_from_md,
-    ):
+    ) -> None:
         """Test from_mdobj with a mech link."""
         md_text = "# Mech\n(SomeMechLink)"
         mdobj = MDObj.from_md(md_text)
@@ -41,7 +41,7 @@ class TestEWCharacter(unittest.TestCase):
         mock_locate.assert_called_with("SomeMechLink")
 
     @patch("gamepack.endworld.Mecha.Mecha.from_mdobj")
-    def test_from_mdobj_with_inline_systems(self, mock_mecha_from_md):
+    def test_from_mdobj_with_inline_systems(self, mock_mecha_from_md: MagicMock) -> None:
         """Test from_mdobj with inline systems."""
         md_text = "# Mech\n## Systems\nSystem content"
         mdobj = MDObj.from_md(md_text)

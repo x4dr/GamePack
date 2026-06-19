@@ -9,7 +9,7 @@ from gamepack.PBTAItem import PBTAItem
 class TestPBTACharacter(unittest.TestCase):
     """Test suite for PBTACharacter."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Set up test fixtures."""
         # Create an example character
         self.example_character = PBTACharacter(
@@ -27,7 +27,7 @@ class TestPBTACharacter(unittest.TestCase):
             notes="",
         )
 
-    def test_character_creation(self):
+    def test_character_creation(self) -> None:
         """Test character creation with correct attributes."""
         # Ensure the character is created with correct attributes
         self.assertEqual(self.example_character.info["Name"], "Alice")
@@ -38,13 +38,13 @@ class TestPBTACharacter(unittest.TestCase):
         self.assertEqual(self.example_character.stats["Resolve"]["Attune"], "4")
         self.assertEqual(len(self.example_character.inventory), 2)
 
-    def test_to_mdobj_conversion(self):
+    def test_to_mdobj_conversion(self) -> None:
         """Test character to MDObj conversion."""
         md_obj = self.example_character.to_mdobj()
         self.assertIsNotNone(md_obj)
         self.assertGreater(len(md_obj.children), 0)
 
-    def test_round_trip_conversion(self):
+    def test_round_trip_conversion(self) -> None:
         """Test markdown round-trip conversion."""
         # Convert the character to Markdown and back to a character
         md_obj = self.example_character.to_mdobj()
@@ -71,7 +71,7 @@ class TestPBTACharacter(unittest.TestCase):
             self.assertIn(str(a), (str(b) for b in loaded_character.inventory))
         self.assertEqual(self.example_character.notes, loaded_character.notes)
 
-    def test_health_and_inventory_get(self):
+    def test_health_and_inventory_get(self) -> None:
         """Test health and inventory retrieval."""
         # test health_get
         cur, maxx = self.example_character.health_get("Healing")
@@ -89,7 +89,7 @@ class TestPBTACharacter(unittest.TestCase):
 
         self.assertIsNone(self.example_character.inventory_get("Missing"))
 
-    def test_from_md_conversion(self):
+    def test_from_md_conversion(self) -> None:
         """Test loading character from markdown."""
         # Convert the character to Markdown and back using from_md
         md_obj = self.example_character.to_mdobj()

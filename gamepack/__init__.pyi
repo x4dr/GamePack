@@ -1,9 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from _typeshed import Incomplete
+cache: list[sqlite3.Connection]
 
-cache: Incomplete
-
-def handle(res) -> Path: ...
+def handle(res: str) -> Path: ...
 def dicecache_db() -> sqlite3.Connection: ...

@@ -21,7 +21,7 @@ from gamepack.MDPack import (
 class TestMDObj(unittest.TestCase):
     """Test suite for MDObj class."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Set up test fixtures."""
         self.md_text = (
             "# Title\n\nSome text\n\n## Subtitle 1\n\n### Sub-subtitle 1.1\n\n"
@@ -35,7 +35,7 @@ class TestMDObj(unittest.TestCase):
             "| Value 4  | Value 5  | Value 6  |\n"
         )
 
-    def test_search_children(self):
+    def test_search_children(self) -> None:
         """Test searching for child headings in MDObj."""
         self.md_obj = MDObj.from_md(self.md_text, flash=MagicMock())
         # test with existing child
@@ -47,19 +47,19 @@ class TestMDObj(unittest.TestCase):
         non_existing_child = self.md_obj.search_children("non-existing child")
         self.assertIsNone(non_existing_child)
 
-    def test_search_tables_found(self):
+    def test_search_tables_found(self) -> None:
         """Test search_tables finds matching table."""
         md = "| heading 1 | heading 2 |\n| --- | --- |\n| value 1 | value 2 |\n"
         expected_result = "| heading 1 | heading 2 |\n| --- | --- |\n| value 1 | value 2 |\n"
         self.assertEqual(search_tables(md, "heading"), expected_result)
 
-    def test_search_tables_not_found(self):
+    def test_search_tables_not_found(self) -> None:
         """Test search_tables returns empty string when no match."""
         md = "| heading 1 | heading 2 |\n| --- | --- |\n| value 1 | value 2 |\n"
         expected_result = ""
         self.assertEqual(search_tables(md, "not found"), expected_result)
 
-    def test_search_tables_with_surround(self):
+    def test_search_tables_with_surround(self) -> None:
         """Test search_tables with surrounding rows included."""
         md = (
             "| heading 1 | heading 2 |\n"
@@ -71,19 +71,19 @@ class TestMDObj(unittest.TestCase):
         expected_result = "| --- | --- |\n| value 1 | value 2 |\n| value 3 | value 4 |\n"
         self.assertEqual(search_tables(md, "value", 1), expected_result)
 
-    def test_traverse_md_found(self):
+    def test_traverse_md_found(self) -> None:
         """Test traverse_md finds and returns matching heading section."""
         md = "# Heading\n\n## Subheading\n\nSome text\n"
         expected_result = "# Heading\n\n## Subheading\n\nSome text\n\n"
         self.assertEqual(traverse_md(md, "heading"), expected_result)
 
-    def test_traverse_md_not_found(self):
+    def test_traverse_md_not_found(self) -> None:
         """Test traverse_md returns empty string when heading not found."""
         md = "# Heading\n\n## Subheading\n\nSome text\n"
         expected_result = ""
         self.assertEqual(traverse_md(md, "not found"), expected_result)
 
-    def test_traverse_md_multiple_headings(self):
+    def test_traverse_md_multiple_headings(self) -> None:
         """Test traverse_md with multiple headings at same level."""
         md = (
             "# Heading 1\n\n## Subheading 1\n\nSome text\n\n### Sub-subheading 1\n\n"
@@ -92,7 +92,7 @@ class TestMDObj(unittest.TestCase):
         expected_result = "## Subheading 2\n\nEven more text\n\n"
         self.assertEqual(traverse_md(md, "subheading 2"), expected_result)
 
-    def test_table_row_edit(self):
+    def test_table_row_edit(self) -> None:
         """Test editing a table row value."""
         expected_result = (
             "| Column 1 | Column 2 | Column 3 |\n"
@@ -103,7 +103,7 @@ class TestMDObj(unittest.TestCase):
         result = table_row_edit(self.md, "Value 1", "New Value 1.1")
         self.assertEqual(result, expected_result)
 
-    def test_table_add(self):
+    def test_table_add(self) -> None:
         """Test adding a new row to a table."""
         expected_result = (
             "| Column 1 | Column 2 | Column 3 |\n"
@@ -126,7 +126,7 @@ class TestMDObj(unittest.TestCase):
         result = table_add(result, "Another New Key", "Another New Value")
         self.assertEqual(result, expected_result)
 
-    def test_table_remove(self):
+    def test_table_remove(self) -> None:
         """Test removing a row from a table."""
         expected_result = (
             "| Column 1 | Column 2 | Column 3 |\n"
@@ -136,7 +136,7 @@ class TestMDObj(unittest.TestCase):
         result = table_remove(self.md, "Value 1")
         self.assertEqual(result, expected_result)
 
-    def test_just_tables(self):
+    def test_just_tables(self) -> None:
         """Test MDObj created with only tables."""
         tables = [
             MDTable(
@@ -154,7 +154,7 @@ class TestMDObj(unittest.TestCase):
         self.assertEqual(mdobj.children, {})
         self.assertEqual(mdobj.originalMD, "")
 
-    def test_confine_to_tables(self):
+    def test_confine_to_tables(self) -> None:
         """Test confining MDObj content to table-based dictionaries."""
         mdtext = "# My Table\n\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Value 1  | Value 2  |"
         mdobj = MDObj.from_md(mdtext)
@@ -205,7 +205,7 @@ class TestMDObj(unittest.TestCase):
             ],
         )
 
-    def test_total_table(self):
+    def test_total_table(self) -> None:
         """Test total_table sums numeric columns."""
         # Define some test input and expected output
         input_table = [
@@ -227,7 +227,7 @@ class TestMDObj(unittest.TestCase):
         # Check that the output matches the expected output
         self.assertEqual(input_table, expected_output)
 
-    def test_to_md(self):
+    def test_to_md(self) -> None:
         """Test round-trip conversion from md to MDObj and back."""
         # iterate over all files in ~/wiki/character
         test_file = pathlib.Path(__file__).parent / "test_chr.md"
@@ -246,7 +246,7 @@ class TestMDObj(unittest.TestCase):
             sut.to_md(),
         )
 
-    def test_extract_and_insert_tables(self):
+    def test_extract_and_insert_tables(self) -> None:
         """Ensure tables are correctly extracted and restored."""
         md_text = """
 # Task List
@@ -283,7 +283,7 @@ End of document."""
         # Verify normalization
         self.assertIn("|-------|-------|", restored_text)
 
-    def test_extract_and_insert_checklists(self):
+    def test_extract_and_insert_checklists(self) -> None:
         """Ensure checklists are correctly extracted and restored."""
         md_text = """# Task List
 
@@ -313,7 +313,7 @@ End of document."""
         )
         self.assertEqual(md_text.strip(), restored_text)
 
-    def test_tables_with_checklists(self):
+    def test_tables_with_checklists(self) -> None:
         """Ensure tables and checklists are correctly handled together."""
         md_text = """# Task List
 testask
@@ -339,7 +339,7 @@ testask
         self.assertIn("- [x] Finish project", final_md)
         self.assertIn("|-------|-------|", final_md)
 
-    def test_mdtable_search_includes_headers(self):
+    def test_mdtable_search_includes_headers(self) -> None:
         """Ensure MDTable.search finds terms in headers."""
         table = MDTable(headers=["SpecificHeader", "Another"], rows=[["Val1", "Val2"]])
         # Should return headers list if found in headers
@@ -349,7 +349,7 @@ testask
         # Should return None if not found
         self.assertIsNone(table.search("Missing"))
 
-    def test_mdtable_split_row_edge_cases(self):
+    def test_mdtable_split_row_edge_cases(self) -> None:
         """Ensure split_row handles various pipe configurations correctly."""
         # Standard
         self.assertEqual(MDTable.split_row("| a | b |", 2), ["a", "b"])
@@ -374,14 +374,14 @@ testask
         # len < 2 and first_cell_missing -> prepends "" -> ["", "val"]
         self.assertEqual(MDTable.split_row("| val |", 2), ["", "val"])
 
-    def test_checklist_indentation_loss(self):
+    def test_checklist_indentation_loss(self) -> None:
         """Verify that leading indentation in checklists is lost during round-trip."""
         # Note: Current behavior ignores indented checkboxes if they don't match pattern at start of line
         md_text = "- [ ] Indented task\n- [x] Normal task"
         checklist = MDChecklist.from_md(md_text)
         self.assertEqual(checklist.to_md(), "- [ ] Indented task\n- [x] Normal task")
 
-    def test_table_normalization(self):
+    def test_table_normalization(self) -> None:
         """Verify that table spacing and alignment are normalized in to_md()."""
         md_text = "|Header|LongerHeader|\n|:---|---:|\n|val|v|"
         table = MDTable.from_md(md_text)
@@ -392,7 +392,7 @@ testask
         # LongerHeader (12) vs v (1) -> 12. 11 - + : = 12.
         self.assertIn("|-----------:|", normalized)
 
-    def test_duplicate_headers(self):
+    def test_duplicate_headers(self) -> None:
         """Verify that duplicate headers at the same level are suffixed with _."""
         md_text = "# Header\nContent 1\n# Header\nContent 2"
         mdobj = MDObj.from_md(md_text)
@@ -401,7 +401,7 @@ testask
         self.assertEqual(mdobj.children["Header"].plaintext.strip(), "Content 1")
         self.assertEqual(mdobj.children["Header_"].plaintext.strip(), "Content 2")
 
-    def test_mdobj_update_serialization(self):
+    def test_mdobj_update_serialization(self) -> None:
         """Verify that modifications to MDObj are reflected in to_md()."""
         md_text = "# Title\n\n| K | V |\n|---|---|\n| a | 1 |"
         mdobj = MDObj.from_md(md_text)
@@ -430,7 +430,7 @@ testask
         self.assertIn("- [x] New Task", final_md)
         self.assertIn("## New Child\nChild content", final_md)
 
-    def test_mixed_list_extraction(self):
+    def test_mixed_list_extraction(self) -> None:
         """Verify that non-checklist items stay in plaintext."""
         md_text = "- [ ] Task 1\n- Regular item\n- [x] Task 2"
         # extract_checklists will find Task 1 and Task 2
@@ -441,7 +441,7 @@ testask
         self.assertEqual(checklists[0].checklist[0][0], "Task 1")
         self.assertEqual(checklists[1].checklist[0][0], "Task 2")
 
-    def test_nested_list_parsing(self):
+    def test_nested_list_parsing(self) -> None:
         """Verify that nested lists are correctly parsed and serialized."""
         md_text = "- Item 1\n  - Item 1.1\n    - Item 1.1.1\n- Item 2"
         mlist = MDList.from_md(md_text)
@@ -454,7 +454,7 @@ testask
             "- Item 1\n  - Item 1.1\n    - Item 1.1.1\n- Item 2",
         )
 
-    def test_mdtable_row_access(self):
+    def test_mdtable_row_access(self) -> None:
         """Verify new MDTable.row() method and rows_dict property."""
         md_text = "| ID | Val |\n|---|---|\n| a | 1 |\n| b | 2 |"
         table = MDTable.from_md(md_text)
@@ -470,7 +470,7 @@ testask
         self.assertEqual(rd["a"]["Val"], "1")
         self.assertEqual(rd["b"]["Val"], "2")
 
-    def test_mdobj_list_extraction(self):
+    def test_mdobj_list_extraction(self) -> None:
         """Verify that MDObj extracts general lists into self.lists."""
         md_text = "Some text\n- List Item 1\n- List Item 2\nMore text"
         mdobj = MDObj.from_md(md_text)
@@ -478,7 +478,7 @@ testask
         self.assertEqual(mdobj.lists[0].items[0].text, "List Item 1")
         self.assertIn("- List Item 1", mdobj.to_md())
 
-    def test_ordered_parts_serialization(self):
+    def test_ordered_parts_serialization(self) -> None:
         """Verify that tables and lists are serialized in their original relative order."""
         md_text = "Start\n| T | B |\n|---|---|\n| 1 | 2 |\nMiddle\n- Item 1\n- Item 2\nEnd"
         mdobj = MDObj.from_md(md_text)

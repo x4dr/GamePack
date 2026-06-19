@@ -15,20 +15,20 @@ class TestDice(TestCase):
         """Set up test fixtures."""
         random.seed(0)
 
-    def test_param(self):
+    def test_param(self) -> None:
         """Test Dice constructor parameters."""
         d = Dice(3, 10)
         self.assertEqual(d.name, "3d10")
 
-    def test_roll_v(self):
+    def test_roll_v(self) -> None:
         """Test roll_v with zero-sided dice."""
         self.assertEqual("", Dice(5, 0).roll_v())
 
-    def test_roll_v_min(self):
+    def test_roll_v_min(self) -> None:
         """Test roll_v with min return function."""
         self.assertIn("==> 1", Dice(50, 3, returnfun="min").roll_v())
 
-    def test_no_difficulty(self):
+    def test_no_difficulty(self) -> None:
         """Test error when no difficulty is set."""
         self.assertRaisesRegex(
             DescriptiveError,
@@ -36,22 +36,22 @@ class TestDice(TestCase):
             Dice(5, 10, returnfun="threshhold").roll_v,
         )
 
-    def test_roll_thresh(self):
+    def test_roll_thresh(self) -> None:
         """Test rolling with threshold."""
         self.assertRegex(
             Dice(3, 9, 5, returnfun="threshhold").roll_v(),
             r"\d, \d, \d ==> \d",
         )
 
-    def test_empty_roll_v(self):
+    def test_empty_roll_v(self) -> None:
         """Test roll_v with empty dice list."""
         self.assertEqual(" ==> 0", Dice([], 4, 2, returnfun="threshhold").roll_v())
 
-    def test_empty_amt(self):
+    def test_empty_amt(self) -> None:
         """Test roll with None amount."""
         self.assertEqual(0, Dice(None, 4, 2, returnfun="threshhold").roll())
 
-    def test_rollwod(self):
+    def test_rollwod(self) -> None:
         """Test World of Darkness style rolling."""
         d = Dice(1, 9, 2, onebehaviour=1, explosion=3, returnfun="threshhold")
         self.assertEqual(1, d.roll_wodsuccesses())
@@ -63,7 +63,7 @@ class TestDice(TestCase):
         d.r = [1, 1, 9]
         self.assertEqual(0, d.result)
 
-    def test_repr(self):
+    def test_repr(self) -> None:
         """Test Dice string representation."""
         self.assertEqual(
             "8d9f2 exploding on 8",
@@ -88,7 +88,7 @@ class TestDice(TestCase):
             Dice(3, 4, returnfun="asdasd").roll,
         )
 
-    def test_another(self):
+    def test_another(self) -> None:
         """Test the another method."""
         self.assertEqual(
             "8d9f2 exploding on 8",
@@ -101,7 +101,7 @@ class TestDice(TestCase):
         self.assertEqual("3d4l", Dice(3, 4, returnfun="min").another().name)
         self.assertEqual("3=", Dice(3, 4, returnfun="id").another().name)
 
-    def test_resonances(self):
+    def test_resonances(self) -> None:
         """Test resonance calculation."""
         d = Dice(5, 10, returnfun="2,3@")
         self.assertEqual(1, d.resonance(7))  # just by chance on random.seed(0)
@@ -110,14 +110,14 @@ class TestDice(TestCase):
         self.assertEqual(0, d.resonance(7))  # just by chance on random.seed(0)
         self.assertEqual(1, d.resonance(8))  # just by chance on random.seed(0)
 
-    def test_partial_match_exception(self):
+    def test_partial_match_exception(self) -> None:
         """Test PartialMatchError on incomplete match."""
         router = RegexRouter()
         router = RegexRouter()
 
         # Register some routes
         @router.register(re.compile(r"hello (?P<name>\w+)"))
-        def hello_handler(match):
+        def hello_handler(match: re.Match[str]) -> dict[str, str]:
             return {"greeting": f"Hello, {match['name']}!"}
 
         # Input string that does not fully match all registered routes

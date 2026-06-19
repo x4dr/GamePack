@@ -1,5 +1,5 @@
-from collections.abc import Callable
-from typing import ClassVar, Self
+from collections.abc import Callable as Callable
+from typing import Any, ClassVar, Self
 
 from _typeshed import Incomplete
 
@@ -20,8 +20,8 @@ class PBTACharacter(BaseCharacter):
         self,
         info: dict[str, str],
         moves: list[tuple[str, bool]],
-        health: dict[str, dict | list],
-        stats: dict[str, dict],
+        health: dict[str, dict[str, Any] | list[str]],
+        stats: dict[str, dict[str, str]],
         inventory: list[PBTAItem] | None = None,
         inventory_bonus_headers: set[str] | None = None,
         notes: str = "",
@@ -40,8 +40,8 @@ class PBTACharacter(BaseCharacter):
     stat_structure: ClassVar[dict[str, list[str]]]
     stat_table_headers: ClassVar[list[str]]
     wound_headings: ClassVar[list[str]]
-    def post_process(self, flash: Callable[[str], None]): ...
-    def process_inventory(self, node: MDObj, flash: Callable[[str], None]): ...
+    def post_process(self, flash: Callable[[str], None]) -> None: ...
+    def process_inventory(self, node: MDObj, flash: Callable[[str], None]) -> None: ...
     @classmethod
     def from_mdobj(cls, mdobj: MDObj, flash_func: Callable[[str], None] | None = None) -> Self: ...
     def health_get(self, key: str) -> tuple[int, int]: ...

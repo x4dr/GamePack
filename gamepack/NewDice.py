@@ -226,7 +226,7 @@ class DiceInterpretation:
         dice = self.dice
         try:
             diff = int(self.function[1:])
-        except ValueError, IndexError:
+        except (ValueError, IndexError):
             diff = 6
 
         ones = self.function.startswith("f")

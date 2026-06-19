@@ -1,9 +1,10 @@
-from collections.abc import Callable
+from collections.abc import Callable as Callable
 from typing import Any, ClassVar, Self
 
 from _typeshed import Incomplete
 
-from gamepack.MDPack import MDObj, MDTable
+from gamepack.MDPack import MDObj as MDObj
+from gamepack.MDPack import MDTable as MDTable
 
 log: Incomplete
 WEIGHTS: Incomplete
@@ -31,7 +32,7 @@ class ItemBase:
         self, name: str, description: str = "", count: float | str = 1.0, additional: dict[str, str] | None = None
     ) -> None: ...
     @classmethod
-    def process_offsets(cls, headers: list[str]) -> tuple[dict[Any, int], list[tuple[int, str]]]: ...
+    def process_offsets(cls, headers: list[str]) -> tuple[dict[str | tuple[str, ...], int], list[tuple[int, str]]]: ...
     @classmethod
     def from_table_row(
         cls, row: list[str], offsets: dict[Any, int], temp_cache: dict[str, Any] | None = None

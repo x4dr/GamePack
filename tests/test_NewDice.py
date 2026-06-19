@@ -15,20 +15,20 @@ class TestDice(TestCase):
         """Set up test fixtures."""
         numpy.random.seed(0)
 
-    def test_param(self):
+    def test_param(self) -> None:
         """Test Dice constructor parameters."""
         d = Dice(3, 10)
         self.assertEqual(d.name, "3d10")
 
-    def test_roll_v(self):
+    def test_roll_v(self) -> None:
         """Test roll_v with zero-sided dice."""
         self.assertEqual("", DiceInterpretation("", Dice(5, 0)).roll_v())
 
-    def test_roll_v_min(self):
+    def test_roll_v_min(self) -> None:
         """Test roll_v with min return function."""
         self.assertIn("==> 1", DiceInterpretation("min", Dice(50, 3)).roll_v())
 
-    def test_process_rerolls(self):
+    def test_process_rerolls(self) -> None:
         """Test reroll processing logic."""
         d = DiceInterpretation("sum", Dice([1, 2, 3, 4, 5], 5, rerolls=2))
         items, log = d.process_rerolls()
@@ -44,31 +44,31 @@ class TestDice(TestCase):
         self.assertIn("(4)", log2)
         self.assertIn("(5)", log2)
 
-    def test_roll_wod(self):
+    def test_roll_wod(self) -> None:
         """Test WoD-style rolling is covered."""
         # Already tested in test_rollwod but let's ensure it's covered
         pass
 
-    def test_roll_thresh(self):
+    def test_roll_thresh(self) -> None:
         """Test threshold rolling output format."""
         self.assertRegex(
             DiceInterpretation("e6", Dice(3, 9, explode=5)).roll_v(),
             r"\d, \d, \d ==> \d",
         )
 
-    def test_empty_roll_v(self):
+    def test_empty_roll_v(self) -> None:
         """Test roll_v with empty dice list."""
         self.assertEqual(
             " ==> 0",
             DiceInterpretation("e6", Dice([], 4, explode=2)).roll_v(),
         )
 
-    def test_empty_amt(self):
+    def test_empty_amt(self) -> None:
         """Test result with None amount."""
         # noinspection PyTypeChecker
         self.assertEqual(0, DiceInterpretation("e6", Dice(None, 4, explode=2)).result)
 
-    def test_rollwod(self):
+    def test_rollwod(self) -> None:
         """Test World of Darkness success counting."""
         d = DiceInterpretation("f2", Dice([7, 7, 1], 9, explode=6))
         self.assertEqual(
@@ -78,7 +78,7 @@ class TestDice(TestCase):
         d = DiceInterpretation("f6", Dice([1, 1, 9], 10))
         self.assertEqual(0, d.result)
 
-    def test_repr(self):
+    def test_repr(self) -> None:
         """Test DiceInterpretation string representation."""
         self.assertEqual(
             "8d9f2!",
@@ -96,13 +96,13 @@ class TestDice(TestCase):
             lambda: DiceInterpretation("asdasd", Dice(3, 4)).result,
         )
 
-    def test_another(self):
+    def test_another(self) -> None:
         """Test creating another Dice instance."""
         d1 = Dice(3, 10, sort=True, rerolls=12, explode=9)
         d2 = d1.another()
         self.assertEqual(d1.name, d2.name)
 
-    def test_resonances(self):
+    def test_resonances(self) -> None:
         """Test resonance calculation on rolled dice."""
         d = DiceInterpretation("", Dice(5, 10)).roll()
         # just by chance on random.seed(0)

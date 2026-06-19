@@ -19,26 +19,26 @@ from gamepack.Calc import (
 class TestEval(unittest.TestCase):
     """Test suite for Calc evaluation functions."""
 
-    def test_eval_node_expression(self):
+    def test_eval_node_expression(self) -> None:
         """Test eval_node with ast.Expression."""
         node = ast.parse("3 + 4", "<string>", mode="eval")
         result = eval_node(node, frozenset())
         self.assertEqual(result, 7)
 
-    def test_eval_node_constant(self):
+    def test_eval_node_constant(self) -> None:
         """Test eval_node with ast.Constant."""
         node = ast.Constant(value=42)
         result = eval_node(node, frozenset())
         self.assertEqual(result, 42)
 
-    def test_eval_node_name(self):
+    def test_eval_node_name(self) -> None:
         """Test eval_node with ast.Name."""
         node = ast.Name(id="x")
         variables = frozenset([(node.id, 3)])
         result = eval_node(node, variables)
         self.assertEqual(result, 3)
 
-    def test_eval_node_binop(self):
+    def test_eval_node_binop(self) -> None:
         """Test eval_node with ast.BinOp."""
         node = ast.BinOp(
             left=ast.Constant(value=3),
@@ -48,45 +48,45 @@ class TestEval(unittest.TestCase):
         result = eval_node(node, frozenset())
         self.assertEqual(result, 7)
 
-    def test_eval_node_unaryop(self):
+    def test_eval_node_unaryop(self) -> None:
         """Test eval_node with ast.UnaryOp."""
         node = ast.UnaryOp(op=ast.USub(), operand=ast.Constant(value=42))
         result = eval_node(node, frozenset())
         self.assertEqual(result, -42)
 
-    def test_eval_node_unknown(self):
+    def test_eval_node_unknown(self) -> None:
         """Test eval_node with an unknown node type."""
         node = cast("Any", ast.Delete())
         with self.assertRaises(KeyError):
             eval_node(node, frozenset())  # testing wrong usage
 
-    def test_eval_expression(self):
+    def test_eval_expression(self) -> None:
         """Test eval_expression with a valid expression."""
         node = ast.parse("3 + 4", "<string>", mode="eval")
         result = eval_expression(node, frozenset())
         self.assertEqual(result, 7)
 
-    def test_eval_constant(self):
+    def test_eval_constant(self) -> None:
         """Test eval_constant with a valid constant."""
         node = ast.Constant(value=42)
         result = eval_constant(node, frozenset())
         self.assertEqual(result, 42)
 
-    def test_eval_name(self):
+    def test_eval_name(self) -> None:
         """Test eval_name with a valid variable name."""
         node = ast.Name(id="x")
         variables = frozenset([(node.id, 3)])
         result = eval_name(node, variables)
         self.assertEqual(result, 3)
 
-    def test_eval_name_unknown(self):
+    def test_eval_name_unknown(self) -> None:
         """Test eval_name with an unknown variable name."""
         node = ast.Name(id="y")
         variables = frozenset([("x", 3)])
         with self.assertRaises(IndexError):
             eval_name(node, variables)
 
-    def test_eval_binop_addition(self):
+    def test_eval_binop_addition(self) -> None:
         """Test eval_binop with addition."""
         node = ast.BinOp(
             left=ast.Constant(value=3),
@@ -96,7 +96,7 @@ class TestEval(unittest.TestCase):
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 7)
 
-    def test_eval_binop_subtraction(self):
+    def test_eval_binop_subtraction(self) -> None:
         """Test eval_binop with subtraction."""
         node = ast.BinOp(
             left=ast.Constant(value=3),
@@ -106,7 +106,7 @@ class TestEval(unittest.TestCase):
         result = eval_binop(node, frozenset())
         self.assertEqual(result, -1)
 
-    def test_eval_binop_multiplication(self):
+    def test_eval_binop_multiplication(self) -> None:
         """Test eval_binop with multiplication."""
         node = ast.BinOp(
             left=ast.Constant(value=3),
@@ -116,7 +116,7 @@ class TestEval(unittest.TestCase):
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 12)
 
-    def test_eval_binop_division(self):
+    def test_eval_binop_division(self) -> None:
         """Test eval_binop with division."""
         node = ast.BinOp(
             left=ast.Constant(value=3),
@@ -126,7 +126,7 @@ class TestEval(unittest.TestCase):
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 0.75)
 
-    def test_eval_binop_floor_division(self):
+    def test_eval_binop_floor_division(self) -> None:
         """Test eval_binop with floor division."""
         node = ast.BinOp(
             left=ast.Constant(value=3),
@@ -136,7 +136,7 @@ class TestEval(unittest.TestCase):
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 0)
 
-    def test_eval_binop_modulo(self):
+    def test_eval_binop_modulo(self) -> None:
         """Test eval_binop with modulo."""
         node = ast.BinOp(
             left=ast.Constant(value=3),
@@ -146,7 +146,7 @@ class TestEval(unittest.TestCase):
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 3)
 
-    def test_eval_binop_power(self):
+    def test_eval_binop_power(self) -> None:
         """Test eval_binop with power."""
         node = ast.BinOp(
             left=ast.Constant(value=3),
@@ -156,7 +156,7 @@ class TestEval(unittest.TestCase):
         result = eval_binop(node, frozenset())
         self.assertEqual(result, 81)
 
-    def test_eval_binop_unknown(self):
+    def test_eval_binop_unknown(self) -> None:
         """Test eval_binop with an unknown operator."""
         node = ast.BinOp(
             left=ast.Constant(value=3),
@@ -166,31 +166,31 @@ class TestEval(unittest.TestCase):
         with self.assertRaises(KeyError):
             eval_binop(node, frozenset())
 
-    def test_eval_unaryop_positive(self):
+    def test_eval_unaryop_positive(self) -> None:
         """Test eval_unaryop with positive."""
         node = ast.UnaryOp(op=ast.UAdd(), operand=ast.Constant(value=42))
         result = eval_unaryop(node, frozenset())
         self.assertEqual(result, 42)
 
-    def test_eval_unaryop_negative(self):
+    def test_eval_unaryop_negative(self) -> None:
         """Test eval_unaryop with negative."""
         node = ast.UnaryOp(op=ast.USub(), operand=ast.Constant(value=42))
         result = eval_unaryop(node, frozenset())
         self.assertEqual(result, -42)
 
-    def test_eval_unaryop_unknown(self):
+    def test_eval_unaryop_unknown(self) -> None:
         """Test eval_unaryop with an unknown operator."""
         node = ast.UnaryOp(op=ast.Invert(), operand=ast.Constant(value=42))
         with self.assertRaises(KeyError):
             eval_unaryop(node, frozenset())
 
-    def test_eval_constant_error(self):
+    def test_eval_constant_error(self) -> None:
         """Test eval_constant with non-numeric value."""
         node = ast.Constant(value="not a number")
         with self.assertRaises(TypeError):
             eval_constant(node, frozenset())
 
-    def test_evaluate(self):
+    def test_evaluate(self) -> None:
         """Test evaluate with a valid expression."""
         result = evaluate("3 -    4               3", frozenset())
         self.assertEqual(result, 2)

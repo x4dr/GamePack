@@ -1,9 +1,9 @@
-from collections.abc import Callable as Callable
+from collections.abc import Callable
 from typing import ClassVar, Self
 
 from gamepack.endworld.Mecha import Mecha
 from gamepack.FenCharacter import FenCharacter
-from gamepack.MDPack import MDObj as MDObj
+from gamepack.MDPack import MDObj
 
 class EWCharacter(FenCharacter):
     mech_headings: ClassVar[list[str]]

@@ -15,6 +15,15 @@ from gamepack.Calc import evaluate
 from gamepack.Dice import DescriptiveError, Dice, DiceCodeError, DiceParams
 from gamepack.DiceExpressionParser import DiceExpressionParser
 
+__all__ = [
+    "DiceCodeError",
+    "DiceParser",
+    "Node",
+    "fast_fullparenthesis",
+    "fullparenthesis",
+    "tuple_overlap",
+]
+
 logger = logging.getLogger(__name__)
 math_formula_regex = re.compile(r"(\b\d[\d\s+/*-]+\d\b)")
 numbers_and_commas = re.compile(r"\s*\d[\d,\s]*$")
@@ -177,7 +186,7 @@ class DiceParser:
         """
         try:
             params = cls.dice_expression_parser.parse(message)
-        except DiceCodeError, DescriptiveError:
+        except (DiceCodeError, DescriptiveError):
             raise
         except Exception as e:
             raise DiceCodeError(message + " is not valid. \n" + cls.usage) from e

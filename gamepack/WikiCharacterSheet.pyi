@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Self, TypeVar
+from typing import Any, Self, TypeVar
 
 from _typeshed import Incomplete
 
@@ -17,7 +17,7 @@ class WikiCharacterSheet[T: BaseCharacter](WikiPage):
         tags: list[str],
         body: str,
         links: list[str],
-        meta: dict | str,
+        meta: dict[str, Any] | str,
         modified: float | None,
         file: Path | None,
     ) -> None: ...
@@ -28,5 +28,5 @@ class WikiCharacterSheet[T: BaseCharacter](WikiPage):
     @classmethod
     def load_locate(cls, page: str, *, cache: bool = True) -> Self | None: ...
     body: Incomplete
-    def save(self, author: str, page: Path | None = None, message: str | None = None): ...
-    def save_low_prio(self, message: str): ...
+    def save(self, author: str, page: Path | None = None, message: str | None = None) -> None: ...
+    def save_low_prio(self, message: str) -> None: ...

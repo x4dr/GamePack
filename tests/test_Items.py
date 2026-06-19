@@ -11,32 +11,32 @@ from gamepack.PBTAItem import PBTAItem
 class TestItems(unittest.TestCase):
     """Test suite for Item classes."""
 
-    def test_tryfloatdefault(self):
+    def test_tryfloatdefault(self) -> None:
         """Test tryfloatdefault helper."""
         self.assertEqual(tryfloatdefault("10.5"), 10.5)
         self.assertEqual(tryfloatdefault("10.5abc"), 10.5)
         self.assertEqual(tryfloatdefault("abc"), 0.0)
         self.assertEqual(tryfloatdefault(None, 1.0), 1.0)
 
-    def test_value_category(self):
+    def test_value_category(self) -> None:
         """Test value_category helper."""
         self.assertEqual(value_category("10kg"), "weight")
         self.assertEqual(value_category("10s"), "money")
         self.assertEqual(value_category("10"), "")
 
-    def test_fenconvert(self):
+    def test_fenconvert(self) -> None:
         """Test fenconvert helper."""
         self.assertEqual(fenconvert("1kg"), 1000.0)
         self.assertEqual(fenconvert("1s"), 100.0)
         self.assertEqual(fenconvert("10"), 10.0)
 
-    def test_fendeconvert(self):
+    def test_fendeconvert(self) -> None:
         """Test fendeconvert helper."""
         self.assertEqual(fendeconvert(1000.0, "weight"), "1kg")
         self.assertEqual(fendeconvert(100.0, "money"), "1s")
         self.assertEqual(fendeconvert(5.0, "unknown"), "5")
 
-    def test_item_from_mdobj(self):
+    def test_item_from_mdobj(self) -> None:
         """Test Item creation from MDObj."""
         md_text = "# Sword\n## Weight\n1.5kg\n## Price\n50s\n## Description\nSharp sword\n## Quality\nExcellent"
         mdobj = MDObj.from_md(md_text)
@@ -51,7 +51,7 @@ class TestItems(unittest.TestCase):
         self.assertEqual(item.description, "Sharp sword")
         self.assertEqual(item.additional_info["Quality"].strip(), "Excellent")
 
-    def test_pbta_item_from_mdobj(self):
+    def test_pbta_item_from_mdobj(self) -> None:
         """Test PBTAItem creation from MDObj."""
         md_text = "# Ration\n## Load\n1\n## Amount\n3\n## Description\nTasty"
         mdobj = MDObj.from_md(md_text)
@@ -63,7 +63,7 @@ class TestItems(unittest.TestCase):
         self.assertEqual(item.count, 3.0)
         self.assertEqual(item.description, "Tasty")
 
-    def test_item_process_table(self):
+    def test_item_process_table(self) -> None:
         """Test processing items from a table."""
         table = MDTable(
             headers=["Name", "Weight", "Price", "Amount"],
@@ -75,7 +75,7 @@ class TestItems(unittest.TestCase):
         self.assertEqual(items[0].weight, 2000.0)
         self.assertEqual(len(unknowns), 0)
 
-    def test_item_process_tree(self):
+    def test_item_process_tree(self) -> None:
         """Test processing items from a markdown tree."""
         md_text = (
             "# Category\n| Name | Weight | Price |\n|---|---|---|\n| Item1 | 1kg | 10s |\n"
@@ -89,7 +89,7 @@ class TestItems(unittest.TestCase):
         self.assertIn("Item1", names)
         self.assertIn("Item2", names)
 
-    def test_total_table_complex(self):
+    def test_total_table_complex(self) -> None:
         """Test total_table calculation."""
         table_input = [
             ["Item", "Weight", "Price"],
@@ -101,7 +101,7 @@ class TestItems(unittest.TestCase):
         self.assertEqual(table_input[-1][1], "3kg")
         self.assertEqual(table_input[-1][2], "30s")
 
-    def test_item_caching(self):
+    def test_item_caching(self) -> None:
         """Test item cache behavior."""
         Item.item_cache = {
             "CachedItem": Item("CachedItem", 100, 100, "Old description"),

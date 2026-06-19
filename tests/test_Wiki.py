@@ -2,7 +2,7 @@
 
 import unittest
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 from gamepack.MDPack import MDObj
@@ -13,7 +13,7 @@ from gamepack.WikiPage import DescriptiveError, WikiPage
 class TestWiki(unittest.TestCase):
     """Test suite for Wiki functionality."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         """Set up a temporary wiki root for testing."""
         # Setup a temporary wiki root
         self.wiki_root = Path("test_wiki").absolute()
@@ -22,7 +22,7 @@ class TestWiki(unittest.TestCase):
         WikiPage.page_cache.clear()
         WikiPage.wikicache.clear()
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         """Clean up temporary wiki root."""
         import shutil
 
@@ -30,7 +30,7 @@ class TestWiki(unittest.TestCase):
             shutil.rmtree(self.wiki_root)
         WikiPage._wikipath = None
 
-    def test_wikipath_errors(self):
+    def test_wikipath_errors(self) -> None:
         """Test errors when wikipath is not set or reset."""
         WikiPage._wikipath = None
         with self.assertRaises(DescriptiveError):
@@ -40,7 +40,7 @@ class TestWiki(unittest.TestCase):
         with self.assertRaises(DescriptiveError):
             WikiPage.set_wikipath(Path("another"))
 
-    def test_locate(self):
+    def test_locate(self) -> None:
         """Test locating wiki pages by name."""
         (self.wiki_root / "test.md").touch()
         (self.wiki_root / "subdir").mkdir()
@@ -51,7 +51,7 @@ class TestWiki(unittest.TestCase):
         self.assertIsNone(WikiPage.locate("nonexistent"))
         self.assertIsNone(WikiPage.locate(None))
 
-    def test_load_and_save(self):
+    def test_load_and_save(self) -> None:
         """Test loading and saving a wiki page."""
         page_path = self.wiki_root / "page1.md"
         content = "---\ntitle: Page 1\ntags: [tag1]\n---\nBody text"
@@ -73,14 +73,14 @@ class TestWiki(unittest.TestCase):
         saved_content = page_path.read_text()
         self.assertIn("title: Updated Title", saved_content)
 
-    def test_md_conversion(self):
+    def test_md_conversion(self) -> None:
         """Test converting WikiPage to MDObj."""
         page = WikiPage("Title", [], "# Header\nText", [], {})
         mdo = page.md()
         self.assertIsInstance(mdo, MDObj)
         self.assertIn("Header", mdo.children)
 
-    def test_clocks(self):
+    def test_clocks(self) -> None:
         """Test clock tracking in wiki pages."""
         body = "Some text [clock|Task|2|4] more text"
         page = WikiPage("Title", [], body, [], {})
@@ -93,7 +93,7 @@ class TestWiki(unittest.TestCase):
         page.change_clock("Task", 1)
         self.assertIn("[clock|Task|3|4]", page.body)
 
-    def test_wikindex(self):
+    def test_wikindex(self) -> None:
         """Test listing all wiki pages."""
         (self.wiki_root / "a.md").touch()
         (self.wiki_root / "b.md").touch()
@@ -103,7 +103,7 @@ class TestWiki(unittest.TestCase):
         self.assertEqual(len(index), 2)
         self.assertEqual(index[0].name, "a.md")
 
-    def test_character_sheet_loading(self):
+    def test_character_sheet_loading(self) -> None:
         """Test loading a character sheet from a wiki page."""
         page_path = self.wiki_root / "char.md"
         # Content that looks like a FenCharacter
@@ -114,17 +114,17 @@ class TestWiki(unittest.TestCase):
         page_path.write_text(content)
 
         # First load - creates from WikiPage
-        sheet = WikiCharacterSheet.load(Path("char.md"))
+        sheet: WikiCharacterSheet[Any] | None = WikiCharacterSheet.load(Path("char.md"))
         self.assertIsNotNone(sheet)
         assert sheet is not None
         self.assertIsInstance(sheet, WikiCharacterSheet)
 
         # Second load - from cache (should be WikiCharacterSheet already)
-        sheet2 = WikiCharacterSheet.load(Path("char.md"))
+        sheet2: WikiCharacterSheet[Any] | None = WikiCharacterSheet.load(Path("char.md"))
         self.assertEqual(sheet, sheet2)
 
         # load_locate
-        sheet3 = WikiCharacterSheet.load_locate("char")
+        sheet3: WikiCharacterSheet[Any] | None = WikiCharacterSheet.load_locate("char")
         self.assertEqual(sheet, sheet3)
 
         self.assertIsNotNone(sheet.char)
@@ -134,7 +134,7 @@ class TestWiki(unittest.TestCase):
         self.assertEqual(char.Character.get("Name"), "Hero")
 
     @patch("gamepack.WikiPage.WikiPage.load_locate")
-    def test_cache_items(self, mock_load):
+    def test_cache_items(self, mock_load: MagicMock) -> None:
         """Test caching items from wiki pages."""
         # Mock load_locate to return pages with tables
         mock_page = MagicMock()

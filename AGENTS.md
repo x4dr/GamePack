@@ -144,8 +144,11 @@ from gamepack.DiceParser import fullparenthesis
 ./scripts/gen-stubs.sh
 ```
 
-### Caveat: PEP 758 + mypy 2.1.0
-Python 3.14 via PEP 758 allows `except ValueError, TypeError:` without parentheses. mypy 2.1.0's parser (used by stubgen) doesn't support this yet — see [mypy#20788](https://github.com/python/mypy/issues/20788). The `--parse-only` flag avoids the semantic analysis pass that triggers the error. This will be unnecessary once a mypy release >2.1.0 ships the fix.
+### PEP 758 — Parenthesized except
+
+All `except` blocks use parenthesized syntax (e.g. `except (ValueError, TypeError):`)
+for compatibility with `mypy` and `stubgen`. PEP 758 unparenthesized syntax
+is avoided since mypy 2.1.0's semantic analyzer doesn't support it.
 
 ### Staging stubs after regeneration
 

@@ -2,10 +2,14 @@ from typing import Any, ClassVar
 
 from gamepack.endworld.System import System
 
-class SealSystem(System):
+class OffensiveSystem(System):
     headers: ClassVar[list[str]]
     systype: str
-    level: float
+    damage: float
+    weapon_range: str
+    ammo: str
+    modes: str
+    weapon_type: str
     def __init__(self, name: str, data: dict[str, Any]) -> None: ...
-    def to_dict(self) -> dict[str, str]: ...
+    def to_dict(self) -> dict: ...
     def get_headers(self) -> list[str]: ...

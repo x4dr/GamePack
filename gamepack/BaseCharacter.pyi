@@ -1,7 +1,7 @@
-from collections.abc import Callable
+from collections.abc import Callable as Callable
 from typing import Self
 
-from gamepack.MDPack import MDObj
+from gamepack.MDPack import MDObj as MDObj
 
 class BaseCharacter:
     errors: list[str]

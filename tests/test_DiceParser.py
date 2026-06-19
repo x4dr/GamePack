@@ -21,7 +21,7 @@ class TestDiceParser(TestCase):
         self.p = DiceParser()
         random.seed(0)
 
-    def test_extract_diceparams(self):
+    def test_extract_diceparams(self) -> None:
         """Test extracting dice parameters from expressions."""
         self.assertEqual(self.p.extract_diceparams("3")["amount"], 3)
 
@@ -49,17 +49,25 @@ class TestDiceParser(TestCase):
         self.assertEqual(info["onebehaviour"], 0)
         self.assertEqual(info["explosion"], 2)
 
-    def test_do_roll(self):
+    def test_do_roll(self) -> None:
         """Test basic dice rolling."""
-        self.assertGreaterEqual(self.p.do_roll("3d10h").result, 1)
-        self.assertLessEqual(self.p.do_roll("3d10h").result, 10)
+        r = self.p.do_roll("3d10h")
+        assert r.result is not None
+        self.assertGreaterEqual(r.result, 1)
+        r2 = self.p.do_roll("3d10h")
+        assert r2.result is not None
+        self.assertLessEqual(r2.result, 10)
 
-    def test_literal(self):
+    def test_literal(self) -> None:
         """Test literal dice expressions."""
-        self.assertLessEqual(self.p.do_roll("[2,99,4]h").result, 99)
-        self.assertGreaterEqual(self.p.do_roll("-l").result, 2)
+        r = self.p.do_roll("[2,99,4]h")
+        assert r.result is not None
+        self.assertLessEqual(r.result, 99)
+        r2 = self.p.do_roll("-l")
+        assert r2.result is not None
+        self.assertGreaterEqual(r2.result, 2)
 
-    def test_return_funs(self):
+    def test_return_funs(self) -> None:
         """Test various return functions."""
         for roll, exp, ret in [
             ("6g", 27, "sum"),
@@ -76,11 +84,11 @@ class TestDiceParser(TestCase):
             self.assertEqual(1 if "=" in roll else 10, d.max, roll + " sides")
             self.assertEqual(exp, d.result, roll)
 
-    def test_parenthesis_roll(self):
+    def test_parenthesis_roll(self) -> None:
         """Test rolling with parenthesis expressions."""
         self.assertIn(self.p.do_roll("4(3) d1g").result, range(1, 70))
 
-    def test_altrolls(self):
+    def test_altrolls(self) -> None:
         """Test alternative roll patterns."""
         self.p.defines["sides"] = 1
         self.p.do_roll("1(2g)g")
@@ -88,7 +96,7 @@ class TestDiceParser(TestCase):
         for r in self.p.rolllogs:
             self.assertIn("==>", r.roll_v())
 
-    def test_postmath(self):
+    def test_postmath(self) -> None:
         """Test post-expression math."""
         self.p.defines["returnfun"] = "id"
         self.assertEqual(
@@ -97,7 +105,7 @@ class TestDiceParser(TestCase):
             "100d1g -3 should be 97",
         )
 
-    def test_premath(self):
+    def test_premath(self) -> None:
         """Test pre-expression math."""
         self.p.defines["returnfun"] = "id"
         self.assertEqual(
@@ -106,7 +114,7 @@ class TestDiceParser(TestCase):
             "5+3**2 should be 64",
         )
 
-    def test_default(self):
+    def test_default(self) -> None:
         """Test default values in DiceParser."""
         p = DiceParser({"sides": 17, "returnfun": "max"})
         p = DiceParser({"sides": 17, "returnfun": "max"})
@@ -119,39 +127,39 @@ class TestDiceParser(TestCase):
         r.r = list(range(1, 10))
         self.assertEqual(int(r), 3)
 
-    def test_nested(self):
+    def test_nested(self) -> None:
         """Test nested dice expressions."""
         self.p.do_roll("5d(5d(5d10))")
 
-    def test_negative_sorted_reroll(self):
+    def test_negative_sorted_reroll(self) -> None:
         """Test negative rerolls with sorting."""
         self.p.do_roll("5d10r-2s")
 
-    def test_parseadd(self):
+    def test_parseadd(self) -> None:
         """Test Node.calc parsing."""
         a = ["d", "4", "3", "9", "+", "1", "g", "1", "-1"]
         self.assertEqual(Node.calc(a), "d 17 g 0")
         with self.assertRaises(TypeError):
-            Node.calc(3)
+            Node.calc(3)  # type: ignore[arg-type]
 
-    def test_param(self):
+    def test_param(self) -> None:
         """Test parameter substitution."""
         a = "&param hit& (5d hit g) - 4 =  1"
         self.assertEqual(self.p.do_roll(a).result, 1)
 
-    def test_looptriggers(self):
+    def test_looptriggers(self) -> None:
         """Test loop trigger functionality."""
         r = self.p.do_roll("&loop 3 2&; 0 d1g")
         self.assertFalse(r is None)
         self.assertNotIn(None, self.p.rolllogs)
 
-    def test_triggerorder(self):
+    def test_triggerorder(self) -> None:
         """Test trigger execution order."""
         self.assertEqual(self.p.do_roll("&loop 7 2&").result, None)
         self.assertEqual(self.p.do_roll("&loop 7 1&;6g;&loop 5 1&").result, None)
         self.assertNotEqual(self.p.do_roll("&loop 7 1&6g&loop 5 1&").result, None)
 
-    def test_pretrigger(self):
+    def test_pretrigger(self) -> None:
         """Test pre-trigger definition resolution."""
         p = DiceParser(
             {
@@ -172,7 +180,7 @@ class TestDiceParser(TestCase):
             range(11),
         )
 
-    def test_ifthen(self):
+    def test_ifthen(self) -> None:
         """Test if/then conditional logic."""
         p = DiceParser()
         dice = p.do_roll("&param difficulty& &if 3 4 f6 then 4 $ -1 e6 else 0 done& f6")
@@ -182,20 +190,20 @@ class TestDiceParser(TestCase):
             range(11),
         )
 
-    def test_resolvedefine(self):
+    def test_resolvedefine(self) -> None:
         """Test definition resolution."""
         p = DiceParser()
         p.defines = {"a": "b c D", "b": "e f", "c": "3", "D": "1", "e": "9", "f": "10"}
         r = p.resolveroll("a d1g", 0)
         self.assertEqual(r.code, "23 d1g")
 
-    def test_parenthesis_resolution(self):
+    def test_parenthesis_resolution(self) -> None:
         """Test parenthesis resolution in expressions."""
         p = DiceParser()
         r = p.do_roll("(10=)*4+10=")
         self.assertEqual(r.result, 50)
 
-    def test_whitespacing(self):
+    def test_whitespacing(self) -> None:
         """Test whitespace handling in expressions."""
         p = DiceParser()
         p.defines = {"b": "3", "a": "2"}  # no defaults
@@ -204,28 +212,29 @@ class TestDiceParser(TestCase):
         self.assertEqual("2,3@5d10", r.name)
         self.assertIn(r.result, range(2, 20))
 
-    def test_recursion(self):
+    def test_recursion(self) -> None:
         """Test recursion detection."""
         p = DiceParser({"a": "b.a", "b": "3"})
         self.assertRaises(DiceCodeError, p.do_roll, "a,b@5d10", 0)
 
-    def test_explosion(self):
+    def test_explosion(self) -> None:
         """Test dice explosion mechanic."""
         for _i in range(1000):
             if len(self.p.make_roll("100!").r) > 100:
                 break
         self.assertLess(_i, 1000, "in 1000 exploded rolls, not one exploded!")
 
-    def test_selection_sum(self):
+    def test_selection_sum(self) -> None:
         """Test selector sum result."""
         for _ in range(100):
             result = self.p.do_roll("10@12d10").result
+            assert result is not None
             self.assertTrue(
                 result <= 10,
                 f"singular selector should not produce a higher value than dice sidedness {self.p.rolllogs[-1].r}",
             )
 
-    def test_selection_exclusivity(self):
+    def test_selection_exclusivity(self) -> None:
         """Test selector exclusivity error."""
         self.assertRaisesRegex(
             DescriptiveError,
@@ -234,48 +243,57 @@ class TestDiceParser(TestCase):
             "10@12d10g",
         )
 
-    def test_selection_0(self):
+    def test_selection_0(self) -> None:
         """Test zero selector returns zero."""
         for _ in range(10):
+            result0 = self.p.do_roll("0@12d6").result
+            assert result0 is not None
             self.assertTrue(
-                self.p.do_roll("0@12d6").result == 0,
+                result0 == 0,
                 f"0 selector should result in 0 {self.p.rolllogs[-1].r}",
             )
+            result2 = self.p.do_roll("-2@12d6").result
+            assert result2 is not None
             self.assertTrue(
-                self.p.do_roll("-2@12d6").result == 0,
+                result2 == 0,
                 f"-2 selector should result in 0 {self.p.rolllogs[-1].r}",
             )
 
-    def test_negative_dice(self):
+    def test_negative_dice(self) -> None:
         """Test negative dice amount."""
+        neg_result = self.p.do_roll("-6d6g").result
+        assert neg_result is not None
         self.assertTrue(
-            self.p.do_roll("-6d6g").result < 0,
+            neg_result < 0,
             f"negative dice, negative result {self.p.rolllogs[-1].r}, {self.p.rolllogs[-1].result}",
         )
 
-    def test_selection(self):
+    def test_selection(self) -> None:
         """Test dice selection with explosion."""
         r = self.p.make_roll("99,99@20s!!")
         self.assertIn(r.result, range(2, 21))
 
-    def test_rerolls(self):
+    def test_rerolls(self) -> None:
         """Test reroll mechanic."""
         r = self.p.make_roll("1,1@5R95s")
+        assert r.result is not None
         self.assertGreater(r.result, 3)
 
-    def test_repeatrolls(self):
+    def test_repeatrolls(self) -> None:
         """Test repeated rolls."""
         a = self.p.make_roll("2,3@5")
         b = self.p.make_roll("2,3@-r-1000")
+        assert a.result is not None
+        assert b.result is not None
         self.assertGreater(a.result, b.result)
 
-    def test_identityreturn(self):
+    def test_identityreturn(self) -> None:
         """Test identity return function."""
         p = DiceParser({"returnfun": "id"})
         r = p.do_roll("&loopsum 1 8&")
         self.assertEqual(8, r.result)
 
-    def test_fullparenthesis(self):
+    def test_fullparenthesis(self) -> None:
         """Test fullparenthesis helper function."""
         self.assertEqual(
             fullparenthesis("f______(-----((^^^^)~~~~~)---)___"),
@@ -284,20 +302,20 @@ class TestDiceParser(TestCase):
         with self.assertRaises(DescriptiveError):
             fullparenthesis("_____(######")
 
-    def test_sort(self):
+    def test_sort(self) -> None:
         """Test sorted dice results."""
         r = self.p.make_roll("33d100s")
         self.assertEqual(r.r, sorted(r.r))
 
-    def test_project(self):
+    def test_project(self) -> None:
         """Test project trigger."""
         self.assertLess(int(self.p.project("1 10")), 10)
 
-    def test_dice_parsing(self):
+    def test_dice_parsing(self) -> None:
         """Test dice expression parsing with whitespace."""
         self.p.extract_diceparams("3 ,4 @5 R2")
 
-    def test_legacy_regex_router(self):
+    def test_legacy_regex_router(self) -> None:
         """Test legacy regex router parsing."""
         from gamepack.RegexRouter import DiceRegexRouter
 
@@ -315,7 +333,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(params["returnfun"], "threshhold")
         self.assertEqual(params["difficulty"], 6)
 
-    def test_resonances(self):
+    def test_resonances(self) -> None:
         """Test DiceParser resonance calculation."""
         # create a DiceParser object
         dp = DiceParser()
@@ -359,7 +377,7 @@ class TestDiceParser(TestCase):
             ],
         )
 
-    def test_resonances_trigger_output(self):
+    def test_resonances_trigger_output(self) -> None:
         """Test &resonances& trigger produces human-readable format via messages."""
         dp = DiceParser()
         dp.last_parse = DiceParser()
@@ -389,12 +407,12 @@ class TestDiceParser(TestCase):
             ],
         )
 
-    def test_resonances_trigger_empty(self):
+    def test_resonances_trigger_empty(self) -> None:
         """Test &resonances& produces no messages when no rolls."""
         self.p.triggerswitch("resonances", "")
         self.assertEqual(self.p.messages, [])
 
-    def test_limitbreak(self):
+    def test_limitbreak(self) -> None:
         """Test limitbreak trigger switch."""
         result = self.p.triggerswitch("limitbreak", "")
         self.assertEqual(result, "")
@@ -405,9 +423,9 @@ class TestDiceParser(TestCase):
         self.assertEqual(result, "")
         self.assertTrue(self.p.triggers.get("limitbreak"))
 
-    def test_triggers(self):
+    def test_triggers(self) -> None:
         """Test various trigger switches."""
-        self.p.do_roll = Mock()
+        self.p.do_roll = Mock()  # type: ignore[method-assign]
         self.p.do_roll.return_value.result = 2
         self.assertEqual(self.p.triggerswitch("shift", "3"), "")
         self.assertEqual(self.p.triggerswitch("ignore", "yes"), "")
@@ -428,7 +446,7 @@ class TestDiceParser(TestCase):
             ),
         )
 
-    def test_triggerswitch_exceptions(self):
+    def test_triggerswitch_exceptions(self) -> None:
         """Test exception handling in trigger switches."""
         self.assertEqual(self.p.triggerswitch("resonances", ""), "")
         with self.assertRaises(DescriptiveError):

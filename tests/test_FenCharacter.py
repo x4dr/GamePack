@@ -16,7 +16,7 @@ class TestDiceParser(TestCase):
         self.c: FenCharacter = FenCharacter()
         random.seed(0)
 
-    def test_xp_parse(self):
+    def test_xp_parse(self) -> None:
         """Test XP string parsing."""
         self.assertEqual(5, self.c.parse_xp("abcde"))
         self.assertEqual(3, self.c.parse_xp("3/5 6/9"))
@@ -26,7 +26,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(6, self.c.parse_xp("a 5 /teststr a"))
         self.assertEqual(11, self.c.parse_xp("10a"))
 
-    def test_xp_add(self):
+    def test_xp_add(self) -> None:
         """Test adding XP values."""
         self.c.Meta["Experience"] = MDObj.from_md("|key|value|\n|-|-|\n|test| SSS |")
         self.c.headings_used["xp"] = "Experience"
@@ -35,7 +35,7 @@ class TestDiceParser(TestCase):
         self.c.add_xp("test", -10)
         self.assertEqual(-2, self.c.get_xp_for("test"))
 
-    def test_inventory_table(self):
+    def test_inventory_table(self) -> None:
         """Test inventory table generation."""
         c = FenCharacter()
         Item.item_cache = {}
@@ -75,7 +75,7 @@ class TestDiceParser(TestCase):
             ],
         )
 
-    def test_stat_definitions(self):
+    def test_stat_definitions(self) -> None:
         """Test stat_definitions returns correct stats."""
         # test if stat_definitions returns the correct dictionary of stats and their values
         self.c.Categories = {
@@ -88,7 +88,7 @@ class TestDiceParser(TestCase):
         expected_result = {"stat1": "1", "stat2": "2", "stat3": "3", "stat4": "4"}
         self.assertDictEqual(self.c.stat_definitions(), expected_result)
 
-    def test_cost(self):
+    def test_cost(self) -> None:
         """Test XP cost calculation."""
         # test if cost function returns the correct xp cost
         att = (1, 5, 3)
@@ -100,7 +100,7 @@ class TestDiceParser(TestCase):
             expected_result,
         )
 
-    def test_cost_calc(self):
+    def test_cost_calc(self) -> None:
         """Test cost_calc function."""
         # test if cost_calc function returns the correct result
         inputstring = "1,2,3"
@@ -108,10 +108,10 @@ class TestDiceParser(TestCase):
         self.assertEqual(self.c.cost_calc(inputstring), expected_result)
 
         inputstring = "17"
-        expected_result = [(4, 4, 1), (4, 3, 2), (5, 3, 1), (5, 2, 2), (3, 3, 3)]
-        self.assertEqual(self.c.cost_calc(inputstring), expected_result)
+        expected_result2 = [(4, 4, 1), (4, 3, 2), (5, 3, 1), (5, 2, 2), (3, 3, 3)]
+        self.assertEqual(self.c.cost_calc(inputstring), expected_result2)
 
-    def test_magicwidth(self):
+    def test_magicwidth(self) -> None:
         """Test magic width calculation."""
         # test if magicwidth function returns the correct result
         self.c.Categories = {
@@ -126,7 +126,7 @@ class TestDiceParser(TestCase):
         expected_result = 3
         self.assertEqual(self.c.magicwidth(name), expected_result)
 
-    def test_points(self):
+    def test_points(self) -> None:
         """Test points calculation."""
         self.c.Categories = {
             "category1": {
@@ -154,7 +154,7 @@ class TestDiceParser(TestCase):
         expected_result = 39
         self.assertEqual(self.c.points(name), expected_result)
 
-    def test_xp(self):
+    def test_xp(self) -> None:
         """Test XP processing from markdown."""
         fc = FenCharacter()
         fc.process_xp(
@@ -169,7 +169,7 @@ class TestDiceParser(TestCase):
         self.assertEqual(fc.get_xp_for("test2"), 3)
         self.assertEqual(fc.get_xp_for("test3"), 3)
 
-    def test_from_md(self):
+    def test_from_md(self) -> None:
         """Test loading FenCharacter from markdown."""
         import pathlib
 
@@ -183,7 +183,7 @@ class TestDiceParser(TestCase):
         # Check attribute
         self.assertEqual(fc.Categories["Mental"]["Attributes"]["Wits"], "2")
 
-    def test_round_trip(self):
+    def test_round_trip(self) -> None:
         """Test markdown round-trip conversion."""
         self.c = FenCharacter()
         self.c.Character["Name"] = "Testname"

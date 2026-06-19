@@ -281,5 +281,5 @@ class System:
                 else:
                     result[f"heat{i}"] = self.number(part)
             return result
-        except AttributeError, ValueError, TypeError:
+        except (AttributeError, ValueError, TypeError):
             return result

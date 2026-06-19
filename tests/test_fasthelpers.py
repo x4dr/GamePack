@@ -9,7 +9,7 @@ from gamepack.fasthelpers import ascii_graph, montecarlo, plot
 class TestDiceParser(TestCase):
     """Test suite for dice parser helpers."""
 
-    def test_ascii_graph(self):
+    def test_ascii_graph(self) -> None:
         """Test ascii_graph generates correct graph strings."""
         occurrences = {1: 10, 2: 5, 3: 15, 4: 20, 5: 25, 6: 5}
         mode = 0
@@ -51,14 +51,14 @@ class TestDiceParser(TestCase):
         self.assertEqual(dev, 1.4361406616345072)
         self.assertEqual(graph, expected_output)
 
-    def test_monte_carlo(self):
+    def test_monte_carlo(self) -> None:
         """Test montecarlo simulation returns expected keys."""
         res = montecarlo("3d10", 1)
         self.assertIn("from", res)
         self.assertIn("#", res)
         self.assertIn("%", res)
 
-    def test_plot(self):
+    def test_plot(self) -> None:
         """Test plot generates correct output strings."""
         data = {-2: 2, 0: 1, 2: 6}
         expected_output = (

@@ -1,7 +1,8 @@
-from collections.abc import Callable
+from collections.abc import Callable as Callable
 from typing import Any, Protocol, Self, TypeVar
 
-from gamepack.MDPack import MDObj, MDTable
+from gamepack.MDPack import MDObj as MDObj
+from gamepack.MDPack import MDTable as MDTable
 
 T = TypeVar("T", bound="ItemProtocol")
 
