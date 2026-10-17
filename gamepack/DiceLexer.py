@@ -20,6 +20,7 @@ class DiceLexer:
     tokens = (
         "NUMBER",
         "MINUS_SEQUENCE",
+        "PLUS_SEQUENCE",
         "D",
         "REROLL",
         "SORT",
@@ -60,6 +61,10 @@ class DiceLexer:
 
     def t_MINUS_SEQUENCE(self, t: Any) -> Any:
         r"""-+"""
+        return t
+
+    def t_PLUS_SEQUENCE(self, t: Any) -> Any:
+        r"""\+"""
         return t
 
     t_ignore = " \t"

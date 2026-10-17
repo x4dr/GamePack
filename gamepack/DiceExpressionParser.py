@@ -41,6 +41,10 @@ class DiceExpressionParser:
         """selector : MINUS_SEQUENCE NUMBER"""
         p[0] = -p[2]
 
+    def p_selector_pos(self, p: Any) -> None:
+        """selector : PLUS_SEQUENCE NUMBER"""
+        p[0] = p[2]
+
     def p_dice_expr_with_suffix(self, p: Any) -> None:
         """dice_expr : amount dice_suffix"""
         p[0] = {"amount": p[1]}
@@ -57,6 +61,10 @@ class DiceExpressionParser:
     def p_amount_neg_num(self, p: Any) -> None:
         """amount : MINUS_SEQUENCE NUMBER"""
         p[0] = -p[2]
+
+    def p_amount_pos_num(self, p: Any) -> None:
+        """amount : PLUS_SEQUENCE NUMBER"""
+        p[0] = p[2]
 
     def p_amount_minus_seq(self, p: Any) -> None:
         """amount : MINUS_SEQUENCE"""
@@ -82,6 +90,10 @@ class DiceExpressionParser:
         """literal_item : MINUS_SEQUENCE NUMBER"""
         p[0] = -p[2]
 
+    def p_literal_item_pos(self, p: Any) -> None:
+        """literal_item : PLUS_SEQUENCE NUMBER"""
+        p[0] = p[2]
+
     def p_dice_suffix_d(self, p: Any) -> None:
         """dice_suffix : D sides options"""
         p[0] = {"sides": p[2]}
@@ -94,6 +106,10 @@ class DiceExpressionParser:
     def p_sides(self, p: Any) -> None:
         """sides : NUMBER"""
         p[0] = p[1]
+
+    def p_sides_pos(self, p: Any) -> None:
+        """sides : PLUS_SEQUENCE NUMBER"""
+        p[0] = p[2]
 
     def p_options_multiple(self, p: Any) -> None:
         """options : options option"""
@@ -112,6 +128,10 @@ class DiceExpressionParser:
         """option : REROLL MINUS_SEQUENCE NUMBER"""
         p[0] = {"rerolls": -p[3]}
 
+    def p_option_reroll_pos(self, p: Any) -> None:
+        """option : REROLL PLUS_SEQUENCE NUMBER"""
+        p[0] = {"rerolls": p[3]}
+
     def p_option_sort(self, p: Any) -> None:
         """option : SORT"""
         p[0] = {"sort": True}
@@ -120,9 +140,17 @@ class DiceExpressionParser:
         """option : SUCCESS NUMBER"""
         p[0] = {"returnfun": "threshhold", "difficulty": p[2], "onebehaviour": 0}
 
+    def p_option_success_pos(self, p: Any) -> None:
+        """option : SUCCESS PLUS_SEQUENCE NUMBER"""
+        p[0] = {"returnfun": "threshhold", "difficulty": p[3], "onebehaviour": 0}
+
     def p_option_full_success(self, p: Any) -> None:
         """option : FULL_SUCCESS NUMBER"""
         p[0] = {"returnfun": "threshhold", "difficulty": p[2], "onebehaviour": 1}
+
+    def p_option_full_success_pos(self, p: Any) -> None:
+        """option : FULL_SUCCESS PLUS_SEQUENCE NUMBER"""
+        p[0] = {"returnfun": "threshhold", "difficulty": p[3], "onebehaviour": 1}
 
     def p_option_sum(self, p: Any) -> None:
         """option : SUM"""

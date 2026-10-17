@@ -99,6 +99,36 @@ class TestDiceExpressionParser:
         assert result["sides"] == 6
         assert result["rerolls"] == 2
 
+    def test_explicit_plus_numbers(self) -> None:
+        """Test explicit plus signs in every numeric position."""
+        self.parser = DiceExpressionParser()
+
+        result = self.parser.parse("+3")
+        assert result["amount"] == 3
+
+        result = self.parser.parse("+3d+6")
+        assert result["amount"] == 3
+        assert result["sides"] == 6
+
+        result = self.parser.parse("[+1,2]")
+        assert result["amount"] == [1, 2]
+
+        result = self.parser.parse("3d6r+2")
+        assert result["rerolls"] == 2
+
+        result = self.parser.parse("1,+2@3d6")
+        assert result["returnfun"] == "1,2@"
+        assert result["amount"] == 3
+
+        result = self.parser.parse("3d6e+6")
+        assert result["returnfun"] == "threshhold"
+        assert result["difficulty"] == 6
+
+        result = self.parser.parse("3d6f+6")
+        assert result["returnfun"] == "threshhold"
+        assert result["difficulty"] == 6
+        assert result["onebehaviour"] == 1
+
     def test_sort(self) -> None:
         """Test sort modifier."""
         self.parser = DiceExpressionParser()
