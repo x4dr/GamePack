@@ -236,15 +236,7 @@ class TestMDObj(unittest.TestCase):
 
         sut = MDObj.from_md(md_content)
         self.maxDiff = None
-        self.assertEqual(
-            md_content.replace("|:-------------|:------|", "|:-----------|:----|")
-            .replace("|---------|-------|", "|-------|-----|")
-            .replace(
-                "|----------------|-------|-------|-------|-----------------|",
-                "|--------------|-----|-----|-----|---------------|",
-            ),
-            sut.to_md(),
-        )
+        self.assertEqual(md_content, sut.to_md())
 
     def test_extract_and_insert_tables(self) -> None:
         """Ensure tables are correctly extracted and restored."""
@@ -281,7 +273,7 @@ End of document."""
         self.assertIn("| Report  | Pending |", restored_text)
         self.assertIn("# Task List", restored_text)
         # Verify normalization
-        self.assertIn("|-------|-------|", restored_text)
+        self.assertIn("|---------|---------|", restored_text)
 
     def test_extract_and_insert_checklists(self) -> None:
         """Ensure checklists are correctly extracted and restored."""
@@ -337,7 +329,7 @@ testask
         # Verify content presence and table normalization
         self.assertIn("| Report  | Pending |", final_md)
         self.assertIn("- [x] Finish project", final_md)
-        self.assertIn("|-------|-------|", final_md)
+        self.assertIn("|---------|---------|", final_md)
 
     def test_mdtable_search_includes_headers(self) -> None:
         """Ensure MDTable.search finds terms in headers."""
@@ -387,10 +379,10 @@ testask
         table = MDTable.from_md(md_text)
         normalized = table.to_md()
         self.assertIn("| Header | LongerHeader |", normalized)
-        # Header (6) vs val (3) -> 6. : + 5 - = 6.
-        self.assertIn("|:-----|", normalized)
-        # LongerHeader (12) vs v (1) -> 12. 11 - + : = 12.
-        self.assertIn("|-----------:|", normalized)
+        # Header (6) vs val (3) -> 6. ":" + 7 - = 8 including padding.
+        self.assertIn("|:-------|", normalized)
+        # LongerHeader (12) vs v (1) -> 12. 13 - + ":" = 14 including padding.
+        self.assertIn("|-------------:|", normalized)
 
     def test_duplicate_headers(self) -> None:
         """Verify that duplicate headers at the same level are suffixed with _."""

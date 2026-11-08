@@ -447,15 +447,15 @@ class MDTable:
         for i in range(columns):
             s = self.style[i]
             width = column_widths[i]
-            # Compact style
+            # Match the row format: one padding space on each side of a cell
             if s == "c":
-                sep = ":" + "-" * (width - 2) + ":"
+                sep = ":" + "-" * width + ":"
             elif s == "r":
-                sep = "-" * (width - 1) + ":"
+                sep = "-" * (width + 1) + ":"
             elif s == "l":
-                sep = ":" + "-" * (width - 1)
+                sep = ":" + "-" * (width + 1)
             else:
-                sep = "-" * width
+                sep = "-" * (width + 2)
             sep_parts.append(sep)
 
         result += "|" + "|".join(sep_parts) + "|"
